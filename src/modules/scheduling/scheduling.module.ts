@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
-import { AvailabilityService } from './services/availability.service';
+import { AvailabilityService } from '../availability/services/availability.service';
 import { SchedulingService } from './services/scheduling.service';
-import { AvailabilityController } from './controllers/availability.controller';
+import { AvailabilityController } from '../availability/controllers/availability.controller';
 import { SessionsController } from './controllers/sessions.controller';
 
 @Module({
