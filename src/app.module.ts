@@ -7,8 +7,8 @@ import { SubjectsModule } from './modules/subjects/subjects.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { NotificationsController } from './modules/notifications/controllers/notifications.controller';
 import { SchedulingModule } from './modules/scheduling/scheduling.module';
-import { EvaluationModule } from './modules/evaluation/evaluation.module';
-import { RatingQueryService } from './modules/evaluation/services/rating-query.service';
+import { EvaluationModule } from './modules/session-execution/session-execution';
+import { RatingQueryService } from './modules/session-execution/services/rating-query.service';
 
 
 @Module({
