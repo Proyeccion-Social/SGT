@@ -23,8 +23,11 @@
     "@nestjs/common": "^11.1.12",
     "@nestjs/core": "^11.0.1",
     "@nestjs/platform-express": "^11.0.1",
+    "pg": "^8.18.0",
+    "pg-query-stream": "^4.12.0",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "typeorm": "^0.3.28"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
