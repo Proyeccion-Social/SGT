@@ -1,19 +1,30 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { DatabaseModule } from './modules/database/database.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
-import { SubjectsService } from './modules/subjects/services/subjects.service';
-import { SubjectsController } from './modules/subjects/controllers/subjects.controller';
 import { SubjectsModule } from './modules/subjects/subjects.module';
+import { AvailabilityModule } from './modules/availability/availability.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
-import { NotificationsController } from './modules/notifications/controllers/notifications.controller';
 import { SchedulingModule } from './modules/scheduling/scheduling.module';
 import { EvaluationModule } from './modules/session-execution/session-execution';
-import { RatingQueryService } from './modules/session-execution/services/rating-query.service';
-
+import { envValidationSchema } from './config/env.config';
 
 @Module({
-  imports: [AuthModule, UsersModule, SubjectsModule, NotificationsModule, SchedulingModule, EvaluationModule],
-  providers: [SubjectsService, RatingQueryService],
-  controllers: [SubjectsController, NotificationsController]
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: '.env',
+      validationSchema: envValidationSchema,
+    }),
+    DatabaseModule,
+    AuthModule,
+    UsersModule,
+    SubjectsModule,
+    AvailabilityModule,
+    NotificationsModule,
+    SchedulingModule,
+    EvaluationModule,
+  ],
 })
 export class AppModule {}
