@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Confirma tu cuenta</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .container {
+      background-color: #f9f9f9;
+      border-radius: 8px;
+      padding: 30px;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .button {
+      display: inline-block;
+      background-color: #007bff;
+      color: white;
+      padding: 12px 30px;
+      text-decoration: none;
+      border-radius: 5px;
+      margin: 20px 0;
+    }
+    .footer {
+      margin-top: 30px;
+      font-size: 12px;
+      color: #666;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>Confirma tu cuenta en Atlas</h2>
+    </div>
+    
+    <p>Hola <strong>Nombre completo</strong>,</p>
+    
+    <p>Gracias por registrarte en el Sistema de Gestión de Tutorías de Proyección Social.</p>
+    
+    <p>Para activar tu cuenta y comenzar a utilizar nuestros servicios, por favor haz clic en el siguiente botón:</p>
+    
+    <div style="text-align: center;">
+      <a href="{{confirmationUrl}}" class="button">Confirmar mi cuenta</a>
+    </div>
+    
+    <p>O copia y pega este enlace en tu navegador:</p>
+    <p style="word-break: break-all; color: #007bff;">URL de confirmación</p>
+    
+    <p><strong>Este enlace expirará en 6 horas.</strong></p>
+    
+    <p>Si no solicitaste esta cuenta, puedes ignorar este correo de forma segura.</p>
+    
+    <div class="footer">
+      <p>Saludos,<br>Equipo de Proyección Social<br>Universidad Distrital Francisco José de Caldas</p>
+    </div>
+  </div>
+</body>
+</html>
