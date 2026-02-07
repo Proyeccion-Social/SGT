@@ -5,9 +5,11 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToOne,
+  OneToMany
 } from 'typeorm';
 import { Student } from '../../student/entities/student.entity';
 import { Tutor } from '../../tutor/entities/tutor.entity';
+import { Session} from '../../auth/entities/session.entity';
 
 export enum UserRole {
   STUDENT = 'STUDENT',
@@ -55,9 +57,30 @@ export class User {
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamp' })
   updatedAt: Date;
 
+  //Nuevos campos 
+  @Column({ type: 'timestamp', nullable: true })
+  email_verified_at: Date | null;
+
+  @Column({ type: 'integer', default: 0 })
+  failed_login_attempts: number;
+
+  @Column({ type: 'timestamp', nullable: true })
+  locked_until: Date | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  password_changed_at: Date | null;
+
+
+  //Relaciones
+
   @OneToOne(() => Student, (student) => student.user)
   student: Student;
 
   @OneToOne(() => Tutor, (tutor) => tutor.user)
   tutor: Tutor;
+
+
+
+  @OneToMany(() => Session, (session) => session.user)
+  sessions: Session[];
 }
