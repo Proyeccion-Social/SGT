@@ -6,6 +6,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { User } from '../users/entities/user.entity';
 import { Student } from '../student/entities/student.entity';
 import { Tutor } from '../tutor/entities/tutor.entity';
+import { EmailConfirmation } from '../auth/entities/email-confirmation.entity';
 
 // Subject entities
 import { Subject } from '../subjects/entities/subjects.entity';
@@ -39,6 +40,7 @@ const entities = [
   StudentParticipateSession,
   Question,
   Answer,
+  EmailConfirmation,
 ];
 
 @Module({
@@ -50,13 +52,13 @@ const entities = [
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
         type: 'postgres',
-        host: configService.get('LOCAL_DB_HOST'),
-        port: configService.get('LOCAL_DB_PORT'),
-        username: configService.get('LOCAL_DB_USER'),
-        password: configService.get('LOCAL_DB_PASSWORD'),
-        database: configService.get('LOCAL_DB_NAME'),
+        host: configService.get<string>('LOCAL_DB_HOST'),
+        port: configService.get<number>('LOCAL_DB_PORT'),
+        username: configService.get<string>('LOCAL_DB_USER'),
+        password: configService.get<string>('LOCAL_DB_PASSWORD') || '',
+        database: configService.get<string>('LOCAL_DB_NAME'),
         entities: entities,
-        synchronize: false, 
+        synchronize: false,
         logging: configService.get('NODE_ENV') === 'development',
         migrations: ['dist/migrations/*.js'],
         migrationsRun: false,
@@ -70,7 +72,7 @@ const entities = [
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
         type: 'postgres',
-        url: configService.get('NEON_DATABASE_URL'),
+        url: configService.get<string>('NEON_DATABASE_URL'),
         entities: entities,
         synchronize: false,
         ssl: {
@@ -80,4 +82,4 @@ const entities = [
     }),
   ],
 })
-export class DatabaseModule {}
+export class DatabaseModule { }

@@ -27,4 +27,4 @@ import { envValidationSchema } from './config/env.config';
     EvaluationModule,
   ],
 })
-export class AppModule {}
+export class AppModule { }
