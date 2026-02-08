@@ -13,8 +13,8 @@ import { Session } from '../../scheduling/entities/session.entity';
 
 @Entity('tutors')
 export class Tutor {
-  @PrimaryColumn({ name: 'id_user', type: 'bigint' })
-  idUser: number;
+  @PrimaryColumn({ name: 'id_user', type: 'uuid' })
+  idUser: string;
 
   @Column({ type: 'varchar', length: 20, nullable: true })
   phone: string;
@@ -28,6 +28,9 @@ export class Tutor {
     nullable: true,
   })
   limitDisponibility: number;
+
+  @Column({ type: 'boolean', default: false })
+  profile_completed: boolean;
 
   @Column({ name: 'url_image', type: 'text', nullable: true })
   urlImage: string;

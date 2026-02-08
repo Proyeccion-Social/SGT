@@ -25,8 +25,8 @@ export enum UserStatus {
 
 @Entity('users')
 export class User {
-  @PrimaryGeneratedColumn({ name: 'id_user', type: 'bigint' })
-  idUser: number;
+  @PrimaryGeneratedColumn('uuid', { name: 'id_user' })
+  idUser: string;
 
   @Column({ type: 'varchar', length: 100, nullable: false })
   name: string;

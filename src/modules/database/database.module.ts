@@ -25,6 +25,12 @@ import { StudentParticipateSession } from '../scheduling/entities/student_partic
 import { Question } from '../session-execution/entities/question.entity';
 import { Answer } from '../session-execution/entities/answer.entity';
 
+// AUTH ENTITIES (NUEVAS)
+import { Session as AuthSession } from '../auth/entities/session.entity'; // Renombrado para evitar conflicto con la entidad de sesiones de tutoría
+import { AuditLog } from '../auth/entities/audit-log.entity';
+import { PasswordResetToken } from '../auth/entities/password-reset-token.entity';
+import { EmailVerificationToken } from '../auth/entities/email-verification-token.entity';
+
 const entities = [
   User,
   Student,
@@ -39,6 +45,12 @@ const entities = [
   StudentParticipateSession,
   Question,
   Answer,
+
+  //Nuevas entidades de Auth
+  AuthSession,
+  AuditLog,
+  PasswordResetToken,
+  EmailVerificationToken,
 ];
 
 @Module({
