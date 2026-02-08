@@ -11,6 +11,10 @@ export const envValidationSchema = Joi.object({
   // Database Neon
   NEON_DATABASE_URL: Joi.string().uri().optional(),
 
+  //Resend
+  RESEND_API_KEY: Joi.string().required(),
+  RESEND_EMAIL: Joi.string().email().required(),
+
   // App Config
   PORT: Joi.number().default(3000),
   NODE_ENV: Joi.string()

@@ -10,6 +10,11 @@ import {
 import { Student } from '../../student/entities/student.entity';
 import { Tutor } from '../../tutor/entities/tutor.entity';
 import { Session} from '../../auth/entities/session.entity';
+  OneToMany,
+} from 'typeorm';
+import { Student } from '../../student/entities/student.entity';
+import { Tutor } from '../../tutor/entities/tutor.entity';
+import { EmailConfirmation } from '../../auth/entities/email-confirmation.entity';
 
 export enum UserRole {
   STUDENT = 'STUDENT',
@@ -51,6 +56,9 @@ export class User {
   })
   status: UserStatus;
 
+  @Column({ name: 'email_verified', type: 'boolean', default: false })
+  emailVerified: boolean;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
   createdAt: Date;
 
@@ -83,4 +91,6 @@ export class User {
 
   @OneToMany(() => Session, (session) => session.user)
   sessions: Session[];
+  @OneToMany(() => EmailConfirmation, (emailConfirmation) => emailConfirmation.user)
+  emailConfirmations: EmailConfirmation[];
 }
