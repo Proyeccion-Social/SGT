@@ -45,7 +45,7 @@ export class AuditService {
     userAgent: string,
   ): Promise<void> {
     await this.log({
-      id_user: user.id_user,
+      id_user: user.idUser,
       id_session: sessionId,
       action: AuditAction.LOGIN,
       result: AuditResult.SUCCESS,
@@ -63,7 +63,7 @@ export class AuditService {
     userId?: string,
   ): Promise<void> {
     await this.log({
-      id_user: userId || null,
+      id_user: userId || '',
       action: AuditAction.LOGIN_FAILED,
       result: AuditResult.FAILED,
       email_attempted: email,

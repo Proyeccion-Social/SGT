@@ -11,7 +11,7 @@ export class SessionService {
   constructor(
     @InjectRepository(Session)
     private sessionRepository: Repository<Session>,
-  ) {}
+  ) { }
 
   async createSession(data: {
     id_user: string;
@@ -77,9 +77,9 @@ export class SessionService {
     });
   }
 
-  async revokeSessionByToken(refreshToken: string): Promise<Session> {
+  async revokeSessionByToken(refreshToken: string): Promise<Session | null> {
     const session = await this.findValidSession(refreshToken);
-    
+
     if (session) {
       await this.revokeSession(session.id_session);
     }

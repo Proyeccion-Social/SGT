@@ -9,8 +9,8 @@ export enum Modality {
 
 @Entity('tutor_have_availability')
 export class TutorHaveAvailability {
-  @PrimaryColumn({ name: 'id_tutor', type: 'bigint' })
-  idTutor: number;
+  @PrimaryColumn({ name: 'id_tutor', type: 'uuid' })
+  idTutor: string;
 
   @PrimaryColumn({ name: 'id_availability', type: 'bigint' })
   idAvailability: number;

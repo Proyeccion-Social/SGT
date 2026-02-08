@@ -16,7 +16,7 @@ import { Subject } from '../../subjects/entities/subjects.entity';
 import { CreateTutorDto } from '../dto/create-tutor.dto';
 import { CompleteTutorProfileDto } from '../dto/complete-tutor-profile.dto';
 import { TutorPublicProfileDto } from '../dto/tutor-public-profile.dto';
-import { EmailService } from '../../notifications/services/email.service';
+import { NotificationService } from '../notifications/services/notification.service';
 
 @Injectable()
 export class TutorService {
@@ -29,125 +29,125 @@ export class TutorService {
     private tutorImpartSubjectRepository: Repository<TutorImpartSubject>,
     @InjectRepository(Subject)
     private subjectRepository: Repository<Subject>,
-    private emailService: EmailService,
-  ) {}
+    private notificationService: NotificationService,
+  ) { }
 
   // =====================================================
   // RF08: CREAR TUTOR (ADMIN)
   // =====================================================
   async createByAdmin(adminId: string, dto: CreateTutorDto) {
-  const admin = await this.userRepository.findOne({
-    where: { idUser: adminId },
-  });
+    const admin = await this.userRepository.findOne({
+      where: { idUser: adminId },
+    });
 
-  if (!admin || admin.role !== UserRole.ADMIN) {
-    throw new ForbiddenException('Only administrators can create tutors');
+    if (!admin || admin.role !== UserRole.ADMIN) {
+      throw new ForbiddenException('Only administrators can create tutors');
+    }
+
+    if (!dto.email.endsWith('@udistrital.edu.co')) {
+      throw new BadRequestException('Email must be institutional');
+    }
+
+    const existingUser = await this.userRepository.findOne({
+      where: { email: dto.email },
+    });
+
+    if (existingUser) {
+      throw new BadRequestException('Email already exists');
+    }
+
+    const temporaryPassword = this.generateTemporaryPassword();
+    const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
+
+    const user = this.userRepository.create({
+      name: dto.name,
+      email: dto.email,
+      password: hashedPassword,
+      role: UserRole.TUTOR,
+      status: UserStatus.ACTIVE,
+      password_changed_at: null,
+      email_verified_at: new Date(),
+    });
+
+    const savedUser = await this.userRepository.save(user);
+
+    const tutor = this.tutorRepository.create({
+      idUser: savedUser.idUser,
+      phone: null,
+      isActive: false,
+      profile_completed: false,
+      urlImage: null,
+      limitDisponibility: null,
+    });
+
+    await this.tutorRepository.save(tutor);
+
+    await this.notificationService.sendTutorCredentials(
+      savedUser.email,
+      savedUser.name,
+      temporaryPassword,
+    );
+
+    return {
+      message: 'Tutor created successfully',
+      tutor: {
+        id: savedUser.idUser,
+        name: savedUser.name,
+        email: savedUser.email,
+      },
+    };
   }
-
-  if (!dto.email.endsWith('@udistrital.edu.co')) {
-    throw new BadRequestException('Email must be institutional');
-  }
-
-  const existingUser = await this.userRepository.findOne({
-    where: { email: dto.email },
-  });
-
-  if (existingUser) {
-    throw new BadRequestException('Email already exists');
-  }
-
-  const temporaryPassword = this.generateTemporaryPassword();
-  const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
-
-  const user = this.userRepository.create({
-    name: dto.name,
-    email: dto.email,
-    password: hashedPassword,
-    role: UserRole.TUTOR,
-    status: UserStatus.ACTIVE,
-    password_changed_at: null,
-    email_verified_at: new Date(),
-  });
-
-  const savedUser = await this.userRepository.save(user);
-
-  const tutor = this.tutorRepository.create({
-    userId: savedUser.idUser,  //  Asigna la entidad completa
-    phone: null,
-    isActive: false,
-    profile_completed: false,
-    urlImage: null,
-    limitDisponibility: null,
-  });
-
-  await this.tutorRepository.save(tutor);
-
-  await this.emailService.sendTutorCredentials(
-    savedUser.email,
-    savedUser.name,
-    temporaryPassword,
-  );
-
-  return {
-    message: 'Tutor created successfully',
-    tutor: {
-      id: savedUser.idUser,
-      name: savedUser.name,
-      email: savedUser.email,
-    },
-  };
-}
 
   // =====================================================
   // RF09: COMPLETAR PERFIL DE TUTOR
   // =====================================================
   async completeProfile(userId: string, dto: CompleteTutorProfileDto) {
-  const user = await this.userRepository.findOne({
-    where: { idUser: userId },
-  });
+    const user = await this.userRepository.findOne({
+      where: { idUser: userId },
+    });
 
-  if (!user || user.role !== UserRole.TUTOR) {
-    throw new ForbiddenException();
+    if (!user || user.role !== UserRole.TUTOR) {
+      throw new ForbiddenException();
+    }
+
+    if (!user.password_changed_at) {
+      throw new BadRequestException('Change password first');
+    }
+
+    const tutor = await this.tutorRepository.findOne({
+      where: { user: { idUser: userId } },
+      relations: ['tutorImpartSubjects'],
+    });
+
+    if (!tutor) throw new NotFoundException();
+
+    const subjects = await this.subjectRepository.find({
+      where: { idSubject: In(dto.subject_ids) },
+    });
+
+    tutor.phone = dto.phone;
+    tutor.urlImage = dto.url_image;
+    tutor.limitDisponibility = dto.max_weekly_hours;
+    tutor.profile_completed = true;
+    tutor.isActive = true;
+
+    await this.tutorRepository.save(tutor);
+
+    await this.tutorImpartSubjectRepository.delete({
+      tutor: { idUser: tutor.idUser },
+    });
+
+    const relations = dto.subject_ids.map((id) =>
+      this.tutorImpartSubjectRepository.create({
+        idTutor: tutor.idUser,
+        idSubject: id,
+      }),
+    );
+
+    await this.tutorImpartSubjectRepository.save(relations);
+
+    return { message: 'Profile completed successfully' };
   }
-
-  if (!user.password_changed_at) {
-    throw new BadRequestException('Change password first');
-  }
-
-  const tutor = await this.tutorRepository.findOne({
-    where: { user: { idUser: userId } },
-    relations: ['tutorImpartSubjects'],
-  });
-
-  if (!tutor) throw new NotFoundException();
-
-  const subjects = await this.subjectRepository.find({
-    where: { idSubject: In(dto.subject_ids) },
-  });
-
-  tutor.phone = dto.phone;
-  tutor.urlImage = dto.url_image;
-  tutor.limitDisponibility = dto.max_weekly_hours;
-  tutor.profile_completed = true;
-  tutor.isActive = true;
-
-  await this.tutorRepository.save(tutor);
-
-  await this.tutorImpartSubjectRepository.delete({
-    tutor: { idUser: tutor.idUser },
-  });
-
-  const relations = dto.subject_ids.map((id) =>
-    this.tutorImpartSubjectRepository.create({
-      tutor,
-      subject: { id_subject: id } as any,
-    }),
-  );
-
-  await this.tutorImpartSubjectRepository.save(relations);
-
-  return { message: 'Profile completed successfully' };
-}
 
 
   // =====================================================
@@ -183,18 +183,18 @@ export class TutorService {
 
     // 4. Obtener modalidades disponibles
     const availableModalities = [
-  ...new Set(
-    tutor.tutorHaveAvailabilities
-      .filter((ta) => ta.modality !== null)
-      .map((ta) => ta.modality),
-  ),
-];
+      ...new Set(
+        tutor.tutorHaveAvailabilities
+          .filter((ta) => ta.modality !== null)
+          .map((ta) => ta.modality),
+      ),
+    ];
 
 
     // 5. Calcular horas usadas esta semana (placeholder)
     const currentWeekHoursUsed = 0; // await this.sessionService.getWeekHours(tutorId);
     const availableHoursThisWeek =
-      tutor.limitDisponibility - currentWeekHoursUsed;
+      (tutor.limitDisponibility ?? 0) - currentWeekHoursUsed;
 
     return {
       id: tutor.idUser,
@@ -208,9 +208,9 @@ export class TutorService {
       totalRatings,
       completedSessions,
       availableModalities,
-      maxWeeklyHours: tutor.limitDisponibility,
+      maxWeeklyHours: tutor.limitDisponibility ?? 0,
       currentWeekHoursUsed,
-      availableHoursThisWeek: Math.max(0, availableHoursThisWeek),
+      availableHoursThisWeek: Math.max(0, availableHoursThisWeek ?? 0),
     };
   }
 
