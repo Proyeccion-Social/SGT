@@ -59,22 +59,20 @@ export class TutorService {
   const temporaryPassword = this.generateTemporaryPassword();
   const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
 
-  const user = await this.userRepository.save(
-    this.userRepository.create({
-      name: dto.name,
-      email: dto.email,
-      password: hashedPassword,
-      role: UserRole.TUTOR,
-      status: UserStatus.ACTIVE,
-      password_changed_at: null,
-      email_verified_at: new Date(),
-    }),
-  );
+  const user = this.userRepository.create({
+    name: dto.name,
+    email: dto.email,
+    password: hashedPassword,
+    role: UserRole.TUTOR,
+    status: UserStatus.ACTIVE,
+    password_changed_at: null,
+    email_verified_at: new Date(),
+  });
 
   const savedUser = await this.userRepository.save(user);
 
   const tutor = this.tutorRepository.create({
-    idUser: savedUser.idUser, //  relación, no FK manual
+    userId: savedUser.idUser,  //  Asigna la entidad completa
     phone: null,
     isActive: false,
     profile_completed: false,
@@ -85,17 +83,17 @@ export class TutorService {
   await this.tutorRepository.save(tutor);
 
   await this.emailService.sendTutorCredentials(
-    user.email,
-    user.name,
+    savedUser.email,
+    savedUser.name,
     temporaryPassword,
   );
 
   return {
     message: 'Tutor created successfully',
     tutor: {
-      id: user.idUser,
-      name: user.name,
-      email: user.email,
+      id: savedUser.idUser,
+      name: savedUser.name,
+      email: savedUser.email,
     },
   };
 }
