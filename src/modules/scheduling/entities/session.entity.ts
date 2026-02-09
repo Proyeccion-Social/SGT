@@ -35,11 +35,11 @@ export class Session {
   @PrimaryGeneratedColumn({ name: 'id_session', type: 'bigint' })
   idSession: number;
 
-  @Column({ name: 'id_tutor', type: 'bigint', nullable: false })
-  idTutor: number;
+  @Column({ name: 'id_tutor', type: 'uuid', nullable: false })
+  idTutor: string;
 
-  @Column({ name: 'id_subject', type: 'bigint', nullable: false })
-  idSubject: number;
+  @Column({ name: 'id_subject', type: 'uuid', nullable: false })
+  idSubject: string;
 
   @Column({ name: 'scheduled_date', type: 'date', nullable: false })
   scheduledDate: Date;

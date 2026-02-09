@@ -4,11 +4,11 @@ import { Subject } from './subjects.entity';
 
 @Entity('student_interested_subject')
 export class StudentInterestedSubject {
-  @PrimaryColumn({ name: 'id_student', type: 'bigint' })
-  idStudent: number;
+  @PrimaryColumn({ name: 'id_student', type: 'uuid' })
+  idStudent: string;
 
-  @PrimaryColumn({ name: 'id_subject', type: 'bigint' })
-  idSubject: number;
+  @PrimaryColumn({ name: 'id_subject', type: 'uuid' })
+  idSubject: string;
 
   @ManyToOne(() => Student, (student) => student.studentInterestedSubjects)
   @JoinColumn({ name: 'id_student' })

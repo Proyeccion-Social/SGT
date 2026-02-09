@@ -17,11 +17,11 @@ export enum PreferredModality {
 
 @Entity('students')
 export class Student {
-  @PrimaryColumn({ name: 'id_user', type: 'bigint' })
-  idUser: number;
+  @PrimaryColumn({ name: 'id_user', type: 'uuid' })
+  idUser: string;
 
   @Column({ type: 'varchar', length: 100, nullable: true })
-  career: string;
+  career: string | null;
 
   @Column({
     name: 'preferred_modality',
@@ -29,7 +29,7 @@ export class Student {
     enum: PreferredModality,
     nullable: true,
   })
-  preferredModality: PreferredModality;
+  preferredModality: PreferredModality | null;
 
   @OneToOne(() => User, (user) => user.student)
   @JoinColumn({ name: 'id_user' })
