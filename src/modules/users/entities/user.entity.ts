@@ -10,10 +10,6 @@ import {
 import { Student } from '../../student/entities/student.entity';
 import { Tutor } from '../../tutor/entities/tutor.entity';
 import { Session} from '../../auth/entities/session.entity';
-  OneToMany,
-} from 'typeorm';
-import { Student } from '../../student/entities/student.entity';
-import { Tutor } from '../../tutor/entities/tutor.entity';
 import { EmailConfirmation } from '../../auth/entities/email-confirmation.entity';
 
 export enum UserRole {
