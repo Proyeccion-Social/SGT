@@ -4,6 +4,7 @@ import {
   UnauthorizedException,
   BadRequestException,
   ConflictException,
+  Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -12,10 +13,12 @@ import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User, UserRole, UserStatus } from '../../users/entities/user.entity';
 import { Student } from '../../student/entities/student.entity';
+import { Tutor } from '../../tutor/entities/tutor.entity';
 import { SessionService } from './session.service';
 import { AuditService } from './audit-log.service';
 import { PasswordResetService } from './password-reset.service';
 import { EmailVerificationService } from './email-verification.service';
+import { NotificationsService } from '../../notifications/services/notifications.service';
 import { RegisterDto } from '../dto/register.dto';
 import { LoginDto } from '../dto/login.dto';
 import { ChangePasswordDto } from '../dto/change-password.dto';
@@ -24,17 +27,22 @@ import { AuditAction, AuditResult } from '../entities/audit-log.entity';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
     @InjectRepository(Student)
     private studentRepository: Repository<Student>,
+    @InjectRepository(Tutor)
+    private tutorRepository: Repository<Tutor>,
     private jwtService: JwtService,
     private configService: ConfigService,
     private sessionService: SessionService,
     private auditService: AuditService,
     private passwordResetService: PasswordResetService,
     private emailVerificationService: EmailVerificationService,
+    private emailService: NotificationsService
   ) {}
 
   // =====================================================
@@ -71,7 +79,7 @@ export class AuthService {
       email: dto.email,
       password: hashedPassword,
       role: UserRole.STUDENT,
-      status: UserStatus.PENDING,
+      status: UserStatus.PENDING, // Pendiente hasta verificar email
       password_changed_at: new Date(),
     });
 
@@ -79,10 +87,9 @@ export class AuthService {
 
     // 6. Crear registro en tabla students
     const student = this.studentRepository.create({
-      user: savedUser,
-      career: null, // Se completa después
+      idUser: savedUser.idUser,
+      career: null,
       preferredModality: null,
-
     });
 
     await this.studentRepository.save(student);
@@ -91,14 +98,17 @@ export class AuthService {
     const verificationToken =
       await this.emailVerificationService.createToken(savedUser.idUser);
 
-    // 8. TODO: Enviar email de verificación
-    // await this.emailService.sendVerificationEmail(
-    //   savedUser.email,
-    //   savedUser.name,
-    //   verificationToken,
-    // );
-
-    console.log('Verification token:', verificationToken); // Temporal para desarrollo
+    // 8. Enviar email de confirmación
+    try {
+      await this.emailService.sendEmailConfirmation(
+        savedUser.email,
+        savedUser.name,
+        verificationToken,
+      );
+    } catch (error) {
+      this.logger.error('Error sending confirmation email:', error);
+      // No fallar registro si email falla
+    }
 
     // 9. Auditar
     await this.auditService.log({
@@ -136,6 +146,20 @@ export class AuthService {
     // 4. Auditar
     await this.auditService.logEmailVerified(verificationToken.id_user);
 
+    // 5. Enviar email de bienvenida
+    try {
+      const user = await this.userRepository.findOne({
+        where: { idUser: verificationToken.id_user },
+      });
+
+      if (user) {
+        await this.emailService.sendWelcomeEmail(user.email, user.name);
+      }
+    } catch (error) {
+      this.logger.error('Error sending welcome email:', error);
+      // No fallar si email falla
+    }
+
     return { message: 'Email verified successfully. You can now login.' };
   }
 
@@ -156,6 +180,8 @@ export class AuthService {
       role: UserRole;
       emailVerified: boolean;
     };
+    requiresPasswordChange?: boolean;
+    requiresProfileCompletion?: boolean;
   }> {
     // 1. Buscar usuario
     const user = await this.userRepository.findOne({
@@ -297,6 +323,21 @@ export class AuthService {
       userAgent,
     );
 
+    // 10. Verificar si es tutor y necesita acciones adicionales
+    let requiresPasswordChange = false;
+    let requiresProfileCompletion = false;
+
+    if (user.role === UserRole.TUTOR) {
+      // Verificar contraseña temporal
+      requiresPasswordChange = !user.password_changed_at;
+
+      // Verificar perfil completo
+      const tutor = await this.tutorRepository.findOne({
+        where: { idUser: user.idUser },
+      });
+      requiresProfileCompletion = tutor ? !tutor.profile_completed : true;
+    }
+
     return {
       accessToken,
       refreshToken,
@@ -307,6 +348,10 @@ export class AuthService {
         role: user.role,
         emailVerified: !!user.email_verified_at,
       },
+      ...(user.role === UserRole.TUTOR && {
+        requiresPasswordChange,
+        requiresProfileCompletion,
+      }),
     };
   }
 
@@ -410,11 +455,17 @@ export class AuthService {
       user.idUser,
     );
 
-    // 3. TODO: Enviar email con enlace
-    // const resetUrl = `${frontendUrl}/auth/reset-password?token=${resetToken}`;
-    // await this.emailService.sendPasswordResetEmail(user.email, user.name, resetUrl);
-
-    console.log('Password reset token:', resetToken); // Temporal para desarrollo
+    // 3. Enviar email con enlace
+    try {
+      await this.emailService.sendPasswordResetEmail(
+        user.email,
+        user.name,
+        resetToken,
+      );
+    } catch (error) {
+      this.logger.error('Error sending password reset email:', error);
+      // No fallar, retornar mensaje genérico
+    }
 
     // 4. Auditar
     await this.auditService.logPasswordResetRequested(email, user.idUser);
@@ -467,6 +518,23 @@ export class AuthService {
 
     // 8. Auditar
     await this.auditService.logPasswordResetCompleted(resetToken.id_user, ip);
+
+    // 9. Notificar por email
+    try {
+      const user = await this.userRepository.findOne({
+        where: { idUser: resetToken.id_user },
+      });
+
+      if (user) {
+        await this.emailService.sendPasswordChangedNotification(
+          user.email,
+          user.name,
+        );
+      }
+    } catch (error) {
+      this.logger.error('Error sending password changed notification:', error);
+      // No fallar si email falla
+    }
 
     return { message: 'Password reset successfully. Please login again.' };
   }
@@ -536,6 +604,17 @@ export class AuthService {
 
     // 9. Auditar
     await this.auditService.logPasswordChange(userId, ip, userAgent);
+
+    // 10. Notificar por email
+    try {
+      await this.emailService.sendPasswordChangedNotification(
+        user.email,
+        user.name,
+      );
+    } catch (error) {
+      this.logger.error('Error sending password changed notification:', error);
+      // No fallar si email falla
+    }
 
     return {
       message:

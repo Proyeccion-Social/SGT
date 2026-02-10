@@ -16,7 +16,7 @@ import { Subject } from '../../subjects/entities/subjects.entity';
 import { CreateTutorDto } from '../dto/create-tutor.dto';
 import { CompleteTutorProfileDto } from '../dto/complete-tutor-profile.dto';
 import { TutorPublicProfileDto } from '../dto/tutor-public-profile.dto';
-import { NotificationService } from '../notifications/services/notification.service';
+import { NotificationsService } from '../../notifications/services/notifications.service';
 
 @Injectable()
 export class TutorService {
@@ -29,7 +29,7 @@ export class TutorService {
     private tutorImpartSubjectRepository: Repository<TutorImpartSubject>,
     @InjectRepository(Subject)
     private subjectRepository: Repository<Subject>,
-    private notificationService: NotificationService,
+    private notificationService: NotificationsService,
   ) { }
 
   // =====================================================
