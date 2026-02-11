@@ -9,6 +9,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { UserService } from 'src/modules/users/services/users.service';
 import { TutorService } from '../services/tutor.service';
 import { CompleteTutorProfileDto } from '../dto/complete-tutor-profile.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -20,7 +21,9 @@ import { User, UserRole } from '../../users/entities/user.entity';
 
 @Controller('tutors')
 export class TutorsController {
-  constructor(private tutorService: TutorService) {}
+  constructor(private tutorService: TutorService,
+    private readonly userService: UserService, // Inyectar UserService para verificar roles y estado de contraseña
+  ) {}
 
   // =====================================================
   // POST /api/v1/tutors/profile/complete
@@ -55,10 +58,10 @@ export class TutorsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.TUTOR)
   async getMyStatus(@CurrentUser() user: User) {
-    const hasTemporaryPassword = await this.tutorService.hasTemporaryPassword(
+    const hasTemporaryPassword = await this.userService.hasTemporaryPassword(
       user.idUser,
     );
-    const profileCompleted = await this.tutorService.isProfileCompleted(
+    const profileCompleted = await this.tutorService.isProfileComplete(
       user.idUser,
     );
 

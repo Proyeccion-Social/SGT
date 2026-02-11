@@ -3,17 +3,15 @@ import {
   Injectable,
   UnauthorizedException,
   BadRequestException,
-  ConflictException,
   Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { JwtModule } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import * as bcrypt from 'bcrypt';
-import { User, UserRole, UserStatus } from '../../users/entities/user.entity';
-import { Student } from '../../student/entities/student.entity';
-import { Tutor } from '../../tutor/entities/tutor.entity';
+import { UserRole, UserStatus } from '../../users/entities/user.entity';
+import { UserService } from '../../users/services/users.service';
+import { StudentService } from '../../student/services/student.service';
+import { TutorService } from '../../tutor/services/tutor.service';
 import { SessionService } from './session.service';
 import { AuditService } from './audit-log.service';
 import { PasswordResetService } from './password-reset.service';
@@ -30,19 +28,16 @@ export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
   constructor(
-    @InjectRepository(User)
-    private userRepository: Repository<User>,
-    @InjectRepository(Student)
-    private studentRepository: Repository<Student>,
-    @InjectRepository(Tutor)
-    private tutorRepository: Repository<Tutor>,
-    private jwtService: JwtService,
-    private configService: ConfigService,
-    private sessionService: SessionService,
-    private auditService: AuditService,
-    private passwordResetService: PasswordResetService,
-    private emailVerificationService: EmailVerificationService,
-    private emailService: NotificationsService
+    private readonly userService: UserService, // Service, no repository
+    private readonly studentService: StudentService,
+    private readonly tutorService: TutorService,
+    private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
+    private readonly sessionService: SessionService,
+    private readonly auditService: AuditService,
+    private readonly passwordResetService: PasswordResetService,
+    private readonly emailVerificationService: EmailVerificationService,
+    private readonly emailService: NotificationsService,
   ) {}
 
   // =====================================================
@@ -61,44 +56,23 @@ export class AuthService {
       );
     }
 
-    // 3. Verificar que el email no exista
-    const existingUser = await this.userRepository.findOne({
-      where: { email: dto.email },
-    });
-
-    if (existingUser) {
-      throw new ConflictException('Email already exists');
-    }
-
-    // 4. Hashear contraseña
-    const hashedPassword = await bcrypt.hash(dto.password, 10);
-
-    // 5. Crear usuario con rol STUDENT
-    const user = this.userRepository.create({
+    // 3. Crear usuario usando UserService
+    const savedUser = await this.userService.create({
       name: dto.name,
       email: dto.email,
-      password: hashedPassword,
+      password: dto.password,
       role: UserRole.STUDENT,
-      status: UserStatus.PENDING, // Pendiente hasta verificar email
-      password_changed_at: new Date(),
+      status: UserStatus.PENDING,
     });
 
-    const savedUser = await this.userRepository.save(user);
+    // 4. Crear registro en tabla students
+    await this.studentService.createFromUser(savedUser.idUser);
 
-    // 6. Crear registro en tabla students
-    const student = this.studentRepository.create({
-      idUser: savedUser.idUser,
-      career: null,
-      preferredModality: null,
-    });
-
-    await this.studentRepository.save(student);
-
-    // 7. Generar token de verificación de email
+    // 5. Generar token de verificación de email
     const verificationToken =
       await this.emailVerificationService.createToken(savedUser.idUser);
 
-    // 8. Enviar email de confirmación
+    // 6. Enviar email de confirmación
     try {
       await this.emailService.sendEmailConfirmation(
         savedUser.email,
@@ -110,7 +84,7 @@ export class AuthService {
       // No fallar registro si email falla
     }
 
-    // 9. Auditar
+    // 7. Auditar
     await this.auditService.log({
       id_user: savedUser.idUser,
       action: AuditAction.ACCOUNT_CREATED,
@@ -137,27 +111,21 @@ export class AuthService {
       verificationToken.id_token,
     );
 
-    // 3. Actualizar usuario
-    await this.userRepository.update(verificationToken.id_user, {
-      email_verified_at: new Date(),
-      status: UserStatus.ACTIVE,
-    });
+    // 3. Actualizar usuario usando UserService
+    await this.userService.markEmailAsVerified(verificationToken.id_user);
 
     // 4. Auditar
     await this.auditService.logEmailVerified(verificationToken.id_user);
 
     // 5. Enviar email de bienvenida
     try {
-      const user = await this.userRepository.findOne({
-        where: { idUser: verificationToken.id_user },
-      });
+      const user = await this.userService.findById(verificationToken.id_user);
 
       if (user) {
         await this.emailService.sendWelcomeEmail(user.email, user.name);
       }
     } catch (error) {
       this.logger.error('Error sending welcome email:', error);
-      // No fallar si email falla
     }
 
     return { message: 'Email verified successfully. You can now login.' };
@@ -184,9 +152,7 @@ export class AuthService {
     requiresProfileCompletion?: boolean;
   }> {
     // 1. Buscar usuario
-    const user = await this.userRepository.findOne({
-      where: { email: dto.email },
-    });
+    const user = await this.userService.findByEmail(dto.email);
 
     if (!user) {
       await this.auditService.logFailedLogin(
@@ -214,29 +180,28 @@ export class AuthService {
 
     // 3. Desbloqueo automático si pasó el tiempo
     if (user.locked_until && user.locked_until <= new Date()) {
-      await this.userRepository.update(user.idUser, {
-        locked_until: null,
-        failed_login_attempts: 0,
-      });
+      await this.userService.unlockAccount(user.idUser);
       user.locked_until = null;
       user.failed_login_attempts = 0;
     }
 
     // 4. Validar contraseña
-    const isPasswordValid = await bcrypt.compare(dto.password, user.password);
+    const isPasswordValid = await this.userService.validatePassword(
+      user,
+      dto.password,
+    );
 
     if (!isPasswordValid) {
       // Incrementar contador de intentos fallidos
-      const newAttempts = user.failed_login_attempts + 1;
+      const newAttempts = await this.userService.incrementFailedLoginAttempts(
+        user.idUser,
+      );
 
       if (newAttempts >= 5) {
         // Bloquear cuenta por 15 minutos
         const lockedUntil = new Date(Date.now() + 15 * 60 * 1000);
 
-        await this.userRepository.update(user.idUser, {
-          failed_login_attempts: newAttempts,
-          locked_until: lockedUntil,
-        });
+        await this.userService.lockAccount(user.idUser, lockedUntil);
 
         await this.auditService.logFailedLogin(
           dto.email,
@@ -252,11 +217,6 @@ export class AuthService {
           'Too many failed attempts. Account locked for 15 minutes.',
         );
       } else {
-        // Solo incrementar contador
-        await this.userRepository.update(user.idUser, {
-          failed_login_attempts: newAttempts,
-        });
-
         await this.auditService.logFailedLogin(
           dto.email,
           'Invalid password',
@@ -298,9 +258,7 @@ export class AuthService {
 
     // 6. Login exitoso - resetear contador de intentos fallidos
     if (user.failed_login_attempts > 0) {
-      await this.userRepository.update(user.idUser, {
-        failed_login_attempts: 0,
-      });
+      await this.userService.resetFailedLoginAttempts(user.idUser);
     }
 
     // 7. Generar tokens
@@ -332,10 +290,9 @@ export class AuthService {
       requiresPasswordChange = !user.password_changed_at;
 
       // Verificar perfil completo
-      const tutor = await this.tutorRepository.findOne({
-        where: { idUser: user.idUser },
-      });
-      requiresProfileCompletion = tutor ? !tutor.profile_completed : true;
+      requiresProfileCompletion = !(await this.tutorService.isProfileComplete(
+        user.idUser,
+      ));
     }
 
     return {
@@ -385,9 +342,7 @@ export class AuthService {
     }
 
     // 4. Verificar que usuario sigue activo
-    const user = await this.userRepository.findOne({
-      where: { idUser: payload.sub },
-    });
+    const user = await this.userService.findById(payload.sub);
 
     if (!user || user.status !== UserStatus.ACTIVE) {
       throw new UnauthorizedException('User not active');
@@ -440,7 +395,7 @@ export class AuthService {
   // =====================================================
   async recoverPassword(email: string): Promise<{ message: string }> {
     // 1. Buscar usuario
-    const user = await this.userRepository.findOne({ where: { email } });
+    const user = await this.userService.findByEmail(email);
 
     // Siempre retornar el mismo mensaje (seguridad: no revelar si email existe)
     const message =
@@ -464,7 +419,6 @@ export class AuthService {
       );
     } catch (error) {
       this.logger.error('Error sending password reset email:', error);
-      // No fallar, retornar mensaje genérico
     }
 
     // 4. Auditar
@@ -499,31 +453,24 @@ export class AuthService {
       );
     }
 
-    // 4. Hashear nueva contraseña
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // 5. Actualizar contraseña
-    await this.userRepository.update(resetToken.id_user, {
-      password: hashedPassword,
-      password_changed_at: new Date(),
-      failed_login_attempts: 0, // Resetear intentos fallidos
-      locked_until: null, // Desbloquear cuenta
+    // 4. Actualizar contraseña usando UserService
+    await this.userService.updatePassword(resetToken.id_user, password, {
+      resetFailedAttempts: true,
+      unlockAccount: true,
     });
 
-    // 6. Marcar token como usado
+    // 5. Marcar token como usado
     await this.passwordResetService.markAsUsed(resetToken.id_token);
 
-    // 7. Revocar todas las sesiones activas (seguridad)
+    // 6. Revocar todas las sesiones activas (seguridad)
     await this.sessionService.revokeAllUserSessions(resetToken.id_user);
 
-    // 8. Auditar
+    // 7. Auditar
     await this.auditService.logPasswordResetCompleted(resetToken.id_user, ip);
 
-    // 9. Notificar por email
+    // 8. Notificar por email
     try {
-      const user = await this.userRepository.findOne({
-        where: { idUser: resetToken.id_user },
-      });
+      const user = await this.userService.findById(resetToken.id_user);
 
       if (user) {
         await this.emailService.sendPasswordChangedNotification(
@@ -533,7 +480,6 @@ export class AuthService {
       }
     } catch (error) {
       this.logger.error('Error sending password changed notification:', error);
-      // No fallar si email falla
     }
 
     return { message: 'Password reset successfully. Please login again.' };
@@ -554,18 +500,16 @@ export class AuthService {
     }
 
     // 2. Buscar usuario
-    const user = await this.userRepository.findOne({
-      where: { idUser: userId },
-    });
+    const user = await this.userService.findById(userId);
 
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
 
     // 3. Validar contraseña actual
-    const isCurrentPasswordValid = await bcrypt.compare(
+    const isCurrentPasswordValid = await this.userService.validatePassword(
+      user,
       dto.currentPassword,
-      user.password,
     );
 
     if (!isCurrentPasswordValid) {
@@ -573,7 +517,10 @@ export class AuthService {
     }
 
     // 4. Validar que nueva contraseña sea diferente
-    const isSamePassword = await bcrypt.compare(dto.newPassword, user.password);
+    const isSamePassword = await this.userService.validatePassword(
+      user,
+      dto.newPassword,
+    );
 
     if (isSamePassword) {
       throw new BadRequestException(
@@ -590,22 +537,16 @@ export class AuthService {
       );
     }
 
-    // 6. Hashear nueva contraseña
-    const hashedPassword = await bcrypt.hash(dto.newPassword, 10);
+    // 6. Actualizar contraseña
+    await this.userService.updatePassword(userId, dto.newPassword);
 
-    // 7. Actualizar contraseña
-    await this.userRepository.update(userId, {
-      password: hashedPassword,
-      password_changed_at: new Date(),
-    });
-
-    // 8. Revocar todas las sesiones activas (fuerza re-login)
+    // 7. Revocar todas las sesiones activas (fuerza re-login)
     await this.sessionService.revokeAllUserSessions(userId);
 
-    // 9. Auditar
+    // 8. Auditar
     await this.auditService.logPasswordChange(userId, ip, userAgent);
 
-    // 10. Notificar por email
+    // 9. Notificar por email
     try {
       await this.emailService.sendPasswordChangedNotification(
         user.email,
@@ -613,44 +554,12 @@ export class AuthService {
       );
     } catch (error) {
       this.logger.error('Error sending password changed notification:', error);
-      // No fallar si email falla
     }
 
     return {
       message:
         'Password changed successfully. Please login again with your new password.',
     };
-  }
-
-  // =====================================================
-  // HELPERS PRIVADOS
-  // =====================================================
-  private generateAccessToken(user: User): string {
-    const payload: JwtPayload = {
-      sub: user.idUser,
-      email: user.email,
-      role: user.role,
-      type: 'access',
-    };
-
-    return this.jwtService.sign(payload, {
-      secret: this.configService.get<string>('JWT_SECRET'),
-      expiresIn: '1h', // 1 hora
-    });
-  }
-
-  private generateRefreshToken(user: User): string {
-    const payload: JwtPayload = {
-      sub: user.idUser,
-      email: user.email,
-      role: user.role,
-      type: 'refresh',
-    };
-
-    return this.jwtService.sign(payload, {
-      secret: this.configService.get<string>('REFRESH_TOKEN_SECRET'),
-      expiresIn: '30d', // 30 días
-    });
   }
 
   // =====================================================
@@ -678,5 +587,36 @@ export class AuthService {
         expiresAt: s.expires_at,
       })),
     };
+  }
+
+  // =====================================================
+  // HELPERS PRIVADOS
+  // =====================================================
+  private generateAccessToken(user: any): string {
+    const payload: JwtPayload = {
+      sub: user.idUser,
+      email: user.email,
+      role: user.role,
+      type: 'access',
+    };
+
+    return this.jwtService.sign(payload, {
+      secret: this.configService.get<string>('JWT_SECRET'),
+      expiresIn: '1h',
+    });
+  }
+
+  private generateRefreshToken(user: any): string {
+    const payload: JwtPayload = {
+      sub: user.idUser,
+      email: user.email,
+      role: user.role,
+      type: 'refresh',
+    };
+
+    return this.jwtService.sign(payload, {
+      secret: this.configService.get<string>('REFRESH_TOKEN_SECRET'),
+      expiresIn: '30d',
+    });
   }
 }

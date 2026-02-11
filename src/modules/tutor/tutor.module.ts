@@ -8,19 +8,20 @@ import { Subject } from '../subjects/entities/subjects.entity';
 import { TutorService } from './services/tutor.service';
 import { TutorsController } from './controllers/tutor.controller';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { SubjectsModule } from '../subjects/subjects.module'; // Importar el módulo de Subjects para poder usar su servicio dentro del TutorService
+import { UsersModule } from '../users/users.module'; // Importar el módulo de Users para poder usar su servicio dentro del TutorService
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([
-      Tutor,
-      User,
-      TutorImpartSubject,
-      Subject,
-    ]),
+      Tutor
+    ], 'local'), //Especificar la conexión 'local' para usar la configuración de TypeORM del entorno local
+    SubjectsModule, //No había importado el módulo de Subjects, lo añado para poder usar el servicio de Subjects dentro del TutorService
     NotificationsModule, // Para EmailService
+    UsersModule,
   ],
   controllers: [TutorsController],
   providers: [TutorService],
-  exports: [TutorService],
+  exports: [TutorService,TypeOrmModule], 
 })
 export class TutorModule {}

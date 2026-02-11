@@ -70,7 +70,8 @@ const entities = [
         password: configService.get<string>('LOCAL_DB_PASSWORD') || '',
         database: configService.get<string>('LOCAL_DB_NAME'),
         entities: entities,
-        synchronize: false,
+        synchronize: configService.get('NODE_ENV') === 'development', //Edité: de false a configService.get('NODE_ENV') === 'development', es decir, la sincronía es true sólo en desarrollo
+
         logging: configService.get('NODE_ENV') === 'development',
         migrations: ['dist/migrations/*.js'],
         migrationsRun: false,
