@@ -1,12 +1,13 @@
+// src/auth/auth.module.ts
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { JwtModule } from '@nestjs/jwt';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthController } from './controllers/auth.controller';
 import { AuthService } from './services/auth.service';
 import { User } from '../users/entities/user.entity';
 import { EmailConfirmation } from './entities/email-confirmation.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
-import { Student } from '../student/entities/student.entity';
-import { Tutor } from '../tutor/entities/tutor.entity';
 import { Session } from './entities/session.entity';
 import { AuditLog } from './entities/audit-log.entity';
 import { PasswordResetToken } from './entities/password-reset-token.entity';
@@ -18,25 +19,46 @@ import { EmailVerificationService } from './services/email-verification.service'
 import { UsersModule } from '../users/users.module';
 import { TutorModule } from '../tutor/tutor.module';
 import { StudentModule } from '../student/student.module';
-import { JwtModule } from '@nestjs/jwt';
-import { ConfigModule, ConfigService } from '@nestjs/config';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, 
-      Session,
-      AuditLog,
-      PasswordResetToken,
-      EmailVerificationToken, EmailConfirmation], 'local'),
-      
-    NotificationsModule, UsersModule,StudentModule, TutorModule
+    TypeOrmModule.forFeature(
+      [
+        User,
+        Session,
+        AuditLog,
+        PasswordResetToken,
+        EmailVerificationToken,
+        EmailConfirmation,
+      ],
+      'local',
+    ),
+
+    // ✅ JWT configurado correctamente
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: async (configService: ConfigService) => ({
+        secret: configService.get('JWT_SECRET'),
+        signOptions: {
+          expiresIn: configService.get('JWT_EXPIRES_IN'),
+        },
+      }),
+    }),
+
+    NotificationsModule,
+    UsersModule,
+    StudentModule,
+    TutorModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService,
+  providers: [
+    AuthService,
     SessionService,
     AuditService,
     PasswordResetService,
-    EmailVerificationService,],
-  exports: [AuthService, TypeOrmModule],
+    EmailVerificationService,
+  ],
+  exports: [AuthService, TypeOrmModule, JwtModule],
 })
-export class AuthModule { }
+export class AuthModule {}

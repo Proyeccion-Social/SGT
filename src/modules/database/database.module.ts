@@ -57,7 +57,7 @@ const entities = [
 
 @Module({
   imports: [
-    // Local PostgreSQL
+    // Local PostgreSQL (DEV)
     TypeOrmModule.forRootAsync({
       name: 'local',
       imports: [ConfigModule],
@@ -69,30 +69,29 @@ const entities = [
         username: configService.get<string>('LOCAL_DB_USER'),
         password: configService.get<string>('LOCAL_DB_PASSWORD') || '',
         database: configService.get<string>('LOCAL_DB_NAME'),
-        entities: entities,
-        synchronize: configService.get('NODE_ENV') === 'development', //Edité: de false a configService.get('NODE_ENV') === 'development', es decir, la sincronía es true sólo en desarrollo
-
-        logging: configService.get('NODE_ENV') === 'development',
-        migrations: ['dist/migrations/*.js'],
-        migrationsRun: false,
-      }),
-    }),
-
-    // Neon PostgreSQL (Producción)
-    TypeOrmModule.forRootAsync({
-      name: 'neon',
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        url: configService.get<string>('NEON_DATABASE_URL'),
-        entities: entities,
+        entities,
         synchronize: false,
-        ssl: {
-          rejectUnauthorized: false,
-        },
+        logging: configService.get('NODE_ENV') === 'development',
       }),
     }),
+
+    // Neon PostgreSQL (PROD ONLY)
+    ...(process.env.NODE_ENV === 'production'
+      ? [
+          TypeOrmModule.forRootAsync({
+            name: 'neon',
+            imports: [ConfigModule],
+            inject: [ConfigService],
+            useFactory: (configService: ConfigService) => ({
+              type: 'postgres',
+              url: configService.get<string>('NEON_DATABASE_URL'),
+              entities,
+              synchronize: false,
+              ssl: { rejectUnauthorized: false },
+            }),
+          }),
+        ]
+      : []),
   ],
 })
 export class DatabaseModule { }

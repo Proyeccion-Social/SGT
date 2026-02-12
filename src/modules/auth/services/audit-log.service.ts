@@ -24,7 +24,7 @@ interface CreateAuditLogDto {
 @Injectable()
 export class AuditService {
   constructor(
-    @InjectRepository(AuditLog)
+    @InjectRepository(AuditLog,'local')
     private auditLogRepository: Repository<AuditLog>,
   ) {}
 

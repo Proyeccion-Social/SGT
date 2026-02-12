@@ -7,13 +7,13 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User, UserStatus } from '../../users/entities/user.entity';
 import { JwtPayload } from '../interfaces/jwt-payload.interface';
+import { UserService } from '../../users/services/users.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     private configService: ConfigService,
-    @InjectRepository(User)
-    private userRepository: Repository<User>,
+    private userService: UserService,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -29,9 +29,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     // Buscar usuario
-    const user = await this.userRepository.findOne({
-      where: { idUser: payload.sub },
-    });
+    const user = await this.userService.findById(payload.sub);
 
     if (!user) {
       throw new UnauthorizedException('User not found');

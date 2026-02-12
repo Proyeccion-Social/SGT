@@ -9,7 +9,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 @Injectable()
 export class SessionService {
   constructor(
-    @InjectRepository(Session)
+    @InjectRepository(Session, 'local')
     private sessionRepository: Repository<Session>,
   ) { }
 
