@@ -6,7 +6,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthController } from './controllers/auth.controller';
 import { AuthService } from './services/auth.service';
 import { User } from '../users/entities/user.entity';
-import { EmailConfirmation } from './entities/email-confirmation.entity';
+//import { EmailConfirmation } from './entities/email-confirmation.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { Session } from './entities/session.entity';
 import { AuditLog } from './entities/audit-log.entity';
@@ -29,7 +29,7 @@ import { StudentModule } from '../student/student.module';
         AuditLog,
         PasswordResetToken,
         EmailVerificationToken,
-        EmailConfirmation,
+        //EmailConfirmation,
       ],
       'local',
     ),

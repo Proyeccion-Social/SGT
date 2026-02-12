@@ -267,9 +267,9 @@ export class AuthService {
 
     // 8. Crear sesión
     const session = await this.sessionService.createSession({
-      id_user: user.idUser,
+      user,
       refresh_token: refreshToken,
-      ip_address: ip,
+      //ip_address: ip,
       user_agent: userAgent,
     });
 
@@ -569,7 +569,7 @@ export class AuthService {
     activeSessions: number;
     sessions: Array<{
       id: string;
-      ipAddress: string;
+      //ipAddress: string;
       userAgent: string;
       createdAt: Date;
       expiresAt: Date;
@@ -581,7 +581,7 @@ export class AuthService {
       activeSessions: sessions.length,
       sessions: sessions.map((s) => ({
         id: s.id_session,
-        ipAddress: s.ip_address || 'Unknown',
+        //ipAddress: s.ip_address || 'Unknown',
         userAgent: s.user_agent || 'Unknown',
         createdAt: s.created_at,
         expiresAt: s.expires_at,

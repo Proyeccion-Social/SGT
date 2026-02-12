@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, MoreThan, LessThan } from 'typeorm';
 import { Session } from '../entities/session.entity';
+import { User } from '../../users/entities/user.entity';
 import * as bcrypt from 'bcrypt';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
@@ -10,23 +11,21 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 export class SessionService {
   constructor(
     @InjectRepository(Session, 'local')
-    private sessionRepository: Repository<Session>,
-  ) { }
+    private readonly sessionRepository: Repository<Session>,
+  ) {}
 
   async createSession(data: {
-    id_user: string;
+    user: User;
     refresh_token: string;
-    ip_address?: string;
     user_agent?: string;
   }): Promise<Session> {
     const hashedToken = await bcrypt.hash(data.refresh_token, 10);
 
     const session = this.sessionRepository.create({
-      id_user: data.id_user,
+      user: data.user,
       refresh_token_hash: hashedToken,
-      ip_address: data.ip_address,
       user_agent: data.user_agent,
-      expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 días
+      expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     });
 
     return this.sessionRepository.save(session);
@@ -58,10 +57,13 @@ export class SessionService {
     sessionId: string,
     data: { refresh_token?: string; last_activity_at?: Date },
   ): Promise<void> {
-    const updateData: any = {};
+    const updateData: Partial<Session> = {};
 
     if (data.refresh_token) {
-      updateData.refresh_token_hash = await bcrypt.hash(data.refresh_token, 10);
+      updateData.refresh_token_hash = await bcrypt.hash(
+        data.refresh_token,
+        10,
+      );
     }
 
     if (data.last_activity_at) {
@@ -90,7 +92,7 @@ export class SessionService {
   async revokeAllUserSessions(userId: string): Promise<void> {
     await this.sessionRepository.update(
       {
-        id_user: userId,
+        user: { idUser: userId },
         revoked_at: IsNull(),
       },
       {
@@ -102,17 +104,17 @@ export class SessionService {
   async getUserActiveSessions(userId: string): Promise<Session[]> {
     return this.sessionRepository.find({
       where: {
-        id_user: userId,
+        user: { idUser: userId },
         revoked_at: IsNull(),
         expires_at: MoreThan(new Date()),
       },
       order: {
         created_at: 'DESC',
       },
+      relations: ['user'],
     });
   }
 
-  // CRON: Ejecutar diariamente a medianoche
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async cleanupExpiredSessions(): Promise<void> {
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);

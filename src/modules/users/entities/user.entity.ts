@@ -10,7 +10,7 @@ import {
 import { Student } from '../../student/entities/student.entity';
 import { Tutor } from '../../tutor/entities/tutor.entity';
 import { Session} from '../../auth/entities/session.entity';
-import { EmailConfirmation } from '../../auth/entities/email-confirmation.entity';
+//import { EmailConfirmation } from '../../auth/entities/email-confirmation.entity';
 
 export enum UserRole {
   STUDENT = 'STUDENT',
@@ -83,10 +83,9 @@ export class User {
   @OneToOne(() => Tutor, (tutor) => tutor.user)
   tutor: Tutor;
 
+ // @OneToMany(() => Session, (session) => session.user) Se elimina la la relación con session pues se estableció que era redundande desde el lado de Session
+ // sessions: Session[];
 
-
-  @OneToMany(() => Session, (session) => session.user)
-  sessions: Session[];
-  @OneToMany(() => EmailConfirmation, (emailConfirmation) => emailConfirmation.user)
-  emailConfirmations: EmailConfirmation[];
+  //@OneToMany(() => EmailConfirmation, (emailConfirmation) => emailConfirmation.user)
+  //emailConfirmations: EmailConfirmation[];
 }

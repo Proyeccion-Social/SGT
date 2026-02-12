@@ -6,7 +6,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { User } from '../users/entities/user.entity';
 import { Student } from '../student/entities/student.entity';
 import { Tutor } from '../tutor/entities/tutor.entity';
-import { EmailConfirmation } from '../auth/entities/email-confirmation.entity';
+//import { EmailConfirmation } from '../auth/entities/email-confirmation.entity';
 
 // Subject entities
 import { Subject } from '../subjects/entities/subjects.entity';
@@ -52,7 +52,7 @@ const entities = [
   AuditLog,
   PasswordResetToken,
   EmailVerificationToken,
-  EmailConfirmation,
+  //EmailConfirmation,
 ];
 
 @Module({
