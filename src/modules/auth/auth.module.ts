@@ -19,6 +19,7 @@ import { EmailVerificationService } from './services/email-verification.service'
 import { UsersModule } from '../users/users.module';
 import { TutorModule } from '../tutor/tutor.module';
 import { StudentModule } from '../student/student.module';
+import { JwtStrategy } from './strategies/jwt.strategy';
 
 @Module({
   imports: [
@@ -34,7 +35,7 @@ import { StudentModule } from '../student/student.module';
       'local',
     ),
 
-    // ✅ JWT configurado correctamente
+    //  JWT configurado correctamente
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -48,8 +49,8 @@ import { StudentModule } from '../student/student.module';
 
     NotificationsModule,
     UsersModule,
-    StudentModule,
-    TutorModule,
+    //StudentModule,
+    //TutorModule,
   ],
   controllers: [AuthController],
   providers: [
@@ -58,6 +59,7 @@ import { StudentModule } from '../student/student.module';
     AuditService,
     PasswordResetService,
     EmailVerificationService,
+    JwtStrategy
   ],
   exports: [AuthService, TypeOrmModule, JwtModule],
 })

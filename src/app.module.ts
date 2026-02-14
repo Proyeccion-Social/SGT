@@ -21,12 +21,15 @@ import { envValidationSchema } from './config/env.config';
     DatabaseModule,
     AuthModule,
     UsersModule,
-    SubjectsModule,
-    AvailabilityModule,
+    
+    //SubjectsModule,
+    //AvailabilityModule,
     NotificationsModule,
-    TutorModule,
-    SchedulingModule,
-    EvaluationModule,
+    //TutorModule,
+    //SchedulingModule,
+    //EvaluationModule,
+
+    
   ],
 })
 export class AppModule { }

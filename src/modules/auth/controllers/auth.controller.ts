@@ -38,12 +38,15 @@ export class AuthController {
   // POST /api/v1/auth/register
   // Registrar estudiante
   // =====================================================
+
+  /* Comentado para probar el auth Service sin el registro (dependería de student y tutor modules que no están completos al 100%). 
   @Public()
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   async register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
   }
+  */
 
   // =====================================================
   // POST /api/v1/auth/confirm-email
@@ -227,4 +230,6 @@ export class AuthController {
       content: csv,
     };
   }
+
+  
 }

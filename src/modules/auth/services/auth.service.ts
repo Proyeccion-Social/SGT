@@ -29,8 +29,8 @@ export class AuthService {
 
   constructor(
     private readonly userService: UserService, // Service, no repository
-    private readonly studentService: StudentService,
-    private readonly tutorService: TutorService,
+    //private readonly studentService: StudentService,
+    //private readonly tutorService: TutorService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly sessionService: SessionService,
@@ -43,6 +43,7 @@ export class AuthService {
   // =====================================================
   // REGISTRO DE ESTUDIANTE
   // =====================================================
+  /*
   async register(dto: RegisterDto): Promise<{ message: string }> {
     // 1. Validar que las contraseñas coincidan
     if (dto.password !== dto.confirmPassword) {
@@ -97,6 +98,7 @@ export class AuthService {
         'Registration successful. Please check your email to verify your account.',
     };
   }
+    */
 
   // =====================================================
   // CONFIRMAR EMAIL
@@ -281,6 +283,8 @@ export class AuthService {
       userAgent,
     );
 
+    /* Fragmento comentado pues dependía de servicio de tutor-profile, que aún no se ha implementado por completo  
+
     // 10. Verificar si es tutor y necesita acciones adicionales
     let requiresPasswordChange = false;
     let requiresProfileCompletion = false;
@@ -295,6 +299,8 @@ export class AuthService {
       ));
     }
 
+    */
+
     return {
       accessToken,
       refreshToken,
@@ -306,8 +312,8 @@ export class AuthService {
         emailVerified: !!user.email_verified_at,
       },
       ...(user.role === UserRole.TUTOR && {
-        requiresPasswordChange,
-        requiresProfileCompletion,
+        //requiresPasswordChange,
+        //requiresProfileCompletion,
       }),
     };
   }

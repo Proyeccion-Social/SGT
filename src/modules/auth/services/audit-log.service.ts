@@ -10,8 +10,8 @@ import {
 import { User } from '../../users/entities/user.entity';
 
 interface CreateAuditLogDto {
-  id_user?: string;
-  id_session?: string;
+  id_user?: string | null;
+  id_session?: string | null;
   action: AuditAction;
   result: AuditResult;
   email_attempted?: string;
@@ -63,7 +63,7 @@ export class AuditService {
     userId?: string,
   ): Promise<void> {
     await this.log({
-      id_user: userId || '',
+      id_user: userId ?? null,
       action: AuditAction.LOGIN_FAILED,
       result: AuditResult.FAILED,
       email_attempted: email,

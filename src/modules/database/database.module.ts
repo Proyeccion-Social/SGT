@@ -36,8 +36,8 @@ const entities = [
   User,
   Student,
   Tutor,
-  Subject,
   TutorImpartSubject,
+  Subject,
   StudentInterestedSubject,
   Availability,
   TutorHaveAvailability,
@@ -46,6 +46,7 @@ const entities = [
   StudentParticipateSession,
   Question,
   Answer,
+  
 
   //Nuevas entidades de Auth
   AuthSession,
