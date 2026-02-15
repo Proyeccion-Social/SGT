@@ -1,15 +1,18 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { TutorImpartSubject } from './tutor-subject.entity';
 import { StudentInterestedSubject } from './student-subject.entity';
 import { Session } from '../../scheduling/entities/session.entity';
 
-@Entity('subject')
+@Entity('subjects')
 export class Subject {
   @PrimaryGeneratedColumn('uuid', { name: 'id_subject' })
   idSubject: string;
 
   @Column({ type: 'varchar', length: 100, nullable: false, unique: true })
   name: string;
+
+  @Column({ type: 'boolean', default: true })
+  isActive: boolean;
 
   @OneToMany(
     () => TutorImpartSubject,

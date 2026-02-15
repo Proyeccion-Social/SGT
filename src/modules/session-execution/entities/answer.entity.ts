@@ -6,15 +6,15 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { Question } from './question.entity';
-import { StudentParticipateSession } from '../../scheduling/entities/student_participate_session';
+import { StudentParticipateSession } from '../../scheduling/entities/student-participate-session.entity';
 
 @Entity('answers')
 export class Answer {
   @PrimaryColumn({ name: 'id_question', type: 'bigint' })
   idQuestion: number;
 
-  @PrimaryColumn({ name: 'id_student', type: 'bigint' })
-  idStudent: number;
+  @PrimaryColumn({ name: 'id_student', type: 'uuid' })
+  idStudent: string;
 
   @PrimaryColumn({ name: 'id_session', type: 'bigint' })
   idSession: number;

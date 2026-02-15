@@ -12,8 +12,8 @@ import { Tutor } from '../../tutor/entities/tutor.entity';
 
 @Entity('scheduled_sessions')
 export class ScheduledSession {
-  @PrimaryColumn({ name: 'id_tutor', type: 'bigint' })
-  idTutor: number;
+  @PrimaryColumn({ name: 'id_tutor', type: 'uuid' })
+  idTutor: string;
 
   @PrimaryColumn({ name: 'id_availability', type: 'bigint' })
   idAvailability: number;

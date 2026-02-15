@@ -19,7 +19,7 @@ export class Tutor {
   @Column({ type: 'varchar', length: 20, nullable: true })
   phone: string | null;
 
-  @Column({ name: 'isActive', type: 'boolean', default: true })
+  @Column({ name: 'isActive', type: 'boolean', default: false })
   isActive: boolean;
 
   @Column({

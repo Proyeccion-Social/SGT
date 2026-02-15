@@ -1,5 +1,5 @@
 // src/subjects/services/subject.service.ts
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Subject } from '../entities/subjects.entity';
@@ -8,11 +8,11 @@ import { TutorImpartSubject } from '../entities/tutor-subject.entity';
 @Injectable()
 export class SubjectsService {
   constructor(
-    @InjectRepository(Subject,'local')
+    @InjectRepository(Subject, 'local')
     private readonly subjectRepository: Repository<Subject>,
-    @InjectRepository(TutorImpartSubject,'local')
+    @InjectRepository(TutorImpartSubject, 'local')
     private readonly tutorImpartSubjectRepository: Repository<TutorImpartSubject>,
-  ) {}
+  ) { }
 
   // =====================================================
   // CRUD BÁSICO DE SUBJECTS
@@ -72,18 +72,27 @@ export class SubjectsService {
     tutorId: string,
     subjectIds: string[],
   ): Promise<void> {
-    // 1. Validar que las materias existan
-    const subjectsExist = await this.validateSubjectsExist(subjectIds);
-    if (!subjectsExist) {
-      throw new NotFoundException('One or more subjects do not exist');
+    //Validación de límite de materias 
+    if (subjectIds.length < 1) {
+      throw new BadRequestException('Debe asignar al menos una materia');
     }
 
-    // 2. Eliminar asignaciones anteriores
+    if (subjectIds.length > 3) {
+      throw new BadRequestException('No puede asignar más de 3 materias');
+    }
+
+    //Validación de existencia de materias
+    const exists = await this.validateSubjectsExist(subjectIds);
+    if (!exists) {
+      throw new NotFoundException('Algunas materias no existen');
+    }
+
+    // Eliminar asignaciones anteriores
     await this.tutorImpartSubjectRepository.delete({
       idTutor: tutorId,
     });
 
-    // 3. Crear nuevas asignaciones
+    // Crear nuevas asignaciones
     const relations = subjectIds.map((subjectId) =>
       this.tutorImpartSubjectRepository.create({
         idTutor: tutorId,

@@ -4,7 +4,7 @@ import { SchedulingService } from './services/scheduling.service';
 import { SessionsController } from './controllers/sessions.controller';
 import { Session } from './entities/session.entity';
 import { ScheduledSession } from './entities/scheduled-session.entity';
-import { StudentParticipateSession } from './entities/student_participate_session';
+import { StudentParticipateSession } from './entities/student-participate-session.entity';
 
 @Module({
   imports: [
@@ -16,4 +16,4 @@ import { StudentParticipateSession } from './entities/student_participate_sessio
   controllers: [SessionsController],
   exports: [TypeOrmModule, SchedulingService],
 })
-export class SchedulingModule {}
+export class SchedulingModule { }

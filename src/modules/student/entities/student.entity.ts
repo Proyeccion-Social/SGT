@@ -8,7 +8,7 @@ import {
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { StudentInterestedSubject } from '../../subjects/entities/student-subject.entity';
-import { StudentParticipateSession } from '../../scheduling/entities/student_participate_session';
+import { StudentParticipateSession } from '../../scheduling/entities/student-participate-session.entity';
 
 export enum PreferredModality {
   PRES = 'PRES',
