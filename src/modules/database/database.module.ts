@@ -20,7 +20,7 @@ import { TutorHaveAvailability } from '../availability/entities/tutor-availabili
 // Session entities
 import { Session } from '../scheduling/entities/session.entity';
 import { ScheduledSession } from '../scheduling/entities/scheduled-session.entity';
-import { StudentParticipateSession } from '../scheduling/entities/student_participate_session';
+import { StudentParticipateSession } from '../scheduling/entities/student-participate-session.entity';
 
 // Evaluation entities
 import { Question } from '../session-execution/entities/question.entity';
@@ -46,7 +46,7 @@ const entities = [
   StudentParticipateSession,
   Question,
   Answer,
-  
+
 
   //Nuevas entidades de Auth
   AuthSession,
@@ -76,6 +76,7 @@ const entities = [
       }),
     }),
 
+    /*
     // Neon PostgreSQL (PROD ONLY)
     ...(process.env.NODE_ENV === 'production'
       ? [
@@ -93,6 +94,7 @@ const entities = [
           }),
         ]
       : []),
+      */
   ],
 })
 export class DatabaseModule { }

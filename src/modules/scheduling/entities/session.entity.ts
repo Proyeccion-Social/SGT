@@ -10,7 +10,7 @@ import {
 } from 'typeorm';
 import { Tutor } from '../../tutor/entities/tutor.entity';
 import { Subject } from '../../subjects/entities/subjects.entity';
-import { StudentParticipateSession } from './student_participate_session';
+import { StudentParticipateSession } from './student-participate-session.entity';
 import { ScheduledSession } from './scheduled-session.entity';
 
 export enum SessionType {
