@@ -195,6 +195,34 @@ export class TutorService {
   }
 
   // =====================================================
+  // RF14: Visualizar tutores por materia (Código o nombre parcial)
+  // =====================================================
+  async findTutorsBySubject(subjectTerm: string) {
+    const query = this.tutorRepository.createQueryBuilder('tutor')
+      .innerJoinAndSelect('tutor.user', 'user')
+      .leftJoinAndSelect('tutor.tutorImpartSubjects', 'tutorImpartSubjects')
+      .leftJoinAndSelect('tutorImpartSubjects.subject', 'subject')
+      .where('tutor.isActive = :isActive', { isActive: true })
+      .andWhere('tutor.profile_completed = :profileCompleted', { profileCompleted: true });
+
+    query.andWhere('subject.name ILIKE :subjectName', { subjectName: `%${subjectTerm}%` });
+
+    const tutors = await query.getMany();
+
+    return tutors.map((tutor) => ({
+      id: tutor.idUser,
+      name: tutor.user.name,
+      photo: tutor.urlImage,
+      subjects: tutor.tutorImpartSubjects.map((tis) => ({
+        id: tis.subject.idSubject,
+        name: tis.subject.name,
+      })),
+      maxWeeklyHours: tutor.limitDisponibility,
+    }));
+  }
+
+
+  // =====================================================
   // MÉTODOS AUXILIARES PARA AUTH
   // =====================================================
 
@@ -283,7 +311,7 @@ export class TutorService {
     return subjects.map(s => ({
       id: s.idSubject,
       name: s.name,
-      code: s.code,
+
     }));
   }
 

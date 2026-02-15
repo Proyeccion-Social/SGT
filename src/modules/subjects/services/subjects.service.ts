@@ -8,11 +8,11 @@ import { TutorImpartSubject } from '../entities/tutor-subject.entity';
 @Injectable()
 export class SubjectsService {
   constructor(
-    @InjectRepository(Subject,'local')
+    @InjectRepository(Subject, 'local')
     private readonly subjectRepository: Repository<Subject>,
-    @InjectRepository(TutorImpartSubject,'local')
+    @InjectRepository(TutorImpartSubject, 'local')
     private readonly tutorImpartSubjectRepository: Repository<TutorImpartSubject>,
-  ) {}
+  ) { }
 
   // =====================================================
   // CRUD BÁSICO DE SUBJECTS
@@ -73,11 +73,11 @@ export class SubjectsService {
     subjectIds: string[],
   ): Promise<void> {
     //Validación de límite de materias 
-    if (subjectIds.length < 1){
+    if (subjectIds.length < 1) {
       throw new BadRequestException('Debe asignar al menos una materia');
     }
 
-    if (subjectIds.length > 3){
+    if (subjectIds.length > 3) {
       throw new BadRequestException('No puede asignar más de 3 materias');
     }
 

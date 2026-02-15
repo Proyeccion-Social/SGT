@@ -4,7 +4,7 @@ import { Public } from '../../auth/decorators/public.decorator';
 
 @Controller('subjects')
 export class SubjectsController {
-    constructor(private readonly subjectsService: SubjectsService) {}
+    constructor(private readonly subjectsService: SubjectsService) { }
 
     // =====================================================
     // GET /api/v1/subjects
@@ -20,7 +20,7 @@ export class SubjectsController {
             data: subjects.map(s => ({
                 id: s.idSubject,
                 name: s.name,
-                code: s.code,
+
             })),
             total: subjects.length,
         };
@@ -34,18 +34,18 @@ export class SubjectsController {
     @Get(':id')
     async findOne(@Param('id') id: string) {
         const subject = await this.subjectsService.findById(id);
-        
+
         if (!subject) {
-        throw new NotFoundException(`Subject with id ${id} not found`);
+            throw new NotFoundException(`Subject with id ${id} not found`);
         }
-        
+
         return {
-        success: true,
-        data: {
-            id: subject.idSubject,
-            name: subject.name,
-            code: subject.code,
-        },
+            success: true,
+            data: {
+                id: subject.idSubject,
+                name: subject.name,
+
+            },
         };
     }
 
@@ -63,10 +63,10 @@ export class SubjectsController {
         }
 
         const tutorIds = await this.subjectsService.getTutorsBySubject(subjectId);
-        
+
         // TODO: Obtener información completa de tutores desde TutorService
         // Por ahora solo retornar IDs
-        
+
         return {
             success: true,
             subjectId,

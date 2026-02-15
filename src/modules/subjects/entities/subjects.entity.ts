@@ -11,17 +11,8 @@ export class Subject {
   @Column({ type: 'varchar', length: 100, nullable: false, unique: true })
   name: string;
 
-  @Column({ type: 'int', unique: true, nullable: true })
-  code: number;
-
   @Column({ type: 'boolean', default: true })
   isActive: boolean;
-
-  @CreateDateColumn()
-  createdAt: Date;
-
-  @UpdateDateColumn()
-  updatedAt: Date;
 
   @OneToMany(
     () => TutorImpartSubject,

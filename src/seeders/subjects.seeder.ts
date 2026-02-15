@@ -9,17 +9,17 @@ export class SubjectsSeeder {
 
         const subjects = [
             //Matemáticas
-            { name: "Cálculo Diferencial", code: 25941},
-            { name: "Cálculo Integral", code: 7},
-            { name: "Ecuaciones Diferenciales", code: 88},
-            { name: "Matemáticas Discretas", code: 26130},
-            { name: "Álgebra Lineal", code: 9},
-            { name: "Física Newtoniana", code: 25942},
+            { name: "Cálculo Diferencial" },
+            { name: "Cálculo Integral" },
+            { name: "Ecuaciones Diferenciales" },
+            { name: "Matemáticas Discretas" },
+            { name: "Álgebra Lineal" },
+            { name: "Física Newtoniana" },
 
             //Programaciones
-            { name: "Programación Básica", code: 2},
-            { name: "Programación Orientada a Objetos", code: 10},
-            { name: "Programación Avanzada", code: 410},
+            { name: "Programación Básica" },
+            { name: "Programación Orientada a Objetos" },
+            { name: "Programación Avanzada" },
         ];
 
         for (const subjectData of subjects) {

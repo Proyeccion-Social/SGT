@@ -11,37 +11,33 @@ export class AvailabilityController {
     constructor(
         private readonly subjectsService: SubjectsService,
         private readonly tutorService: TutorService,
-    ) {}
-    
+    ) { }
+
     @Get('subjects/:subjectId/tutors')
     @UseGuards(JwtAuthGuard)
     async getTutorsBySubject(
-    @Param('subjectId') subjectId: string,
-    @Query() filters: FilterTutorsDto,
+        @Param('subjectId') subjectId: string,
+        @Query() filters: FilterTutorsDto,
     ) {
-    //====================================================
-    // GET /api/v1/availability/subjects/:subjectId/tutors
-    // RF-14: Visualizar tutores por materia
-    //====================================================
-    
-    // 1. Validar que la materia exista
-    const subject = await this.subjectsService.findById(subjectId);
-    if (!subject) {
-        throw new NotFoundException('RESOURCE_02: Subject not found');
-    }
+        //====================================================
+        // GET /api/v1/availability/subjects/:subjectId/tutors
+        // RF-14: Visualizar tutores por materia (Código o Nombre)
+        //====================================================
 
-    // 2. Obtener tutores que imparten la materia
-    const tutorIds = await this.subjectsService.getTutorsBySubject(subjectId);
+        let subject;
 
-    return {
-        success: true,
-        subject: {
-        id: subject.idSubject,
-        name: subject.name,
-        code: subject.code,
-        },
-        data: tutorIds,
-        total: tutorIds.length,
-    };
+        // 2. Obtener tutores usando el TutorService (que soporta Nombre parcial)
+        const tutors = await this.tutorService.findTutorsBySubject(subjectId);
+
+        return {
+            success: true,
+            subject: subject ? {
+                id: subject.idSubject,
+                name: subject.name,
+
+            } : { name: subjectId }, // Si buscamos por nombre, devolver el término
+            data: tutors,
+            total: tutors.length,
+        };
     }
 }
