@@ -32,8 +32,8 @@ export enum SessionStatus {
 
 @Entity('sessions')
 export class Session {
-  @PrimaryGeneratedColumn({ name: 'id_session', type: 'bigint' })
-  idSession: number;
+  @PrimaryGeneratedColumn('uuid', { name: 'id_session' })
+  idSession: string;
 
   @Column({ name: 'id_tutor', type: 'uuid', nullable: false })
   idTutor: string;
