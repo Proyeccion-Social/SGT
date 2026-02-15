@@ -1,4 +1,258 @@
-import { Injectable } from '@nestjs/common';
+// src/tutor/services/tutor.service.ts
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { randomBytes } from 'crypto';
+import { Tutor } from '../entities/tutor.entity';
+import { CreateTutorDto } from '../dto/create-tutor.dto';
+import { CompleteTutorProfileDto } from '../dto/complete-tutor-profile.dto';
+import { TutorPublicProfileDto } from '../dto/tutor-public-profile.dto';
+import { UserService } from '../../users/services/users.service';
+import { SubjectsService } from '../../subjects/services/subjects.service';
+import { NotificationsService } from '../../notifications/services/notifications.service';
 
 @Injectable()
-export class TutorsService {}
+export class TutorService {
+  constructor(
+    @InjectRepository(Tutor,'local')
+    private readonly tutorRepository: Repository<Tutor>, 
+    private readonly userService: UserService,
+    private readonly subjectService: SubjectsService, 
+    private readonly notificationService: NotificationsService,
+  ) {}
+
+  // =====================================================
+  // RF08: CREAR TUTOR (ADMIN)
+  // =====================================================
+  async createByAdmin(adminId: string, dto: CreateTutorDto) {
+    // 1. Verificar que quien crea es admin
+    const isAdmin = await this.userService.isAdmin(adminId);
+    if (!isAdmin) {
+      throw new ForbiddenException('Only administrators can create tutors');
+    }
+
+    // 2. Validar email institucional
+    if (!dto.email.endsWith('@udistrital.edu.co')) {
+      throw new BadRequestException('Email must be institutional');
+    }
+
+    // 3. Verificar que el email no exista
+    const exists = await this.userService.existsByEmail(dto.email);
+    if (exists) {
+      throw new BadRequestException('Email already exists');
+    }
+
+    // 4. Generar contraseña temporal
+    const temporaryPassword = this.generateTemporaryPassword();
+
+    // 5. Crear usuario tutor usando UserService
+    const savedUser = await this.userService.createTutorUser({
+      name: dto.name,
+      email: dto.email,
+      temporaryPassword,
+    });
+
+    // 6. Crear registro de tutor (esto sí es responsabilidad de TutorService)
+    const tutor = this.tutorRepository.create({
+      idUser: savedUser.idUser,
+      phone: null,
+      isActive: false,
+      profile_completed: false,
+      urlImage: null,
+      limitDisponibility: null,
+    });
+
+    await this.tutorRepository.save(tutor);
+
+    // 7. Enviar credenciales por email
+    await this.notificationService.sendTutorCredentials(
+      savedUser.email,
+      savedUser.name,
+      temporaryPassword,
+    );
+
+    return {
+      message: 'Tutor created successfully',
+      tutor: {
+        id: savedUser.idUser,
+        name: savedUser.name,
+        email: savedUser.email,
+      },
+    };
+  }
+
+  // =====================================================
+  // RF09: COMPLETAR PERFIL DE TUTOR
+  // =====================================================
+  async completeProfile(userId: string, dto: CompleteTutorProfileDto) {
+    // 1. Verificar que sea tutor
+    const isTutor = await this.userService.isTutor(userId);
+    if (!isTutor) {
+      throw new ForbiddenException('Only tutors can complete this profile');
+    }
+
+    // 2. Verificar que haya cambiado la contraseña temporal
+    const hasTemporaryPassword =
+      await this.userService.hasTemporaryPassword(userId);
+    if (hasTemporaryPassword) {
+      throw new BadRequestException('Change password first');
+    }
+
+    // 3. Buscar tutor
+    const tutor = await this.tutorRepository.findOne({
+      where: { idUser: userId },
+    });
+
+    if (!tutor) {
+      throw new NotFoundException('Tutor profile not found');
+    }
+
+    // 4. Actualizar datos del tutor
+    tutor.phone = dto.phone;
+    tutor.urlImage = dto.url_image;
+    tutor.limitDisponibility = dto.max_weekly_hours;
+    tutor.profile_completed = true;
+    tutor.isActive = true;
+
+    await this.tutorRepository.save(tutor);
+
+    // 5.  Delegar la asignación de materias al SubjectService
+    await this.subjectService.assignSubjectsToTutor(userId, dto.subject_ids);
+
+    return { message: 'Profile completed successfully' };
+  }
+
+  // =====================================================
+  // RF11: CONSULTAR PERFIL PÚBLICO
+  // =====================================================
+  async getPublicProfile(tutorId: string): Promise<TutorPublicProfileDto> {
+    // 1. Buscar tutor con relaciones
+    const tutor = await this.tutorRepository.findOne({
+      where: {
+        idUser: tutorId,
+        profile_completed: true,
+        isActive: true,
+      },
+      relations: [
+        'user',
+        'tutorImpartSubjects',
+        'tutorImpartSubjects.subject',
+        'tutorHaveAvailabilities',
+        'tutorHaveAvailabilities.availability',
+      ],
+    });
+
+    if (!tutor) {
+      throw new NotFoundException('Tutor not found or profile not completed');
+    }
+
+    // 2.  Obtener materias usando SubjectService (alternativa más limpia)
+    const subjects = await this.subjectService.getSubjectsByTutor(tutorId);
+
+    // 3. Calcular rating promedio (placeholder)
+    const averageRating = 0;
+    const totalRatings = 0;
+
+    // 4. Contar sesiones completadas (placeholder)
+    const completedSessions = 0;
+
+    // 5. Obtener modalidades disponibles
+    const availableModalities = [
+      ...new Set(
+        tutor.tutorHaveAvailabilities
+          .filter((ta) => ta.modality !== null)
+          .map((ta) => ta.modality),
+      ),
+    ];
+
+    // 6. Calcular horas usadas esta semana (placeholder)
+    const currentWeekHoursUsed = 0;
+    const availableHoursThisWeek =
+      (tutor.limitDisponibility ?? 0) - currentWeekHoursUsed;
+
+    return {
+      id: tutor.idUser,
+      name: tutor.user.name,
+      photo: tutor.urlImage,
+      subjects: subjects.map((s) => ({
+        id: s.idSubject.toString(),
+        name: s.name,
+      })),
+      averageRating,
+      totalRatings,
+      completedSessions,
+      availableModalities,
+      maxWeeklyHours: tutor.limitDisponibility ?? 0,
+      currentWeekHoursUsed,
+      availableHoursThisWeek: Math.max(0, availableHoursThisWeek ?? 0),
+    };
+  }
+
+  // =====================================================
+  // MÉTODOS AUXILIARES PARA AUTH
+  // =====================================================
+
+  /**
+   * Crear registro de tutor asociado a un usuario
+   */
+  async createFromUser(userId: string): Promise<Tutor> {
+    const tutor = this.tutorRepository.create({
+      idUser: userId,
+      profile_completed: false,
+      isActive: false,
+    });
+
+    return await this.tutorRepository.save(tutor);
+  }
+
+  /**
+   * Verificar si el perfil está completo
+   */
+  async isProfileComplete(userId: string): Promise<boolean> {
+    const tutor = await this.tutorRepository.findOne({
+      where: { idUser: userId },
+    });
+
+    return tutor?.profile_completed ?? false;
+  }
+
+  /**
+   * Obtener tutor por userId
+   */
+  async findByUserId(userId: string): Promise<Tutor | null> {
+    return await this.tutorRepository.findOne({
+      where: { idUser: userId },
+    });
+  }
+
+  /**
+   * Activar/desactivar tutor
+   */
+  async setActive(userId: string, isActive: boolean): Promise<void> {
+    await this.tutorRepository.update(
+      { idUser: userId },
+      { isActive },
+    );
+
+    // Si se desactiva, eliminar asignaciones de materias
+    if (!isActive) {
+      await this.subjectService.removeAllSubjectsFromTutor(userId);
+    }
+  }
+
+  // =====================================================
+  // HELPERS PRIVADOS
+  // =====================================================
+  private generateTemporaryPassword(): string {
+    const randomPart = randomBytes(4).toString('hex');
+    const year = new Date().getFullYear();
+    return `Tutor${year}!${randomPart}`;
+  }
+  
+  
+}

@@ -6,6 +6,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { User } from '../users/entities/user.entity';
 import { Student } from '../student/entities/student.entity';
 import { Tutor } from '../tutor/entities/tutor.entity';
+//import { EmailConfirmation } from '../auth/entities/email-confirmation.entity';
 
 // Subject entities
 import { Subject } from '../subjects/entities/subjects.entity';
@@ -25,12 +26,18 @@ import { StudentParticipateSession } from '../scheduling/entities/student_partic
 import { Question } from '../session-execution/entities/question.entity';
 import { Answer } from '../session-execution/entities/answer.entity';
 
+// AUTH ENTITIES (NUEVAS)
+import { Session as AuthSession } from '../auth/entities/session.entity'; // Renombrado para evitar conflicto con la entidad de sesiones de tutoría
+import { AuditLog } from '../auth/entities/audit-log.entity';
+import { PasswordResetToken } from '../auth/entities/password-reset-token.entity';
+import { EmailVerificationToken } from '../auth/entities/email-verification-token.entity';
+
 const entities = [
   User,
   Student,
   Tutor,
-  Subject,
   TutorImpartSubject,
+  Subject,
   StudentInterestedSubject,
   Availability,
   TutorHaveAvailability,
@@ -39,45 +46,53 @@ const entities = [
   StudentParticipateSession,
   Question,
   Answer,
+  
+
+  //Nuevas entidades de Auth
+  AuthSession,
+  AuditLog,
+  PasswordResetToken,
+  EmailVerificationToken,
+  //EmailConfirmation,
 ];
 
 @Module({
   imports: [
-    // Local PostgreSQL
+    // Local PostgreSQL (DEV)
     TypeOrmModule.forRootAsync({
       name: 'local',
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
         type: 'postgres',
-        host: configService.get('LOCAL_DB_HOST'),
-        port: configService.get('LOCAL_DB_PORT'),
-        username: configService.get('LOCAL_DB_USER'),
-        password: configService.get('LOCAL_DB_PASSWORD'),
-        database: configService.get('LOCAL_DB_NAME'),
-        entities: entities,
-        synchronize: false, 
+        host: configService.get<string>('LOCAL_DB_HOST'),
+        port: configService.get<number>('LOCAL_DB_PORT'),
+        username: configService.get<string>('LOCAL_DB_USER'),
+        password: configService.get<string>('LOCAL_DB_PASSWORD') || '',
+        database: configService.get<string>('LOCAL_DB_NAME'),
+        entities,
+        synchronize: false,
         logging: configService.get('NODE_ENV') === 'development',
-        migrations: ['dist/migrations/*.js'],
-        migrationsRun: false,
       }),
     }),
 
-    // Neon PostgreSQL (Producción)
-    TypeOrmModule.forRootAsync({
-      name: 'neon',
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        url: configService.get('NEON_DATABASE_URL'),
-        entities: entities,
-        synchronize: false,
-        ssl: {
-          rejectUnauthorized: false,
-        },
-      }),
-    }),
+    // Neon PostgreSQL (PROD ONLY)
+    ...(process.env.NODE_ENV === 'production'
+      ? [
+          TypeOrmModule.forRootAsync({
+            name: 'neon',
+            imports: [ConfigModule],
+            inject: [ConfigService],
+            useFactory: (configService: ConfigService) => ({
+              type: 'postgres',
+              url: configService.get<string>('NEON_DATABASE_URL'),
+              entities,
+              synchronize: false,
+              ssl: { rejectUnauthorized: false },
+            }),
+          }),
+        ]
+      : []),
   ],
 })
-export class DatabaseModule {}
+export class DatabaseModule { }

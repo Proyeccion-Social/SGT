@@ -13,11 +13,11 @@ import { Session } from '../../scheduling/entities/session.entity';
 
 @Entity('tutors')
 export class Tutor {
-  @PrimaryColumn({ name: 'id_user', type: 'bigint' })
-  idUser: number;
+  @PrimaryColumn({ name: 'id_user', type: 'uuid' })
+  idUser: string;
 
   @Column({ type: 'varchar', length: 20, nullable: true })
-  phone: string;
+  phone: string | null;
 
   @Column({ name: 'isActive', type: 'boolean', default: true })
   isActive: boolean;
@@ -27,10 +27,13 @@ export class Tutor {
     type: 'smallint',
     nullable: true,
   })
-  limitDisponibility: number;
+  limitDisponibility: number | null;
+
+  @Column({ type: 'boolean', default: false })
+  profile_completed: boolean;
 
   @Column({ name: 'url_image', type: 'text', nullable: true })
-  urlImage: string;
+  urlImage: string | null;
 
   @OneToOne(() => User, (user) => user.tutor)
   @JoinColumn({ name: 'id_user' })

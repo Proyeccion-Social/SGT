@@ -5,8 +5,8 @@ import { Session } from '../../scheduling/entities/session.entity';
 
 @Entity('subject')
 export class Subject {
-  @PrimaryGeneratedColumn({ name: 'id_subject', type: 'bigint' })
-  idSubject: number;
+  @PrimaryGeneratedColumn('uuid', { name: 'id_subject' })
+  idSubject: string;
 
   @Column({ type: 'varchar', length: 100, nullable: false, unique: true })
   name: string;

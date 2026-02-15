@@ -107,3 +107,4 @@ Para verificar que la base de datos está correctamente configurada:
 - [TypeORM Documentation](https://typeorm.io/)
 - [NestJS TypeORM Integration](https://docs.nestjs.com/techniques/database)
 - [PostgreSQL Documentation](https://www.postgresql.org/docs/)
+
