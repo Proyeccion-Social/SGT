@@ -10,7 +10,8 @@ import * as handlebars from 'handlebars';
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
   private readonly resend: Resend;
-  private readonly fromEmail: string;
+  private readonly fromEmail: string; 
+  
   private readonly frontendUrl: string;
 
   constructor(private readonly configService: ConfigService) {

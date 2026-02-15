@@ -1,10 +1,10 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
+import { Entity, PrimaryColumn, Column, OneToMany } from 'typeorm';
 import { Answer } from './answer.entity';
 
 @Entity('questions')
 export class Question {
-  @PrimaryGeneratedColumn({ name: 'id_question', type: 'bigint' })
-  idQuestion: number;
+  @PrimaryColumn({ name: 'id_question', type: 'uuid' })
+  idQuestion: string;
 
   @Column({ type: 'text', nullable: false })
   content: string;
