@@ -6,12 +6,13 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { randomBytes } from 'crypto';
 import { Tutor } from '../entities/tutor.entity';
 import { CreateTutorDto } from '../dto/create-tutor.dto';
 import { CompleteTutorProfileDto } from '../dto/complete-tutor-profile.dto';
 import { TutorPublicProfileDto } from '../dto/tutor-public-profile.dto';
+import { AssignSubjectsDto } from '../../subjects/dto/assign-subjects.dto';
 import { UserService } from '../../users/services/users.service';
 import { SubjectsService } from '../../subjects/services/subjects.service';
 import { NotificationsService } from '../../notifications/services/notifications.service';
@@ -19,12 +20,12 @@ import { NotificationsService } from '../../notifications/services/notifications
 @Injectable()
 export class TutorService {
   constructor(
-    @InjectRepository(Tutor,'local')
-    private readonly tutorRepository: Repository<Tutor>, 
+    @InjectRepository(Tutor, 'local')
+    private readonly tutorRepository: Repository<Tutor>,
     private readonly userService: UserService,
-    private readonly subjectService: SubjectsService, 
+    private readonly subjectService: SubjectsService,
     private readonly notificationService: NotificationsService,
-  ) {}
+  ) { }
 
   // =====================================================
   // RF08: CREAR TUTOR (ADMIN)
@@ -245,6 +246,73 @@ export class TutorService {
     }
   }
 
+  //====================================================
+  //METODOS AUXILIARES PARA SUBJECTS
+  //====================================================
+  /**
+   * Asignar materias a tutor (método público para endpoint)
+   */
+  async assignSubjects(tutorId: string, dto: AssignSubjectsDto) {
+    // Validar que el tutor exista
+    const tutor = await this.findByUserId(tutorId);
+    if (!tutor) {
+      throw new NotFoundException('Tutor not found');
+    }
+
+    // Validar que el perfil esté completo
+    if (!tutor.profile_completed) {
+      throw new BadRequestException('Complete profile first');
+    }
+
+    // Delegar al SubjectsService (que ya valida límite de 4)
+    await this.subjectService.assignSubjectsToTutor(tutorId, dto.subjects_ids);
+
+    return {
+      success: true,
+      message: 'Subjects assigned successfully',
+      total: dto.subjects_ids.length,
+    };
+  }
+
+  /**
+   * Obtener materias de un tutor (para endpoint público)
+   */
+  async getTutorSubjects(tutorId: string) {
+    const subjects = await this.subjectService.getSubjectsByTutor(tutorId);
+
+    return subjects.map(s => ({
+      id: s.idSubject,
+      name: s.name,
+      code: s.code,
+    }));
+  }
+
+  /**
+   * Obtener tutores con disponibilidad (para filtrado)
+   */
+  async getTutorsWithAvailability(
+    tutorIds: string[],
+    filters: any,
+  ): Promise<any[]> {
+    // TODO: Implementar filtrado por disponibilidad, calificación, etc.
+    const tutors = await this.tutorRepository.find({
+      where: {
+        idUser: In(tutorIds),
+        profile_completed: true,
+        isActive: true,
+      },
+      relations: ['user', 'tutorHaveAvailabilities'],
+    });
+
+    return tutors.map(t => ({
+      id: t.idUser,
+      name: t.user.name,
+      photo: t.urlImage,
+      maxWeeklyHours: t.limitDisponibility,
+      // TODO: agregar más campos según necesidad
+    }));
+  }
+
   // =====================================================
   // HELPERS PRIVADOS
   // =====================================================
@@ -253,6 +321,4 @@ export class TutorService {
     const year = new Date().getFullYear();
     return `Tutor${year}!${randomPart}`;
   }
-  
-  
 }
