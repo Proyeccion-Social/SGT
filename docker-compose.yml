@@ -1,0 +1,22 @@
+version: '3.8'
+services:
+  db:
+    image: postgres:16
+    container_name: sgt_postgres
+    restart: always
+    environment:
+      POSTGRES_DB: sgt_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: cesr1311
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./scriptCreacion.sql:/docker-entrypoint-initdb.d/scriptCreacion.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+volumes:
+  db_data:
