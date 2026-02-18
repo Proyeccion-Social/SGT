@@ -20,6 +20,7 @@ import { ChangePasswordDto } from '../dto/change-password.dto';
 import { RecoverPasswordDto } from '../dto/recover-password.dto';
 import { ResetPasswordDto } from '../dto/reset-password.dto';
 import { ConfirmEmailDto } from '../dto/confirm-email.dto';
+import { CheckEmailDto } from '../dto/check-email.dto';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { RolesGuard } from '../guards/roles.guard';
 import { CurrentUser } from '../decorators/current-user.decorator';
@@ -32,7 +33,7 @@ export class AuthController {
   constructor(
     private authService: AuthService,
     private auditService: AuditService,
-  ) {}
+  ) { }
 
   // =====================================================
   // POST /api/v1/auth/register
@@ -57,6 +58,18 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async confirmEmail(@Query('token') token: string) {
     return this.authService.confirmEmail(token);
+  }
+
+  // =====================================================
+  // POST /api/v1/auth/check-email
+  // Verificar si existe email en BD
+  // =====================================================
+  @Public()
+  @Post('check-email')
+  @HttpCode(HttpStatus.OK)
+  async checkEmail(@Body() dto: CheckEmailDto) {
+    const exists = await this.authService.checkEmailExists(dto.email);
+    return { exists };
   }
 
   // =====================================================
@@ -231,5 +244,5 @@ export class AuthController {
     };
   }
 
-  
+
 }
