@@ -38,7 +38,7 @@ export class AuthService {
     private readonly passwordResetService: PasswordResetService,
     private readonly emailVerificationService: EmailVerificationService,
     private readonly emailService: NotificationsService,
-  ) {}
+  ) { }
 
   // =====================================================
   // REGISTRO DE ESTUDIANTE
@@ -131,6 +131,13 @@ export class AuthService {
     }
 
     return { message: 'Email verified successfully. You can now login.' };
+  }
+
+  // =====================================================
+  // VERIFICAR SI EXISTE EMAIL (ENDPOINT PÚBLICO)
+  // =====================================================
+  async checkEmailExists(email: string): Promise<boolean> {
+    return this.userService.existsByEmail(email);
   }
 
   // =====================================================
