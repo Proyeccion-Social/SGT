@@ -29,7 +29,7 @@ export class AuthService {
 
   constructor(
     private readonly userService: UserService, // Service, no repository
-    //private readonly studentService: StudentService,
+    private readonly studentService: StudentService,
     private readonly tutorService: TutorService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
@@ -43,7 +43,7 @@ export class AuthService {
   // =====================================================
   // REGISTRO DE ESTUDIANTE
   // =====================================================
-  /*
+  
   async register(dto: RegisterDto): Promise<{ message: string }> {
     // 1. Validar que las contraseñas coincidan
     if (dto.password !== dto.confirmPassword) {
@@ -72,6 +72,7 @@ export class AuthService {
     // 5. Generar token de verificación de email
     const verificationToken =
       await this.emailVerificationService.createToken(savedUser.idUser);
+      console.log('Verification token generated:', verificationToken); // Log del token generado para pruebas (quitar después)
 
     // 6. Enviar email de confirmación
     try {
@@ -98,7 +99,7 @@ export class AuthService {
         'Registration successful. Please check your email to verify your account.',
     };
   }
-    */
+    
 
   // =====================================================
   // CONFIRMAR EMAIL
@@ -601,6 +602,68 @@ export class AuthService {
       })),
     };
   }
+  
+  // =====================================================
+  // OBTENER USUARIO ACTUAL (VALIDAR ACCESS TOKEN) 
+  // =====================================================
+
+  // src/auth/services/auth.service.ts
+
+// =====================================================
+// OBTENER USUARIO ACTUAL (VALIDAR ACCESS TOKEN)
+// =====================================================
+async getCurrentUser(userId: string): Promise<{
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    role: UserRole;
+    emailVerified: boolean;
+    status: UserStatus;
+  };
+  requiresPasswordChange?: boolean;
+  requiresProfileCompletion?: boolean;
+}> {
+  // 1. Buscar usuario
+  const user = await this.userService.findById(userId);
+
+  if (!user) {
+    throw new UnauthorizedException('User not found');
+  }
+
+  // 2. Verificar que el usuario siga activo
+  if (user.status !== UserStatus.ACTIVE) {
+    throw new UnauthorizedException('Account is not active');
+  }
+
+  // 3. Verificar si es tutor y necesita acciones adicionales
+  let requiresPasswordChange = false;
+  let requiresProfileCompletion = false;
+
+  if (user.role === UserRole.TUTOR) {
+    requiresPasswordChange = await this.userService.hasTemporaryPassword(
+      user.idUser,
+    );
+    requiresProfileCompletion = !(await this.tutorService.isProfileComplete(
+      user.idUser,
+    ));
+  }
+
+  return {
+    user: {
+      id: user.idUser,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      emailVerified: !!user.email_verified_at,
+      status: user.status,
+    },
+    ...(user.role === UserRole.TUTOR && {
+      requiresPasswordChange,
+      requiresProfileCompletion,
+    }),
+  };
+}
 
   // =====================================================
   // HELPERS PRIVADOS

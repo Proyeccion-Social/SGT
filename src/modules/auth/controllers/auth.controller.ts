@@ -39,15 +39,14 @@ export class AuthController {
   // POST /api/v1/auth/register
   // Registrar estudiante
   // =====================================================
-
-  /* Comentado para probar el auth Service sin el registro (dependería de student y tutor modules que no están completos al 100%). 
+  
   @Public()
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   async register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
   }
-  */
+  
 
   // =====================================================
   // POST /api/v1/auth/confirm-email
@@ -56,8 +55,8 @@ export class AuthController {
   @Public()
   @Post('confirm-email')
   @HttpCode(HttpStatus.OK)
-  async confirmEmail(@Query('token') token: string) {
-    return this.authService.confirmEmail(token);
+  async confirmEmail(@Body() dto: ConfirmEmailDto) {
+    return this.authService.confirmEmail(dto.token);
   }
 
   // =====================================================
@@ -216,6 +215,17 @@ export class AuthController {
         totalPages: Math.ceil(total / (filters.limit || 20)),
       },
     };
+  }
+
+
+  // =====================================================
+  //GET api/v1/auth/me
+  //Valida el accessToken y retorna la info del usuario actual
+  // =====================================================
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  async getCurrentUser(@CurrentUser() user: User) {
+    return await this.authService.getCurrentUser(user.idUser);
   }
 
   // =====================================================
