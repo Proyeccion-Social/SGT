@@ -49,7 +49,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 
     NotificationsModule,
     UsersModule,
-    //StudentModule,
+    StudentModule,
     TutorModule,
   ],
   controllers: [AuthController],
