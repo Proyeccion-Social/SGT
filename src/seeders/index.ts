@@ -23,3 +23,4 @@ async function runSeeders() {
 }
 
 runSeeders();
+*/
