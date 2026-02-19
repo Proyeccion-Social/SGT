@@ -1,4 +1,4 @@
-import { AppDataSource } from "../db/data-source";
+/*import { AppDataSource } from "../db/data-source";
 import { SubjectsSeeder } from "./subjects.seeder";
 import { Logger } from "@nestjs/common";
 

@@ -50,6 +50,9 @@ export class TutorService {
 
     // 4. Generar contraseña temporal
     const temporaryPassword = this.generateTemporaryPassword();
+    // Por ahora, para facilitar pruebas, la contraseña temporal se muestra en consola. En producción, solo se enviaría por email.
+    console.log('TEMP PASSWORD:', temporaryPassword);
+
 
     // 5. Crear usuario tutor usando UserService
     const savedUser = await this.userService.createTutorUser({
@@ -71,11 +74,22 @@ export class TutorService {
     await this.tutorRepository.save(tutor);
 
     // 7. Enviar credenciales por email
-    await this.notificationService.sendTutorCredentials(
-      savedUser.email,
-      savedUser.name,
-      temporaryPassword,
-    );
+
+    //Añado un try catch para evitar que falle la creación del tutor si el envío de correo falla, para probar sin el servicio de email por el momento
+
+    try {
+      await this.notificationService.sendTutorCredentials(
+        savedUser.email,
+        savedUser.name,
+        temporaryPassword,
+      );
+    } catch (error) {
+      // Log pero NO romper el flujo
+      console.error(
+        'Error sending tutor credentials email:',
+        error?.message || error,
+      );
+    }
 
     return {
       message: 'Tutor created successfully',

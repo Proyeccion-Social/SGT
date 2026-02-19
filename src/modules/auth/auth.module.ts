@@ -50,7 +50,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     NotificationsModule,
     UsersModule,
     //StudentModule,
-    //TutorModule,
+    TutorModule,
   ],
   controllers: [AuthController],
   providers: [
