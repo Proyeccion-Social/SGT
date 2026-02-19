@@ -1,20 +1,18 @@
-// src/tutor/controllers/tutors.controller.ts
 import {
   Controller,
   Get,
   Post,
+  Patch,
   Param,
   Body,
   UseGuards,
   HttpCode,
   HttpStatus,
-  ForbiddenException,
 } from '@nestjs/common';
-import { UserService } from 'src/modules/users/services/users.service';
 import { TutorService } from '../services/tutor.service';
-import { SubjectsService } from '../../subjects/services/subjects.service';
+import { UserService } from '../../users/services/users.service';
 import { CompleteTutorProfileDto } from '../dto/complete-tutor-profile.dto';
-import { AssignSubjectsDto } from 'src/modules/subjects/dto/assign-subjects.dto';
+import { CreateTutorDto } from '../dto/create-tutor.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -25,14 +23,28 @@ import { User, UserRole } from '../../users/entities/user.entity';
 @Controller('tutors')
 export class TutorsController {
   constructor(
-    private tutorService: TutorService,
+    private readonly tutorService: TutorService,
     private readonly userService: UserService,
-    private readonly subjectsService: SubjectsService,
-  ) { }
+  ) {}
+
+  // =====================================================
+  // POST /api/v1/tutors
+  // RF08: Crear tutor (solo ADMIN)
+  // =====================================================
+  @Post()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @HttpCode(HttpStatus.CREATED)
+  async createTutor(
+    @CurrentUser() admin: User,
+    @Body() dto: CreateTutorDto,
+  ) {
+    return this.tutorService.createByAdmin(admin.idUser, dto);
+  }
 
   // =====================================================
   // POST /api/v1/tutors/profile/complete
-  // RF09: Completar perfil de tutor (solo TUTOR autenticado)
+  // RF09: Completar perfil de tutor
   // =====================================================
   @Post('profile/complete')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -46,29 +58,18 @@ export class TutorsController {
   }
 
   // =====================================================
-  // GET /api/v1/tutors/:id
-  // RF11: Consultar perfil público de tutor (sin autenticación)
-  // =====================================================
-  @Public()
-  @Get(':id')
-  async getPublicProfile(@Param('id') id: string) {
-    return this.tutorService.getPublicProfile(id);
-  }
-
-  // =====================================================
   // GET /api/v1/tutors/me/status
-  // Verificar estado del perfil del tutor autenticado
+  // Estado del perfil del tutor autenticado
   // =====================================================
   @Get('me/status')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.TUTOR)
   async getMyStatus(@CurrentUser() user: User) {
-    const hasTemporaryPassword = await this.userService.hasTemporaryPassword(
-      user.idUser,
-    );
-    const profileCompleted = await this.tutorService.isProfileComplete(
-      user.idUser,
-    );
+    const hasTemporaryPassword =
+      await this.userService.hasTemporaryPassword(user.idUser);
+
+    const profileCompleted =
+      await this.tutorService.isProfileComplete(user.idUser);
 
     return {
       userId: user.idUser,
@@ -82,22 +83,28 @@ export class TutorsController {
   }
 
   // =====================================================
-  // POST /api/v1/tutors/:tutorId/subjects
-  // RF-13: Asignar materias al tutor (solo TUTOR autenticado)
+  // PATCH /api/v1/tutors/:id/active
+  // Activar / desactivar tutor (ADMIN)
   // =====================================================
-  @Post(':tutorId/subjects')
+  @Patch(':id/active')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.TUTOR)
+  @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.OK)
-  async assignSubjects(
-    @Param('tutorId') tutorId: string,
-    @CurrentUser() user: User,
-    @Body() dto: AssignSubjectsDto,
+  async setTutorActive(
+    @Param('id') tutorId: string,
+    @Body('isActive') isActive: boolean,
   ) {
-    if (user.role === UserRole.TUTOR && user.idUser !== tutorId) {
-      throw new ForbiddenException('Cannot assign subjects to another tutor');
-    }
+    await this.tutorService.setActive(tutorId, isActive);
+    return { message: 'Tutor status updated successfully' };
+  }
 
-    return this.subjectsService.assignSubjectsToTutor(tutorId, dto.subjects_ids);
+  // =====================================================
+  // GET /api/v1/tutors/:id
+  // RF11: Perfil público de tutor
+  // =====================================================
+  @Public()
+  @Get(':id')
+  async getPublicProfile(@Param('id') id: string) {
+    return this.tutorService.getPublicProfile(id);
   }
 }

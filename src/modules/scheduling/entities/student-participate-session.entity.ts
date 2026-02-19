@@ -16,8 +16,8 @@ export class StudentParticipateSession {
   @PrimaryColumn({ name: 'id_student', type: 'uuid' })
   idStudent: string;
 
-  @PrimaryColumn({ name: 'id_session', type: 'bigint' })
-  idSession: number;
+  @PrimaryColumn({ name: 'id_session', type: 'uuid' })
+  idSession: string;
 
   @Column({
     type: 'enum',

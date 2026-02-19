@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+/*import { MigrationInterface, QueryRunner } from "typeorm";
 
 export class RemoveSubjectCode1771187324485 implements MigrationInterface {
     name = 'RemoveSubjectCode1771187324485'
@@ -16,3 +16,4 @@ export class RemoveSubjectCode1771187324485 implements MigrationInterface {
     }
 
 }
+*/

@@ -1,4 +1,4 @@
-import { DataSource } from "typeorm";
+/*import { DataSource } from "typeorm";
 import { Subject } from "../modules/subjects/entities/subjects.entity";
 import { Logger } from "@nestjs/common";
 
@@ -37,4 +37,4 @@ export class SubjectsSeeder {
 
         this.logger.log(`Subjects seeded successfully: ${subjects.length} subjects created`);
     }
-}
+}*/
