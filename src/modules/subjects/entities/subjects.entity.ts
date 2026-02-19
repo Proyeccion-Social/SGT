@@ -3,15 +3,15 @@ import { TutorImpartSubject } from './tutor-subject.entity';
 import { StudentInterestedSubject } from './student-subject.entity';
 import { Session } from '../../scheduling/entities/session.entity';
 
-@Entity('subjects')
+@Entity('subject')
 export class Subject {
   @PrimaryGeneratedColumn('uuid', { name: 'id_subject' })
   idSubject: string;
 
-  @Column({ type: 'varchar', length: 100, nullable: false, unique: true })
+  @Column({ name: 'name', type: 'varchar', length: 100, nullable: false, unique: true })
   name: string;
 
-  @Column({ type: 'boolean', default: true })
+  @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive: boolean;
 
   @OneToMany(

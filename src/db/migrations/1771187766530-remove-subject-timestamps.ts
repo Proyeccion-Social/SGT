@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+/*import { MigrationInterface, QueryRunner } from "typeorm";
 
 export class RemoveSubjectTimestamps1771187766530 implements MigrationInterface {
     name = 'RemoveSubjectTimestamps1771187766530'
@@ -12,3 +12,4 @@ export class RemoveSubjectTimestamps1771187766530 implements MigrationInterface 
     }
 
 }
+*/
