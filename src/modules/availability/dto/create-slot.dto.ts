@@ -1,6 +1,7 @@
 import { IsEnum, IsNotEmpty, IsString, Matches } from 'class-validator';
 import { DayOfWeek } from '../enums/day-of-week.enum';
 import { Modality } from '../enums/modality.enum';
+import { IsThirtyMinuteIncrement } from '../validators';
 
 /**
  * DTO para crear una franja de disponibilidad.
@@ -15,6 +16,9 @@ export class CreateSlotDto {
   @IsString()
   @Matches(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/, {
     message: 'Formato de hora inválido. Use HH:mm',
+  })
+  @IsThirtyMinuteIncrement({
+    message: 'La hora debe estar en incrementos de 30 minutos (00 o 30)',
   })
   startTime: string;
 
