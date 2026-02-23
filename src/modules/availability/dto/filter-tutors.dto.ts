@@ -1,6 +1,6 @@
 import { IsOptional, IsInt, Min, Max, IsString, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
-import { Modality } from '../entities/tutor-availability.entity';
+import { Modality } from '../enums/modality.enum';
 
 export class FilterTutorsDto {
     @IsOptional()

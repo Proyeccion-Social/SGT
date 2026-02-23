@@ -1,11 +1,7 @@
 import { Entity, PrimaryColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { Tutor } from '../../tutor/entities/tutor.entity';
 import { Availability } from './availability.entity';
-
-export enum Modality {
-  PRES = 'PRES',
-  VIRT = 'VIRT',
-}
+import { Modality } from '../enums/modality.enum';
 
 @Entity('tutor_have_availability')
 export class TutorHaveAvailability {
