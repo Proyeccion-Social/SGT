@@ -4,7 +4,9 @@ import { Repository } from 'typeorm';
 import { Availability } from '../entities/availability.entity';
 import { TutorHaveAvailability } from '../entities/tutor-availability.entity';
 import { CreateSlotDto } from '../dto/create-slot.dto';
-import { DayOfWeekToNumber } from '../enums/day-of-week.enum';
+import { UpdateSlotDto } from '../dto/update-slot.dto';
+import { DeleteSlotDto } from '../dto/delete-slot.dto';
+import { DayOfWeekToNumber, NumberToDayOfWeek } from '../enums/day-of-week.enum';
 
 @Injectable()
 export class AvailabilityService {
@@ -86,6 +88,144 @@ export class AvailabilityService {
   }
 
   /**
+   * Actualiza una franja de disponibilidad existente del tutor.
+   * Permite actualizar startTime y/o modality.
+   * No permite actualizar dayOfWeek (se debe eliminar y crear nueva).
+   * 
+   * @param tutorId - UUID del tutor
+   * @param dto - Datos a actualizar (slotId, startTime opcional, modality opcional)
+   * @returns Franja actualizada con toda la información
+   */
+  async updateSlot(tutorId: string, dto: UpdateSlotDto) {
+    // 1. Buscar la asignación actual del tutor con ese slotId
+    const tutorAvailability = await this.tutorHaveAvailabilityRepository.findOne({
+      where: {
+        idTutor: tutorId,
+        idAvailability: dto.slotId,
+      },
+      relations: ['availability'],
+    });
+
+    if (!tutorAvailability) {
+      throw new NotFoundException(
+        'Franja de disponibilidad no encontrada o no pertenece al tutor',
+      );
+    }
+
+    const currentAvailability = tutorAvailability.availability;
+    let updatedAvailability = currentAvailability;
+
+    // 2. Si se actualiza el startTime, manejar el cambio
+    if (dto.startTime && dto.startTime !== currentAvailability.startTime) {
+      // Validar no solapamiento con el nuevo startTime (excluyendo el slot actual)
+      await this.validateNoOverlapExcluding(
+        tutorId,
+        currentAvailability.dayOfWeek,
+        dto.startTime,
+        dto.slotId,
+      );
+
+      // Buscar o crear el nuevo slot con el nuevo startTime
+      let newAvailability = await this.availabilityRepository.findOne({
+        where: {
+          dayOfWeek: currentAvailability.dayOfWeek,
+          startTime: dto.startTime,
+        },
+      });
+
+      if (!newAvailability) {
+        newAvailability = this.availabilityRepository.create({
+          dayOfWeek: currentAvailability.dayOfWeek,
+          startTime: dto.startTime,
+        });
+        newAvailability = await this.availabilityRepository.save(newAvailability);
+      }
+
+      // Verificar que el tutor no tenga ya el nuevo slot asignado
+      const existingAssignment = await this.tutorHaveAvailabilityRepository.findOne({
+        where: {
+          idTutor: tutorId,
+          idAvailability: newAvailability.idAvailability,
+        },
+      });
+
+      if (existingAssignment) {
+        throw new ConflictException(
+          'Ya tienes asignado un slot en ese nuevo horario',
+        );
+      }
+
+      // IMPORTANTE: Con PK compuesta, no podemos cambiar idAvailability y hacer save()
+      // Eso haría INSERT dejando el registro viejo huérfano
+      // Solución: Eliminar el viejo y crear el nuevo explícitamente
+
+      // Guardar la modality actual (por si se actualizó también)
+      const modalityToUse = dto.modality || tutorAvailability.modality;
+
+      // Eliminar el registro viejo
+      await this.tutorHaveAvailabilityRepository.remove(tutorAvailability);
+
+      // Crear el nuevo registro con el nuevo slot
+      const newTutorAvailability = this.tutorHaveAvailabilityRepository.create({
+        idTutor: tutorId,
+        idAvailability: newAvailability.idAvailability,
+        modality: modalityToUse,
+      });
+
+      await this.tutorHaveAvailabilityRepository.save(newTutorAvailability);
+      updatedAvailability = newAvailability;
+    } else if (dto.modality && dto.modality !== tutorAvailability.modality) {
+      // Si solo se actualiza modality (sin cambiar startTime), sí podemos hacer update
+      tutorAvailability.modality = dto.modality;
+      await this.tutorHaveAvailabilityRepository.save(tutorAvailability);
+    }
+
+    // 4. Retornar la franja actualizada
+    return {
+      slotId: updatedAvailability.idAvailability,
+      tutorId: tutorId,
+      dayOfWeek: NumberToDayOfWeek[updatedAvailability.dayOfWeek],
+      startTime: updatedAvailability.startTime,
+      modality: tutorAvailability.modality,
+      duration: 0.5,
+    };
+  }
+
+  /**
+   * Elimina una franja de disponibilidad del tutor.
+   * Solo elimina la asignación en tutor_have_availability.
+   * El registro en availability se mantiene para otros tutores.
+   * 
+   * @param tutorId - UUID del tutor
+   * @param dto - Datos de eliminación (slotId)
+   * @returns Mensaje de confirmación
+   */
+  async deleteSlot(tutorId: string, dto: DeleteSlotDto) {
+    // 1. Buscar la asignación del tutor con ese slotId
+    const tutorAvailability = await this.tutorHaveAvailabilityRepository.findOne({
+      where: {
+        idTutor: tutorId,
+        idAvailability: dto.slotId,
+      },
+    });
+
+    if (!tutorAvailability) {
+      throw new NotFoundException(
+        'Franja de disponibilidad no encontrada o no pertenece al tutor',
+      );
+    }
+
+    // 2. Eliminar solo la asignación del tutor (no el slot de availability)
+    await this.tutorHaveAvailabilityRepository.remove(tutorAvailability);
+
+    // 3. Retornar confirmación
+    return {
+      message: 'Franja de disponibilidad eliminada exitosamente',
+      slotId: dto.slotId,
+    };
+  }
+
+  /**
    * Valida que no haya solapamiento con franjas existentes del tutor en el mismo día.
    * Con slots de 30 min, solo valida que no sea la misma hora exacta.
    * 
@@ -110,6 +250,36 @@ export class AvailabilityService {
     if (existingSlots > 0) {
       throw new ConflictException(
         'Ya existe una franja en ese horario para este día',
+      );
+    }
+  }
+
+  /**
+   * Valida que no haya solapamiento excluyendo un slot específico (para updates).
+   * 
+   * @param tutorId - UUID del tutor
+   * @param dayOfWeek - Número del día (0-5)
+   * @param startTime - Hora de inicio (HH:mm)
+   * @param excludeSlotId - ID del slot a excluir de la validación
+   */
+  private async validateNoOverlapExcluding(
+    tutorId: string,
+    dayOfWeek: number,
+    startTime: string,
+    excludeSlotId: number,
+  ): Promise<void> {
+    const existingSlots = await this.tutorHaveAvailabilityRepository
+      .createQueryBuilder('tha')
+      .innerJoin('tha.availability', 'a')
+      .where('tha.idTutor = :tutorId', { tutorId })
+      .andWhere('a.dayOfWeek = :dayOfWeek', { dayOfWeek })
+      .andWhere('a.startTime = :startTime', { startTime })
+      .andWhere('a.idAvailability != :excludeSlotId', { excludeSlotId })
+      .getCount();
+
+    if (existingSlots > 0) {
+      throw new ConflictException(
+        'Ya existe otra franja en ese horario para este día',
       );
     }
   }
