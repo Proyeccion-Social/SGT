@@ -12,8 +12,8 @@ export class TutorHaveAvailability {
   @PrimaryColumn({ name: 'id_tutor', type: 'uuid' })
   idTutor: string;
 
-  @PrimaryColumn({ name: 'id_availability', type: 'uuid' })
-  idAvailability: string;
+  @PrimaryColumn({ name: 'id_availability', type: 'bigint' })
+  idAvailability: number;
 
   @Column({
     type: 'enum',
