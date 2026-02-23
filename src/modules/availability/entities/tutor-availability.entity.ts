@@ -12,8 +12,8 @@ export class TutorHaveAvailability {
   idAvailability: number;
 
   @Column({
-    type: 'enum',
-    enum: Modality,
+    type: 'varchar',
+    length: 10,
     nullable: true,
   })
   modality: Modality;

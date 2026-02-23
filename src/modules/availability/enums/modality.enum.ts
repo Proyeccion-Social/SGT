@@ -1,4 +1,4 @@
 export enum Modality {
-  PRESENCIAL = 'PRESENCIAL',
-  VIRTUAL = 'VIRTUAL',
+  PRES = 'PRES',
+  VIRT = 'VIRT',
 }
