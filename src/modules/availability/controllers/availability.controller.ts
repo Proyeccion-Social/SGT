@@ -9,6 +9,7 @@ import {
   HttpCode,
   HttpStatus,
   BadRequestException,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -25,6 +26,7 @@ import { SlotAction } from '../enums/slot-action.enum';
 import { SubjectsService } from 'src/modules/subjects/services/subjects.service';
 import { TutorService } from 'src/modules/tutor/services/tutor.service';
 import { AvailabilityService } from '../services/availability.service';
+import { GetAvailabilityQueryDto } from '../dto/GetAvailabilityQueryDto';
 
 @Controller('availability')
 export class AvailabilityController {
@@ -129,4 +131,40 @@ export class AvailabilityController {
         throw new BadRequestException('Acción no válida');
     }
   }
+
+  /**
+   * GET /api/availability/tutors/:tutorId
+   * RF16:Ver disponibilidad de un tutor específico (público/estudiantes)
+   * 
+   * Query params opcionales:
+   * - onlyAvailable: true/false (solo slots sin reserva)
+   * - onlyFuture: true/false (solo slots futuros)
+   * - modality: PRES/VIRT (filtrar por modalidad)
+   */
+  @Get('tutors/:tutorId/slots')
+  async getTutorAvailability(
+    @Param('tutorId', ParseUUIDPipe) tutorId: string,
+    @Query() query: GetAvailabilityQueryDto,
+  ) {
+    return await this.availabilityService.getTutorAvailability(tutorId, {
+      onlyAvailable: query.onlyAvailable,
+      onlyFuture: query.onlyFuture,
+      modality: query.modality,
+    });
+  }
+
+  /**
+   * GET /api/availability/tutors
+   * Listar todos los tutores con disponibilidad (público/estudiantes)
+   * Útil para mostrar un directorio de tutores disponibles
+   */
+  @Get('tutors/slots')
+  async getAllAvailableTutors(@Query() query: GetAvailabilityQueryDto) {
+    return await this.availabilityService.getAllAvailableTutors({
+      modality: query.modality,
+      onlyAvailable: query.onlyAvailable,
+    });
+  }
+
+
 }

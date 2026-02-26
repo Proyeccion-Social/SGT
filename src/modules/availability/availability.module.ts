@@ -7,12 +7,15 @@ import { TutorHaveAvailability } from './entities/tutor-availability.entity';
 
 import { SubjectsModule } from '../subjects/subjects.module';
 import { TutorModule } from '../tutor/tutor.module';
+import { ScheduledSession } from '../scheduling/entities/scheduled-session.entity';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Availability, TutorHaveAvailability], 'local'),
+    TypeOrmModule.forFeature([Availability, TutorHaveAvailability,ScheduledSession], 'local'),
     SubjectsModule,
     TutorModule,
+    AuthModule, //Para usar JwtAuthGuard en el controller y RolesGuard
   ],
   providers: [AvailabilityService],
   controllers: [AvailabilityController],
