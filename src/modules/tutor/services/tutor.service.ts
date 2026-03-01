@@ -143,6 +143,38 @@ export class TutorService {
   }
 
   // =====================================================
+  // RF10: ACTUALIZAR PERFIL DE TUTOR
+  // =====================================================
+  async updateProfile(userId: string, dto: CompleteTutorProfileDto) {
+
+    // 1. Verificar que sea tutor
+    const isTutor = await this.userService.isTutor(userId);
+    if (!isTutor) {
+      throw new ForbiddenException('Only tutors can update this profile');
+    }
+
+    // 2. Buscar tutor
+    const tutor = await this.tutorRepository.findOne({
+      where: { idUser: userId },
+    });
+    if (!tutor) {
+      throw new NotFoundException('Tutor profile not found');
+    }
+
+    // 3. Actualizar datos del tutor
+    tutor.phone = dto.phone;
+    tutor.urlImage = dto.url_image;
+    tutor.limitDisponibility = dto.max_weekly_hours;
+
+    await this.tutorRepository.save(tutor);
+
+    // 4.  Delegar la asignación de materias al SubjectService
+    await this.subjectService.assignSubjectsToTutor(userId, dto.subject_ids);
+
+    return { message: 'Profile updated successfully' };
+  }
+
+  // =====================================================
   // RF11: CONSULTAR PERFIL PÚBLICO
   // =====================================================
   async getPublicProfile(tutorId: string): Promise<TutorPublicProfileDto> {

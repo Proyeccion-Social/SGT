@@ -58,6 +58,21 @@ export class TutorsController {
   }
 
   // =====================================================
+  // PATCH /api/v1/tutors/profile/update
+  // RF10: actualizar perfil de tutor
+  // =====================================================
+  @Patch('profile/update')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TUTOR)
+  @HttpCode(HttpStatus.OK)
+  async updateProfile(
+    @CurrentUser() user: User,
+    @Body() dto: CompleteTutorProfileDto,
+  ) {
+    return this.tutorService.updateProfile(user.idUser, dto);
+  }
+
+  // =====================================================
   // GET /api/v1/tutors/me/status
   // Estado del perfil del tutor autenticado
   // =====================================================
