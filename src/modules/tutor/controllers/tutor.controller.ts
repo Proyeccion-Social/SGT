@@ -25,7 +25,7 @@ export class TutorsController {
   constructor(
     private readonly tutorService: TutorService,
     private readonly userService: UserService,
-  ) {}
+  ) { }
 
   // =====================================================
   // POST /api/v1/tutors
@@ -114,6 +114,17 @@ export class TutorsController {
   }
 
   // =====================================================
+  // GET /api/v1/tutors/profile
+  // VER PERFIL PROPIO (TUTOR)
+  // =====================================================
+  @Get('profile')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TUTOR)
+  async getMyProfile(@CurrentUser() user: User) {
+    return this.tutorService.getOwnProfile(user.idUser);
+  }
+
+  // =====================================================
   // GET /api/v1/tutors/:id
   // RF11: Perfil público de tutor
   // =====================================================
@@ -122,4 +133,7 @@ export class TutorsController {
   async getPublicProfile(@Param('id') id: string) {
     return this.tutorService.getPublicProfile(id);
   }
+
+  
 }
+

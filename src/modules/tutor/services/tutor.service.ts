@@ -241,6 +241,72 @@ export class TutorService {
   }
 
   // =====================================================
+  // RF12: CONSULTAR PERFIL PROPIO (TUTOR)
+  // =====================================================
+  async getOwnProfile(userId: string): Promise<TutorPublicProfileDto> {
+    // 1. Verificar que sea tutor
+    const isTutor = await this.userService.isTutor(userId);
+    if (!isTutor) {
+      throw new ForbiddenException('Only tutors can access this resource');
+    }
+
+    // 2. Buscar tutor con relaciones
+    const tutor = await this.tutorRepository.findOne({
+      where: { idUser: userId },
+      relations: [
+        'user',
+        'tutorImpartSubjects',
+        'tutorImpartSubjects.subject',
+        'tutorHaveAvailabilities',
+        'tutorHaveAvailabilities.availability',
+      ],
+    });
+
+    if (!tutor) {
+      throw new NotFoundException('Tutor profile not found');
+    }
+
+    // 3. Obtener materias
+    const subjects = await this.subjectService.getSubjectsByTutor(userId);
+
+    // 4. Rating / sesiones (placeholders)
+    const averageRating = 0;
+    const totalRatings = 0;
+    const completedSessions = 0;
+
+    // 5. Modalidades disponibles
+    const availableModalities = [
+      ...new Set(
+        tutor.tutorHaveAvailabilities
+          .filter((ta) => ta.modality !== null)
+          .map((ta) => ta.modality),
+      ),
+    ];
+
+    // 6. Horas
+    const currentWeekHoursUsed = 0;
+    const availableHoursThisWeek =
+      (tutor.limitDisponibility ?? 0) - currentWeekHoursUsed;
+
+    return {
+      id: tutor.idUser,
+      name: tutor.user.name,
+      photo: tutor.urlImage,
+      subjects: subjects.map((s) => ({
+        id: s.idSubject.toString(),
+        name: s.name,
+      })),
+      averageRating,
+      totalRatings,
+      completedSessions,
+      availableModalities,
+      maxWeeklyHours: tutor.limitDisponibility ?? 0,
+      currentWeekHoursUsed,
+      availableHoursThisWeek: Math.max(0, availableHoursThisWeek),
+    };
+  }
+
+  // =====================================================
   // RF14: Visualizar tutores por materia (Código o nombre parcial)
   // =====================================================
   async findTutorsBySubject(subjectTerm: string) {
