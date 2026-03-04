@@ -4,8 +4,8 @@ import { ScheduledSession } from '../../scheduling/entities/scheduled-session.en
 
 @Entity('availability')
 export class Availability {
-  @PrimaryGeneratedColumn('uuid', { name: 'id_availability' })
-  idAvailability: string;
+  @PrimaryGeneratedColumn('increment', { name: 'id_availability', type: 'bigint' })
+  idAvailability: number;
 
   @Column({
     name: 'day_of_week',

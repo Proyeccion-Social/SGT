@@ -1,23 +1,19 @@
 import { Entity, PrimaryColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { Tutor } from '../../tutor/entities/tutor.entity';
 import { Availability } from './availability.entity';
-
-export enum Modality {
-  PRES = 'PRES',
-  VIRT = 'VIRT',
-}
+import { Modality } from '../enums/modality.enum';
 
 @Entity('tutor_have_availability')
 export class TutorHaveAvailability {
   @PrimaryColumn({ name: 'id_tutor', type: 'uuid' })
   idTutor: string;
 
-  @PrimaryColumn({ name: 'id_availability', type: 'uuid' })
-  idAvailability: string;
+  @PrimaryColumn({ name: 'id_availability', type: 'bigint' })
+  idAvailability: number;
 
   @Column({
-    type: 'enum',
-    enum: Modality,
+    type: 'varchar',
+    length: 10,
     nullable: true,
   })
   modality: Modality;
