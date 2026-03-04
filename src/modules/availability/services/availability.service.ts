@@ -258,7 +258,7 @@ export class AvailabilityService {
 
   
    // =====================================================
-  // ✅ NUEVO: CONSULTA PÚBLICA PARA ESTUDIANTES
+  //  NUEVO: CONSULTA PÚBLICA PARA ESTUDIANTES
   // =====================================================
 
   /**
@@ -356,7 +356,7 @@ export class AvailabilityService {
     };
   }
 
-  // ✅ Nuevo método: Listar todos los tutores con disponibilidad
+  //  Nuevo método: Listar todos los tutores con disponibilidad
 async getAllAvailableTutors(options?: {
   modality?: Modality;
   onlyAvailable?: boolean;
