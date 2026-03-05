@@ -64,7 +64,6 @@ export class AvailabilityController {
       total: tutors.length,
     };
   }
-
   /**
    * POST /api/v1/availability/tutor/slots
    * RF-15: Gestionar disponibilidad del tutor (CREATE, UPDATE, DELETE)
