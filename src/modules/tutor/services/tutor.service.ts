@@ -143,6 +143,38 @@ export class TutorService {
   }
 
   // =====================================================
+  // RF10: ACTUALIZAR PERFIL DE TUTOR
+  // =====================================================
+  async updateProfile(userId: string, dto: CompleteTutorProfileDto) {
+
+    // 1. Verificar que sea tutor
+    const isTutor = await this.userService.isTutor(userId);
+    if (!isTutor) {
+      throw new ForbiddenException('Only tutors can update this profile');
+    }
+
+    // 2. Buscar tutor
+    const tutor = await this.tutorRepository.findOne({
+      where: { idUser: userId },
+    });
+    if (!tutor) {
+      throw new NotFoundException('Tutor profile not found');
+    }
+
+    // 3. Actualizar datos del tutor
+    tutor.phone = dto.phone;
+    tutor.urlImage = dto.url_image;
+    tutor.limitDisponibility = dto.max_weekly_hours;
+
+    await this.tutorRepository.save(tutor);
+
+    // 4.  Delegar la asignación de materias al SubjectService
+    await this.subjectService.assignSubjectsToTutor(userId, dto.subject_ids);
+
+    return { message: 'Profile updated successfully' };
+  }
+
+  // =====================================================
   // RF11: CONSULTAR PERFIL PÚBLICO
   // =====================================================
   async getPublicProfile(tutorId: string): Promise<TutorPublicProfileDto> {
@@ -205,6 +237,72 @@ export class TutorService {
       maxWeeklyHours: tutor.limitDisponibility ?? 0,
       currentWeekHoursUsed,
       availableHoursThisWeek: Math.max(0, availableHoursThisWeek ?? 0),
+    };
+  }
+
+  // =====================================================
+  // RF12: CONSULTAR PERFIL PROPIO (TUTOR)
+  // =====================================================
+  async getOwnProfile(userId: string): Promise<TutorPublicProfileDto> {
+    // 1. Verificar que sea tutor
+    const isTutor = await this.userService.isTutor(userId);
+    if (!isTutor) {
+      throw new ForbiddenException('Only tutors can access this resource');
+    }
+
+    // 2. Buscar tutor con relaciones
+    const tutor = await this.tutorRepository.findOne({
+      where: { idUser: userId },
+      relations: [
+        'user',
+        'tutorImpartSubjects',
+        'tutorImpartSubjects.subject',
+        'tutorHaveAvailabilities',
+        'tutorHaveAvailabilities.availability',
+      ],
+    });
+
+    if (!tutor) {
+      throw new NotFoundException('Tutor profile not found');
+    }
+
+    // 3. Obtener materias
+    const subjects = await this.subjectService.getSubjectsByTutor(userId);
+
+    // 4. Rating / sesiones (placeholders)
+    const averageRating = 0;
+    const totalRatings = 0;
+    const completedSessions = 0;
+
+    // 5. Modalidades disponibles
+    const availableModalities = [
+      ...new Set(
+        tutor.tutorHaveAvailabilities
+          .filter((ta) => ta.modality !== null)
+          .map((ta) => ta.modality),
+      ),
+    ];
+
+    // 6. Horas
+    const currentWeekHoursUsed = 0;
+    const availableHoursThisWeek =
+      (tutor.limitDisponibility ?? 0) - currentWeekHoursUsed;
+
+    return {
+      id: tutor.idUser,
+      name: tutor.user.name,
+      photo: tutor.urlImage,
+      subjects: subjects.map((s) => ({
+        id: s.idSubject.toString(),
+        name: s.name,
+      })),
+      averageRating,
+      totalRatings,
+      completedSessions,
+      availableModalities,
+      maxWeeklyHours: tutor.limitDisponibility ?? 0,
+      currentWeekHoursUsed,
+      availableHoursThisWeek: Math.max(0, availableHoursThisWeek),
     };
   }
 
