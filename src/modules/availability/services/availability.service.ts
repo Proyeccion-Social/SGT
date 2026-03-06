@@ -358,7 +358,7 @@ export class AvailabilityService {
     };
   }
 
-  //  Nuevo método: Listar todos los tutores con disponibilidad
+  // Listar todos los tutores con disponibilidad
 async getAllAvailableTutors(options?: {
   modality?: Modality;
   onlyAvailable?: boolean;
@@ -431,7 +431,7 @@ async getAllAvailableTutors(options?: {
       (s) => !reservedSlots.has(s.idAvailability.toString()),
     ).length;
 
-    // Si onlyAvailable, excluir tutores sin slots disponibles
+    // Si tiene el filtro onlyAvailable, excluir tutores sin slots disponibles
     if (options?.onlyAvailable && availableSlots === 0) {
       return null;
     }
@@ -454,6 +454,15 @@ async getAllAvailableTutors(options?: {
   
 }
 
+/**
+   * Obtiene todos los tutores filtrados por materia, incluyendo su disponibilidad (solo franjas futuras disponibles).
+   * Si se indica el filtro onlyAvailable, solo incluye tutores que tengan al menos una franja futura disponible.
+   * Si se indica modalidad, filtra las franjas por modalidad (PRES/VIRT).
+   * @param subjectId - ID de la materia
+   * @param options - Opciones de filtrado (onlyAvailable, modality)
+   * @returns Lista de tutores con su disponibilidad para la materia indicada
+   */
+
 async getTutorsBySubjectWithAvailability(
   subjectId: string,
   options?: {
@@ -470,7 +479,8 @@ async getTutorsBySubjectWithAvailability(
     availability: TutorAvailabilityPublic;
   }[]
 > {
-  // 1️⃣ Obtener slots
+
+  //Obtener slots (búsqueda optimizada con joins para traer solo tutores que impartan la materia y su disponibilidad)
   const query = this.tutorHaveAvailabilityRepository
     .createQueryBuilder('tha')
     .innerJoinAndSelect('tha.tutor', 'tutor')
@@ -493,7 +503,7 @@ async getTutorsBySubjectWithAvailability(
     return [];
   }
 
-  // 2️⃣ Agrupar por tutor
+  // Agrupar por tutor
   const tutorMap = new Map<
     string,
     {
@@ -517,14 +527,14 @@ async getTutorsBySubjectWithAvailability(
     tutorMap.get(tutorId)!.slots.push(slot);
   });
 
-  // 3️⃣ Sesiones reservadas
+  // Sesiones reservadas
   const allScheduledSessions = await this.scheduledSessionRepository.find({
     where: {
       idTutor: In(Array.from(tutorMap.keys())),
     },
   });
 
-  // 4️⃣ Mapear reservados
+  // Mapear reservados
   const reservedByTutor = new Map<string, Set<string>>();
 
   allScheduledSessions.forEach((session) => {
@@ -537,7 +547,7 @@ async getTutorsBySubjectWithAvailability(
       .add(session.idAvailability.toString());
   });
 
-  // 5️⃣ Construcción final
+  // Construcción final
   const result = Array.from(tutorMap.values())
     .map((tutor) => {
       const reservedSlots = reservedByTutor.get(tutor.tutorId) || new Set();
