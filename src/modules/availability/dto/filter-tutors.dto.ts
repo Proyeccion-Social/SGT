@@ -1,20 +1,25 @@
-import { IsOptional, IsInt, Min, Max, IsString, IsEnum } from 'class-validator';
-import { Type } from 'class-transformer';
+// src/availability/dto/filter-tutors.dto.ts
+import { IsOptional, IsString, IsNumber, IsEnum, IsBoolean } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
 import { Modality } from '../enums/modality.enum';
+import { UUID } from 'typeorm/driver/mongodb/bson.typings.js';
 
 export class FilterTutorsDto {
-    @IsOptional()
-    @IsInt()
-    @Min(1)
-    @Max(7)
-    @Type(() => Number)
-    dayOfWeek?: number;
+  @IsOptional()
+  @Type(() => UUID)
+  @IsNumber()
+  subjectId?: string;
 
-    @IsOptional()
-    @IsString()
-    startTime?: string;
+  @IsOptional()
+  @IsString()
+  subjectName?: string;
 
-    @IsOptional()
-    @IsEnum(Modality)
-    modality?: Modality;
+  @IsOptional()
+  @IsEnum(Modality)
+  modality?: Modality;
+
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => value === 'true')
+  onlyAvailable?: boolean;
 }
