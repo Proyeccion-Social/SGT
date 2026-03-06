@@ -7,7 +7,7 @@ import { TutorImpartSubject } from '../entities/tutor-subject.entity';
 
 @Injectable()
 export class SubjectsService {
-  
+
   constructor(
     @InjectRepository(Subject, 'local')
     private readonly subjectRepository: Repository<Subject>,
@@ -28,15 +28,15 @@ export class SubjectsService {
     });
   }
 
-/**
- * Obtener una materia por nombre
- */
-async findByName(name: string) {
-  return await this.subjectRepository.findOne({
-    where: { name: name },
-  });
-}
-  
+  /**
+   * Obtener una materia por nombre
+   */
+  async findByName(name: string) {
+    return await this.subjectRepository.findOne({
+      where: { name: name },
+    });
+  }
+
   /**
    * Obtener múltiples materias por IDs
    */

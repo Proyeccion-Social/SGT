@@ -115,6 +115,8 @@ export class AvailabilityService {
     };
   }
 
+  
+
   /**
    * Actualiza una franja de disponibilidad existente del tutor.
    * Permite actualizar startTime y/o modality.
@@ -257,8 +259,8 @@ export class AvailabilityService {
 
 
   
-   // =====================================================
-  //  NUEVO: CONSULTA PÚBLICA PARA ESTUDIANTES
+  // =====================================================
+  //  CONSULTA PÚBLICA PARA ESTUDIANTES
   // =====================================================
 
   /**
@@ -289,7 +291,7 @@ export class AvailabilityService {
     const scheduledSessions = await this.scheduledSessionRepository.find({
       where: {
         idTutor: tutorId,
-        // ✅ Solo sesiones futuras si se solicita
+        //  Solo sesiones futuras si se solicita
         ...(options?.onlyFuture && {
           sessionDate: MoreThanOrEqual(new Date()),
         }),

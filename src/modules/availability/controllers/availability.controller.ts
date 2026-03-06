@@ -88,6 +88,23 @@ export class AvailabilityController {
     };
   }
 
+  @Get('tutors/me')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TUTOR)
+  async getMyAvailability(
+    @CurrentUser() user: User
+
+  ) {
+
+    const tutor = await this.tutorService.findByUserId(user.idUser);
+
+    if (!tutor) {
+    throw new NotFoundException('Tutor profile not found');
+  }
+
+    return await this.availabilityService.getTutorAvailability(tutor.idUser, {});
+  }
+
   /**
    * POST /api/v1/availability/tutor/slots
    * RF-15: Gestionar disponibilidad del tutor (CREATE, UPDATE, DELETE)
