@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { MoreThanOrEqual, Repository } from 'typeorm';
+import { In, MoreThanOrEqual, Repository } from 'typeorm';
 import { Availability } from '../entities/availability.entity';
 import { TutorHaveAvailability } from '../entities/tutor-availability.entity';
 import { CreateSlotDto } from '../dto/create-slot.dto';
@@ -450,6 +450,140 @@ async getAllAvailableTutors(options?: {
   
   return result.filter((r) => r !== null);
   
+}
+
+
+
+async getTutorsBySubjectWithAvailability(
+  subjectId: number,
+  options?: {
+    onlyAvailable?: boolean;
+    modality?: Modality;
+  },
+): Promise<
+  {
+    tutorId: string;
+    tutorName: string;
+    totalSlots: number;
+    availableSlots: number;
+    modalities: Modality[];
+    availability: TutorAvailabilityPublic;
+  }[]
+> {
+
+  // 1. Obtener tutores que imparten esta materia
+  const tutorsWithAvailability = await this.tutorHaveAvailabilityRepository
+    .createQueryBuilder('tha')
+    .innerJoinAndSelect('tha.tutor', 'tutor')
+    .innerJoinAndSelect('tutor.user', 'user')
+    .innerJoinAndSelect('tutor.tutorImpartSubjects', 'tis')
+    .innerJoinAndSelect('tha.availability', 'availability')
+    .where('tutor.isActive = :isActive', { isActive: true })
+    .andWhere('tutor.profile_completed = :completed', { completed: true })
+    .andWhere('tis.idSubject = :subjectId', { subjectId })
+    .getMany();
+
+  if (tutorsWithAvailability.length === 0) {
+    return [];
+  }
+
+  // 2. Agrupar por tutor
+  const tutorMap = new Map<
+    string,
+    {
+      tutorId: string;
+      tutorName: string;
+      slots: TutorHaveAvailability[];
+    }
+  >();
+
+  tutorsWithAvailability.forEach((ta: TutorHaveAvailability) => {
+
+    const tutorId = ta.idTutor;
+
+    if (!tutorMap.has(tutorId)) {
+      tutorMap.set(tutorId, {
+        tutorId,
+        tutorName: ta.tutor.user.name,
+        slots: [],
+      });
+    }
+
+    tutorMap.get(tutorId)!.slots.push(ta);
+  });
+
+  // 3. Obtener sesiones reservadas
+  const allScheduledSessions = await this.scheduledSessionRepository.find({
+    where: {
+      idTutor: In(Array.from(tutorMap.keys())),
+    },
+  });
+
+  const reservedByTutor = new Map<string, Set<string>>();
+
+  allScheduledSessions.forEach((ss) => {
+
+    if (!reservedByTutor.has(ss.idTutor)) {
+      reservedByTutor.set(ss.idTutor, new Set());
+    }
+
+    reservedByTutor.get(ss.idTutor)!.add(String(ss.idAvailability));
+  });
+
+  // 4. Construir resultado con disponibilidad detallada
+  const result = await Promise.all(
+    Array.from(tutorMap.values()).map(async (tutor) => {
+
+      const reservedSlots = reservedByTutor.get(tutor.tutorId) || new Set<string>();
+
+      let slots = tutor.slots;
+
+      // Filtrar por modalidad
+      if (options?.modality) {
+        slots = slots.filter((s) => s.modality === options.modality);
+      }
+
+      const totalSlots = slots.length;
+
+      const availableSlots = slots.filter(
+        (s) => !reservedSlots.has(String(s.idAvailability)),
+      ).length;
+
+      // Si solo queremos disponibles
+      if (options?.onlyAvailable && availableSlots === 0) {
+        return null;
+      }
+
+      const modalities = [
+        ...new Set(slots.map((s) => s.modality)),
+      ] as Modality[];
+
+      const availability = await this.getTutorAvailability(tutor.tutorId, {
+        onlyAvailable: options?.onlyAvailable,
+        modality: options?.modality,
+      });
+
+      return {
+        tutorId: tutor.tutorId,
+        tutorName: tutor.tutorName,
+        totalSlots,
+        availableSlots,
+        modalities,
+        availability,
+      };
+    }),
+  );
+
+  return result.filter(
+    (r): r is {
+      tutorId: string;
+      tutorName: string;
+      totalSlots: number;
+      availableSlots: number;
+      modalities: Modality[];
+      availability: TutorAvailabilityPublic;
+    } => r !== null,
+  );
 }
 
 
