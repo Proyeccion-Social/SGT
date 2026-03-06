@@ -454,10 +454,8 @@ async getAllAvailableTutors(options?: {
   
 }
 
-
-
 async getTutorsBySubjectWithAvailability(
-  subjectId: number,
+  subjectId: string,
   options?: {
     onlyAvailable?: boolean;
     modality?: Modality;
@@ -472,9 +470,8 @@ async getTutorsBySubjectWithAvailability(
     availability: TutorAvailabilityPublic;
   }[]
 > {
-
-  // 1. Obtener tutores que imparten esta materia
-  const tutorsWithAvailability = await this.tutorHaveAvailabilityRepository
+  // 1️⃣ Obtener slots
+  const query = this.tutorHaveAvailabilityRepository
     .createQueryBuilder('tha')
     .innerJoinAndSelect('tha.tutor', 'tutor')
     .innerJoinAndSelect('tutor.user', 'user')
@@ -482,14 +479,21 @@ async getTutorsBySubjectWithAvailability(
     .innerJoinAndSelect('tha.availability', 'availability')
     .where('tutor.isActive = :isActive', { isActive: true })
     .andWhere('tutor.profile_completed = :completed', { completed: true })
-    .andWhere('tis.idSubject = :subjectId', { subjectId })
-    .getMany();
+    .andWhere('tis.idSubject = :subjectId', { subjectId });
 
-  if (tutorsWithAvailability.length === 0) {
+  if (options?.modality) {
+    query.andWhere('tha.modality = :modality', {
+      modality: options.modality,
+    });
+  }
+
+  const slots = await query.getMany();
+
+  if (slots.length === 0) {
     return [];
   }
 
-  // 2. Agrupar por tutor
+  // 2️⃣ Agrupar por tutor
   const tutorMap = new Map<
     string,
     {
@@ -499,71 +503,107 @@ async getTutorsBySubjectWithAvailability(
     }
   >();
 
-  tutorsWithAvailability.forEach((ta: TutorHaveAvailability) => {
-
-    const tutorId = ta.idTutor;
+  slots.forEach((slot) => {
+    const tutorId = slot.idTutor;
 
     if (!tutorMap.has(tutorId)) {
       tutorMap.set(tutorId, {
         tutorId,
-        tutorName: ta.tutor.user.name,
+        tutorName: slot.tutor.user.name,
         slots: [],
       });
     }
 
-    tutorMap.get(tutorId)!.slots.push(ta);
+    tutorMap.get(tutorId)!.slots.push(slot);
   });
 
-  // 3. Obtener sesiones reservadas
+  // 3️⃣ Sesiones reservadas
   const allScheduledSessions = await this.scheduledSessionRepository.find({
     where: {
       idTutor: In(Array.from(tutorMap.keys())),
     },
   });
 
+  // 4️⃣ Mapear reservados
   const reservedByTutor = new Map<string, Set<string>>();
 
-  allScheduledSessions.forEach((ss) => {
-
-    if (!reservedByTutor.has(ss.idTutor)) {
-      reservedByTutor.set(ss.idTutor, new Set());
+  allScheduledSessions.forEach((session) => {
+    if (!reservedByTutor.has(session.idTutor)) {
+      reservedByTutor.set(session.idTutor, new Set());
     }
 
-    reservedByTutor.get(ss.idTutor)!.add(String(ss.idAvailability));
+    reservedByTutor
+      .get(session.idTutor)!
+      .add(session.idAvailability.toString());
   });
 
-  // 4. Construir resultado con disponibilidad detallada
-  const result = await Promise.all(
-    Array.from(tutorMap.values()).map(async (tutor) => {
+  // 5️⃣ Construcción final
+  const result = Array.from(tutorMap.values())
+    .map((tutor) => {
+      const reservedSlots = reservedByTutor.get(tutor.tutorId) || new Set();
+      const tutorSlots = tutor.slots;
 
-      const reservedSlots = reservedByTutor.get(tutor.tutorId) || new Set<string>();
+      const totalSlots = tutorSlots.length;
 
-      let slots = tutor.slots;
-
-      // Filtrar por modalidad
-      if (options?.modality) {
-        slots = slots.filter((s) => s.modality === options.modality);
-      }
-
-      const totalSlots = slots.length;
-
-      const availableSlots = slots.filter(
-        (s) => !reservedSlots.has(String(s.idAvailability)),
+      const availableSlots = tutorSlots.filter(
+        (s) => !reservedSlots.has(s.idAvailability.toString()),
       ).length;
 
-      // Si solo queremos disponibles
       if (options?.onlyAvailable && availableSlots === 0) {
         return null;
       }
 
       const modalities = [
-        ...new Set(slots.map((s) => s.modality)),
+        ...new Set(tutorSlots.map((s) => s.modality)),
       ] as Modality[];
 
-      const availability = await this.getTutorAvailability(tutor.tutorId, {
-        onlyAvailable: options?.onlyAvailable,
-        modality: options?.modality,
+      const groupedByDay = {} as Record<DayOfWeek, AvailabilitySlot[]>;
+
+      const availableSlotsArray: AvailabilitySlot[] = [];
+
+      tutorSlots.forEach((slot) => {
+        const dayOfWeek = NumberToDayOfWeek[slot.availability.dayOfWeek];
+        const isReserved = reservedSlots.has(
+          slot.idAvailability.toString(),
+        );
+
+        const startTime = slot.availability.startTime;
+        const endTime = this.calculateEndTime(startTime);
+
+        const slotData: AvailabilitySlot = {
+          slotId: slot.idAvailability.toString(),
+          dayOfWeek,
+          startTime,
+          endTime,
+          modality: slot.modality,
+          duration: 0.5,
+          isAvailable: !isReserved,
+        };
+
+        if (!isReserved) {
+          availableSlotsArray.push(slotData);
+        }
+
+        if (!groupedByDay[dayOfWeek]) {
+          groupedByDay[dayOfWeek] = [];
+        }
+
+        groupedByDay[dayOfWeek].push(slotData);
       });
+
+      Object.keys(groupedByDay).forEach((day) => {
+        groupedByDay[day as DayOfWeek].sort((a, b) =>
+          a.startTime.localeCompare(b.startTime),
+        );
+      });
+
+      const availability: TutorAvailabilityPublic = {
+        tutorId: tutor.tutorId,
+        tutorName: tutor.tutorName,
+        totalSlots,
+        availableSlots: availableSlotsArray,
+        groupedByDay,
+      };
 
       return {
         tutorId: tutor.tutorId,
@@ -573,20 +613,20 @@ async getTutorsBySubjectWithAvailability(
         modalities,
         availability,
       };
-    }),
-  );
+    })
+    .filter(Boolean) as {
+    tutorId: string;
+    tutorName: string;
+    totalSlots: number;
+    availableSlots: number;
+    modalities: Modality[];
+    availability: TutorAvailabilityPublic;
+  }[];
 
-  return result.filter(
-    (r): r is {
-      tutorId: string;
-      tutorName: string;
-      totalSlots: number;
-      availableSlots: number;
-      modalities: Modality[];
-      availability: TutorAvailabilityPublic;
-    } => r !== null,
-  );
+  return result;
 }
+
+
 
 
 
