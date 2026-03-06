@@ -38,10 +38,10 @@ export class AvailabilityController {
 
 
   //====================================================
-  // GET /api/v1/availability/subject/tutors
-  // RF-14: Visualizar tutores por materia (Código o Nombre)
+  // GET /api/v1/availability/tutors/subject
+  // RF-14: Visualizar tutores por materia (Código o Nombre) con su disponibilidad
   //====================================================
-  @Get('subject/tutors')
+  @Get('tutors/subject')
   async getTutorsBySubject(@Query() filters: FilterTutorsDto) { //Método modificado; originalmente tenía un error de lógica, donde independientemente de lo que se indicaba en en el parametro, aparecía correcto, pero no se hacía la búsqueda. Ahora, se busca por ID o nombre, se cambió el endpoint para recibir los filtros por query params, y se agregó validación para que al menos se indique un criterio de búsqueda (ID o nombre). Además, se agregó la opción de filtrar por modalidad y solo mostrar tutores con disponibilidad.
     // 1. Validar que venga al menos un criterio de búsqueda de materia
     if (!filters.subjectId && !filters.subjectName) {
