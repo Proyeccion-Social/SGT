@@ -386,6 +386,23 @@ export class TutorService {
     }
   }
 
+  /**
+ * Verificar que un tutor existe y está activo
+ */
+  async validateTutorActive(tutorId: string): Promise<void> {
+    const tutor = await this.tutorRepository.findOne({
+      where: { idUser: tutorId },
+    });
+
+    if (!tutor) {
+      throw new NotFoundException('Tutor not found');
+    }
+
+    if (!tutor.isActive || !tutor.profile_completed) {
+      throw new BadRequestException('Tutor is not active or profile not completed');
+    }
+  }
+
   //====================================================
   //METODOS AUXILIARES PARA SUBJECTS
   //====================================================
@@ -427,6 +444,10 @@ export class TutorService {
     }));
   }
 
+  //====================================================
+  //METODOS AUXILIARES PARA AVAILABILITY
+  //====================================================
+
   /**
    * Obtener tutores con disponibilidad (para filtrado)
    */
@@ -451,6 +472,21 @@ export class TutorService {
       maxWeeklyHours: t.limitDisponibility,
       // TODO: agregar más campos según necesidad
     }));
+  }
+
+  /**
+ * Obtener el límite semanal de horas de un tutor
+ */
+  async getWeeklyHoursLimit(tutorId: string): Promise<number> {
+    const tutor = await this.tutorRepository.findOne({
+      where: { idUser: tutorId },
+    });
+
+    if (!tutor) {
+      throw new NotFoundException('Tutor not found');
+    }
+
+    return tutor.limitDisponibility || Infinity;
   }
 
   // =====================================================

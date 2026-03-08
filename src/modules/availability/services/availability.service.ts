@@ -10,6 +10,7 @@ import { DayOfWeek, DayOfWeekToNumber, NumberToDayOfWeek } from '../enums/day-of
 import { ScheduledSession } from 'src/modules/scheduling/entities/scheduled-session.entity';
 import { Modality } from '../enums/modality.enum';
 import { options } from 'joi';
+import { SessionStatus } from 'src/modules/scheduling/enums/session-status.enum';
 
 export interface AvailabilitySlot {
   slotId: string;
@@ -634,6 +635,83 @@ async getTutorsBySubjectWithAvailability(
   }[];
 
   return result;
+}
+
+
+
+
+/**
+ * Obtener información de una franja específica
+ */
+async getAvailabilityById(availabilityId: number): Promise<Availability> {
+  const availability = await this.availabilityRepository.findOne({
+    where: { idAvailability: availabilityId },
+  });
+
+  if (!availability) {
+    throw new NotFoundException('Availability slot not found');
+  }
+
+  return availability;
+}
+
+/**
+ * Validar que la modalidad de una franja coincida con la solicitada
+ */
+async validateModalityForSlot(
+  availabilityId: number,
+  tutorId: string,
+  requestedModality: Modality,
+): Promise<void> {
+  const tutorAvailability = await this.tutorHaveAvailabilityRepository.findOne({
+    where: {
+      idAvailability: availabilityId,
+      idTutor: tutorId,
+    },
+  });
+
+  if (!tutorAvailability) {
+    throw new NotFoundException('Franja de disponibilidad no encontrada para este tutor');
+  }
+
+  if (tutorAvailability.modality !== requestedModality) {
+    throw new BadRequestException(
+      `La modalidad de la franja es ${tutorAvailability.modality}, pero solicitaste ${requestedModality}`,
+    );
+  }
+}
+
+/**
+ * Verificar si una franja está disponible para una fecha específica
+ * (no tiene sesión agendada activa)
+ */
+async isSlotAvailableForDate(
+  tutorId: string,
+  availabilityId: string,
+  scheduledDate: Date,
+): Promise<boolean> {
+  const existingScheduledSession = await this.scheduledSessionRepository.findOne({
+    where: {
+      idTutor: tutorId,
+      idAvailability: availabilityId,
+    },
+    relations: ['session'],
+  });
+
+  if (!existingScheduledSession || !existingScheduledSession.session) {
+    return true; // No hay sesión, está disponible
+  }
+
+  const session = existingScheduledSession.session;
+  
+  // Verificar si es la misma fecha y está activa
+  const isSameDate = session.scheduledDate.getTime() === scheduledDate.getTime();
+  const isActive = [
+    SessionStatus.SCHEDULED,
+    SessionStatus.PENDING_MODIFICATION,
+  ].includes(session.status);
+
+  return !(isSameDate && isActive); // Disponible si NO es misma fecha o NO está activa
 }
 
 
