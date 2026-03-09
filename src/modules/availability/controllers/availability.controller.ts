@@ -36,33 +36,77 @@ export class AvailabilityController {
     private readonly availabilityService: AvailabilityService,
   ) {}
 
-  @Get('subjects/:subjectId/tutors')
-  @UseGuards(JwtAuthGuard)
-  async getTutorsBySubject(
-    @Param('subjectId') subjectId: string,
-    @Query() filters: FilterTutorsDto,
-  ) {
-    //====================================================
-    // GET /api/v1/availability/subjects/:subjectId/tutors
-    // RF-14: Visualizar tutores por materia (Código o Nombre)
-    //====================================================
 
+  //====================================================
+  // GET /api/v1/availability/tutors/subject
+  // RF-14: Visualizar tutores por materia (Código o Nombre) con su disponibilidad
+  //====================================================
+  @Get('tutors/subject')
+  async getTutorsBySubject(@Query() filters: FilterTutorsDto) { //Método modificado; originalmente tenía un error de lógica, donde independientemente de lo que se indicaba en en el parametro, aparecía correcto, pero no se hacía la búsqueda. Ahora, se busca por ID o nombre, se cambió el endpoint para recibir los filtros por query params, y se agregó validación para que al menos se indique un criterio de búsqueda (ID o nombre). Además, se agregó la opción de filtrar por modalidad y solo mostrar tutores con disponibilidad.
+    // 1. Validar que venga al menos un criterio de búsqueda de materia
+    if (!filters.subjectId && !filters.subjectName) {
+      throw new BadRequestException(
+        'Debe proporcionar subjectId o subjectName',
+      );
+    }
+
+    // 2. Buscar la materia por ID o nombre
     let subject;
 
-    // 2. Obtener tutores usando el TutorService (que soporta Nombre parcial)
-    const tutors = await this.tutorService.findTutorsBySubject(subjectId);
+    if (filters.subjectId) {
+      // Prioridad al ID (más preciso)
+      subject = await this.subjectsService.findById(filters.subjectId);
+    } else if (filters.subjectName) {
+      // Si no hay ID, buscar por nombre
+      subject = await this.subjectsService.findByName(filters.subjectName);
+    }
 
+    if (!subject) {
+      throw new NotFoundException(
+        `Subject not found with ${filters.subjectId ? 'ID' : 'name'}: ${filters.subjectId || filters.subjectName}`,
+      );
+    }
+
+    // 3. Obtener tutores que imparten esa materia con su disponibilidad
+    const tutors = await this.availabilityService.getTutorsBySubjectWithAvailability(
+      subject.idSubject,
+      {
+        onlyAvailable: filters.onlyAvailable,
+        modality: filters.modality,
+      },
+    );
+
+    // 4. Retornar resultado
     return {
       success: true,
-      subject: subject
-        ? {
-            id: subject.idSubject,
-            name: subject.name,
-          }
-        : { name: subjectId }, // Si buscamos por nombre, devolver el término
+      subject: {
+        id: subject.idSubject,
+        name: subject.name,
+      },
       data: tutors,
       total: tutors.length,
     };
+  }
+
+  //====================================================
+  // GET /api/v1/availability/tutors/me
+  // Visualizar mi disponibilidad como tutor
+  //====================================================
+  @Get('tutors/me')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TUTOR)
+  async getMyAvailability(
+    @CurrentUser() user: User
+
+  ) {
+
+    const tutor = await this.tutorService.findByUserId(user.idUser);
+
+    if (!tutor) {
+    throw new NotFoundException('Tutor profile not found');
+  }
+
+    return await this.availabilityService.getTutorAvailability(tutor.idUser, {});
   }
 
   /**

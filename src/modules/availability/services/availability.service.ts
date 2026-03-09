@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { MoreThanOrEqual, Repository } from 'typeorm';
+import { In, MoreThanOrEqual, Repository } from 'typeorm';
 import { Availability } from '../entities/availability.entity';
 import { TutorHaveAvailability } from '../entities/tutor-availability.entity';
 import { CreateSlotDto } from '../dto/create-slot.dto';
@@ -114,6 +114,8 @@ export class AvailabilityService {
       duration: 0.5, // 30 minutos = 0.5 horas
     };
   }
+
+  
 
   /**
    * Actualiza una franja de disponibilidad existente del tutor.
@@ -257,8 +259,8 @@ export class AvailabilityService {
 
 
   
-   // =====================================================
-  //  NUEVO: CONSULTA PÚBLICA PARA ESTUDIANTES
+  // =====================================================
+  //  CONSULTA PÚBLICA PARA ESTUDIANTES
   // =====================================================
 
   /**
@@ -289,7 +291,7 @@ export class AvailabilityService {
     const scheduledSessions = await this.scheduledSessionRepository.find({
       where: {
         idTutor: tutorId,
-        // ✅ Solo sesiones futuras si se solicita
+        //  Solo sesiones futuras si se solicita
         ...(options?.onlyFuture && {
           sessionDate: MoreThanOrEqual(new Date()),
         }),
@@ -356,7 +358,7 @@ export class AvailabilityService {
     };
   }
 
-  //  Nuevo método: Listar todos los tutores con disponibilidad
+  // Listar todos los tutores con disponibilidad
 async getAllAvailableTutors(options?: {
   modality?: Modality;
   onlyAvailable?: boolean;
@@ -429,7 +431,7 @@ async getAllAvailableTutors(options?: {
       (s) => !reservedSlots.has(s.idAvailability.toString()),
     ).length;
 
-    // Si onlyAvailable, excluir tutores sin slots disponibles
+    // Si tiene el filtro onlyAvailable, excluir tutores sin slots disponibles
     if (options?.onlyAvailable && availableSlots === 0) {
       return null;
     }
@@ -451,6 +453,190 @@ async getAllAvailableTutors(options?: {
   return result.filter((r) => r !== null);
   
 }
+
+/**
+   * Obtiene todos los tutores filtrados por materia, incluyendo su disponibilidad (solo franjas futuras disponibles).
+   * Si se indica el filtro onlyAvailable, solo incluye tutores que tengan al menos una franja futura disponible.
+   * Si se indica modalidad, filtra las franjas por modalidad (PRES/VIRT).
+   * @param subjectId - ID de la materia
+   * @param options - Opciones de filtrado (onlyAvailable, modality)
+   * @returns Lista de tutores con su disponibilidad para la materia indicada
+   */
+
+async getTutorsBySubjectWithAvailability(
+  subjectId: string,
+  options?: {
+    onlyAvailable?: boolean;
+    modality?: Modality;
+  },
+): Promise<
+  {
+    tutorId: string;
+    tutorName: string;
+    totalSlots: number;
+    availableSlots: number;
+    modalities: Modality[];
+    availability: TutorAvailabilityPublic;
+  }[]
+> {
+
+  //Obtener slots (búsqueda optimizada con joins para traer solo tutores que impartan la materia y su disponibilidad)
+  const query = this.tutorHaveAvailabilityRepository
+    .createQueryBuilder('tha')
+    .innerJoinAndSelect('tha.tutor', 'tutor')
+    .innerJoinAndSelect('tutor.user', 'user')
+    .innerJoinAndSelect('tutor.tutorImpartSubjects', 'tis')
+    .innerJoinAndSelect('tha.availability', 'availability')
+    .where('tutor.isActive = :isActive', { isActive: true })
+    .andWhere('tutor.profile_completed = :completed', { completed: true })
+    .andWhere('tis.idSubject = :subjectId', { subjectId });
+
+  if (options?.modality) {
+    query.andWhere('tha.modality = :modality', {
+      modality: options.modality,
+    });
+  }
+
+  const slots = await query.getMany();
+
+  if (slots.length === 0) {
+    return [];
+  }
+
+  // Agrupar por tutor
+  const tutorMap = new Map<
+    string,
+    {
+      tutorId: string;
+      tutorName: string;
+      slots: TutorHaveAvailability[];
+    }
+  >();
+
+  slots.forEach((slot) => {
+    const tutorId = slot.idTutor;
+
+    if (!tutorMap.has(tutorId)) {
+      tutorMap.set(tutorId, {
+        tutorId,
+        tutorName: slot.tutor.user.name,
+        slots: [],
+      });
+    }
+
+    tutorMap.get(tutorId)!.slots.push(slot);
+  });
+
+  // Sesiones reservadas
+  const allScheduledSessions = await this.scheduledSessionRepository.find({
+    where: {
+      idTutor: In(Array.from(tutorMap.keys())),
+    },
+  });
+
+  // Mapear reservados
+  const reservedByTutor = new Map<string, Set<string>>();
+
+  allScheduledSessions.forEach((session) => {
+    if (!reservedByTutor.has(session.idTutor)) {
+      reservedByTutor.set(session.idTutor, new Set());
+    }
+
+    reservedByTutor
+      .get(session.idTutor)!
+      .add(session.idAvailability.toString());
+  });
+
+  // Construcción final
+  const result = Array.from(tutorMap.values())
+    .map((tutor) => {
+      const reservedSlots = reservedByTutor.get(tutor.tutorId) || new Set();
+      const tutorSlots = tutor.slots;
+
+      const totalSlots = tutorSlots.length;
+
+      const availableSlots = tutorSlots.filter(
+        (s) => !reservedSlots.has(s.idAvailability.toString()),
+      ).length;
+
+      if (options?.onlyAvailable && availableSlots === 0) {
+        return null;
+      }
+
+      const modalities = [
+        ...new Set(tutorSlots.map((s) => s.modality)),
+      ] as Modality[];
+
+      const groupedByDay = {} as Record<DayOfWeek, AvailabilitySlot[]>;
+
+      const availableSlotsArray: AvailabilitySlot[] = [];
+
+      tutorSlots.forEach((slot) => {
+        const dayOfWeek = NumberToDayOfWeek[slot.availability.dayOfWeek];
+        const isReserved = reservedSlots.has(
+          slot.idAvailability.toString(),
+        );
+
+        const startTime = slot.availability.startTime;
+        const endTime = this.calculateEndTime(startTime);
+
+        const slotData: AvailabilitySlot = {
+          slotId: slot.idAvailability.toString(),
+          dayOfWeek,
+          startTime,
+          endTime,
+          modality: slot.modality,
+          duration: 0.5,
+          isAvailable: !isReserved,
+        };
+
+        if (!isReserved) {
+          availableSlotsArray.push(slotData);
+        }
+
+        if (!groupedByDay[dayOfWeek]) {
+          groupedByDay[dayOfWeek] = [];
+        }
+
+        groupedByDay[dayOfWeek].push(slotData);
+      });
+
+      Object.keys(groupedByDay).forEach((day) => {
+        groupedByDay[day as DayOfWeek].sort((a, b) =>
+          a.startTime.localeCompare(b.startTime),
+        );
+      });
+
+      const availability: TutorAvailabilityPublic = {
+        tutorId: tutor.tutorId,
+        tutorName: tutor.tutorName,
+        totalSlots,
+        availableSlots: availableSlotsArray,
+        groupedByDay,
+      };
+
+      return {
+        tutorId: tutor.tutorId,
+        tutorName: tutor.tutorName,
+        totalSlots,
+        availableSlots,
+        modalities,
+        availability,
+      };
+    })
+    .filter(Boolean) as {
+    tutorId: string;
+    tutorName: string;
+    totalSlots: number;
+    availableSlots: number;
+    modalities: Modality[];
+    availability: TutorAvailabilityPublic;
+  }[];
+
+  return result;
+}
+
+
 
 
 

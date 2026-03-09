@@ -7,6 +7,7 @@ import { TutorImpartSubject } from '../entities/tutor-subject.entity';
 
 @Injectable()
 export class SubjectsService {
+
   constructor(
     @InjectRepository(Subject, 'local')
     private readonly subjectRepository: Repository<Subject>,
@@ -24,6 +25,15 @@ export class SubjectsService {
   async findById(id: string): Promise<Subject | null> {
     return await this.subjectRepository.findOne({
       where: { idSubject: id },
+    });
+  }
+
+  /**
+   * Obtener una materia por nombre
+   */
+  async findByName(name: string) {
+    return await this.subjectRepository.findOne({
+      where: { name: name },
     });
   }
 
