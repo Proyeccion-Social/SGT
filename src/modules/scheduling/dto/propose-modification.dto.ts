@@ -7,7 +7,7 @@ import {
   IsNumber,
   IsIn,
 } from 'class-validator';
-import { SessionModality } from '../enums/session-modality.enum';
+import { Modality } from 'src/modules/availability/enums/modality.enum';
 
 export class ProposeModificationDto {
   @IsOptional()
@@ -15,12 +15,12 @@ export class ProposeModificationDto {
   newScheduledDate?: string;
 
   @IsOptional()
-  @IsUUID()
-  newAvailabilityId?: string;
+  @IsNumber()
+  newAvailabilityId?: number;
 
   @IsOptional()
-  @IsEnum(SessionModality)
-  newModality?: SessionModality;
+  @IsEnum(Modality)
+  newModality?: Modality;
 
   @IsOptional()
   @IsNumber()

@@ -42,11 +42,11 @@ export class SessionValidationService {
    * HU-19.1.3: Validar que modalidad coincida con la franja
    */
   async validateModality(
-    availabilityId: number,
+    availabilityId: number, // ✅ CAMBIADO a number
     tutorId: string,
     requestedModality: Modality,
   ): Promise<void> {
-    //  Delega al AvailabilityService
+    // ✅ Delega al AvailabilityService
     await this.availabilityService.validateModalityForSlot(
       availabilityId,
       tutorId,
@@ -59,13 +59,13 @@ export class SessionValidationService {
    */
   async validateAvailabilitySlot(
     tutorId: string,
-    availabilityId: string,
+    availabilityId: number, // ✅ CAMBIADO a number
     scheduledDate: Date,
   ): Promise<void> {
     // ✅ Delega al AvailabilityService
     const isAvailable = await this.availabilityService.isSlotAvailableForDate(
       tutorId,
-      availabilityId,
+      availabilityId, 
       scheduledDate,
     );
 
@@ -191,7 +191,7 @@ export class SessionValidationService {
   }
 
   // ========================================
-  // HELPERS PRIVADOS
+  // HELPERS PÚBLICOS (usados por SessionService)
   // ========================================
 
   /**
@@ -209,6 +209,10 @@ export class SessionValidationService {
       .toString()
       .padStart(2, '0')}`;
   }
+
+  // ========================================
+  // HELPERS PRIVADOS
+  // ========================================
 
   /**
    * Convierte HH:mm a minutos totales

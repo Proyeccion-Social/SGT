@@ -15,8 +15,8 @@ import { StudentParticipateSession } from './student-participate-session.entity'
 import { ScheduledSession } from './scheduled-session.entity';
 import { SessionModificationRequest } from './session-modification-request.entity';
 import { SessionType } from '../enums/session-type.enum';
-import { SessionModality } from '../enums/session-modality.enum';
 import { SessionStatus } from '../enums/session-status.enum';
+import { Modality } from 'src/modules/availability/enums/modality.enum';
 
 @Entity('sessions')
 export class Session {
@@ -48,8 +48,8 @@ export class Session {
   @Column({ type: 'enum', enum: SessionType })
   type: SessionType;
 
-  @Column({ type: 'enum', enum: SessionModality })
-  modality: SessionModality;
+  @Column({ type: 'enum', enum: Modality })
+  modality: Modality;
 
   @Column({ type: 'enum', enum: SessionStatus, default: SessionStatus.SCHEDULED })
   status: SessionStatus;

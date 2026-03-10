@@ -41,4 +41,5 @@ export class Session {
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'id_user' })
   user: User;
+  startTime: any;
 }

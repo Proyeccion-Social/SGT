@@ -9,7 +9,7 @@ import {
   MinLength,
   IsIn,
 } from 'class-validator';
-import { SessionModality } from '../enums/session-modality.enum';
+import { Modality } from 'src/modules/availability/enums';
 
 export class CreateIndividualSessionDto {
   @IsUUID('4', { message: 'tutorId debe ser un UUID válido' })
@@ -18,14 +18,14 @@ export class CreateIndividualSessionDto {
   @IsUUID('4', { message: 'subjectId debe ser un un UUID válido' })
   subjectId: string;
 
-  @IsUUID('4', { message: 'availabilityId debe ser un UUID válido' })
-  availabilityId: string;
+  @IsNumber({}, { message: 'availabilityId debe ser un numero válido' })
+  availabilityId: number;
 
   @IsDateString({}, { message: 'scheduledDate debe tener formato YYYY-MM-DD' })
   scheduledDate: string; // YYYY-MM-DD
 
-  @IsEnum(SessionModality, { message: 'modality debe ser PRES o VIRT' })
-  modality: SessionModality;
+  @IsEnum(Modality, { message: 'modality debe ser PRES o VIRT' })
+  modality: Modality;
 
   @IsNumber()
   @IsIn([1, 1.5, 2], { message: 'durationHours debe ser 1, 1.5 o 2' })

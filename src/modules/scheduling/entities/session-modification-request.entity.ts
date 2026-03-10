@@ -9,8 +9,9 @@ import {
 } from 'typeorm';
 import { Session } from './session.entity';
 import { User } from '../../users/entities/user.entity';
-import { SessionModality } from '../enums/session-modality.enum';
+
 import { ModificationStatus } from '../enums/modification-status.enum';
+import { Modality } from 'src/modules/availability/enums/modality.enum';
 
 @Entity('session_modification_requests')
 export class SessionModificationRequest {
@@ -30,16 +31,20 @@ export class SessionModificationRequest {
   @Column({ name: 'new_start_time', type: 'time', nullable: true })
   newStartTime?: string;
 
-  @Column({ name: 'new_availability_id', type: 'uuid', nullable: true })
-  newAvailabilityId?: string;
+  @Column({ name: 'new_availability_id', type: 'bigint', nullable: true }) 
+  newAvailabilityId?: number; 
+
 
   @Column({
     name: 'new_modality',
     type: 'enum',
-    enum: SessionModality,
+    enum: Modality,
     nullable: true,
   })
-  newModality?: SessionModality;
+  newModality?: Modality;
+
+  @Column({ name: 'new_duration_hours', type: 'decimal', precision: 3, scale: 1, nullable: true })
+  newDurationHours?: number;
 
   @Column({
     type: 'enum',

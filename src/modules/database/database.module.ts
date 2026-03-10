@@ -31,6 +31,7 @@ import { Session as AuthSession } from '../auth/entities/session.entity'; // Ren
 import { AuditLog } from '../auth/entities/audit-log.entity';
 import { PasswordResetToken } from '../auth/entities/password-reset-token.entity';
 import { EmailVerificationToken } from '../auth/entities/email-verification-token.entity';
+import { SessionModificationRequest } from '../scheduling/entities/session-modification-request.entity';
 
 const entities = [
   User,
@@ -43,6 +44,7 @@ const entities = [
   TutorHaveAvailability,
   Session,
   ScheduledSession,
+  SessionModificationRequest,
   StudentParticipateSession,
   Question,
   Answer,

@@ -15,10 +15,10 @@ export class ScheduledSession {
   @PrimaryColumn({ name: 'id_tutor', type: 'uuid' })
   idTutor: string;
 
-  @PrimaryColumn({ name: 'id_availability', type: 'uuid' })
-  idAvailability: string;
+  @PrimaryColumn({ name: 'id_availability', type: 'bigint' })
+  idAvailability: number;
 
-  @Column({ name: 'id_session', type: 'uuid', nullable: true })
+  @Column({ name: 'id_session', type: 'uuid' }) //eliminé el nullable:true
   idSession: string;
 
   @ManyToOne(() => Tutor)

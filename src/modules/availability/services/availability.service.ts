@@ -307,7 +307,7 @@ export class AvailabilityService {
 
     // 3. Mapear y filtrar slots
     let slots: AvailabilitySlot[] = tutorAvailabilities.map((ta) => {
-      const isReserved = reservedAvailabilityIds.has(ta.idAvailability.toString());//Convertir a string (Revisar consistencia)
+      const isReserved = reservedAvailabilityIds.has(ta.idAvailability);//Convertir a string (Revisar consistencia)
       const startTime = ta.availability.startTime;
       const endTime = this.calculateEndTime(startTime);
 
@@ -408,7 +408,7 @@ async getAllAvailableTutors(options?: {
     relations: ['session'],
   });
 
-  const reservedByTutor = new Map<string, Set<string>>();
+  const reservedByTutor = new Map<string, Set<number>>();
   allScheduledSessions.forEach((ss) => {
     if (!reservedByTutor.has(ss.idTutor)) {
       reservedByTutor.set(ss.idTutor, new Set());
@@ -429,7 +429,7 @@ async getAllAvailableTutors(options?: {
 
     const totalSlots = slots.length;
     const availableSlots = slots.filter(
-      (s) => !reservedSlots.has(s.idAvailability.toString()),
+      (s) => !reservedSlots.has(s.idAvailability),
     ).length;
 
     // Si tiene el filtro onlyAvailable, excluir tutores sin slots disponibles
@@ -687,7 +687,7 @@ async validateModalityForSlot(
  */
 async isSlotAvailableForDate(
   tutorId: string,
-  availabilityId: string,
+  availabilityId: number,
   scheduledDate: Date,
 ): Promise<boolean> {
   const existingScheduledSession = await this.scheduledSessionRepository.findOne({
