@@ -15,11 +15,11 @@ import { Modality } from 'src/modules/availability/enums/modality.enum';
 @Injectable()
 export class SessionValidationService {
   constructor(
-    // ✅ Solo repositorios del dominio Scheduling
+    //  Solo repositorios del dominio Scheduling
     @InjectRepository(Session, 'local')
     private readonly sessionRepository: Repository<Session>,
 
-    // ✅ Servicios de otros módulos
+    //  Servicios de otros módulos
     private readonly availabilityService: AvailabilityService,
     private readonly tutorService: TutorService,
   ) {}
@@ -42,11 +42,11 @@ export class SessionValidationService {
    * HU-19.1.3: Validar que modalidad coincida con la franja
    */
   async validateModality(
-    availabilityId: number, // ✅ CAMBIADO a number
+    availabilityId: number, 
     tutorId: string,
     requestedModality: Modality,
   ): Promise<void> {
-    // ✅ Delega al AvailabilityService
+    // Delega al AvailabilityService
     await this.availabilityService.validateModalityForSlot(
       availabilityId,
       tutorId,
@@ -59,10 +59,10 @@ export class SessionValidationService {
    */
   async validateAvailabilitySlot(
     tutorId: string,
-    availabilityId: number, // ✅ CAMBIADO a number
+    availabilityId: number, 
     scheduledDate: Date,
   ): Promise<void> {
-    // ✅ Delega al AvailabilityService
+    //  Delega al AvailabilityService
     const isAvailable = await this.availabilityService.isSlotAvailableForDate(
       tutorId,
       availabilityId, 
@@ -88,7 +88,6 @@ export class SessionValidationService {
     // Calcular endTime
     const endTime = this.calculateEndTime(startTime, durationHours);
 
-    // ✅ Solo consulta repositorio de Session (su propio dominio)
     const sessions = await this.sessionRepository.find({
       where: {
         idTutor: tutorId,
@@ -132,7 +131,7 @@ export class SessionValidationService {
     const weekStart = startOfWeek(scheduledDate, { weekStartsOn: 1 }); // Lunes
     const weekEnd = endOfWeek(scheduledDate, { weekStartsOn: 1 }); // Domingo
 
-    // ✅ Solo consulta repositorio de Session (su propio dominio)
+    // Solo consulta repositorio de Session (su propio dominio)
     const sessions = await this.sessionRepository
       .createQueryBuilder('session')
       .where('session.idTutor = :tutorId', { tutorId })
@@ -157,7 +156,7 @@ export class SessionValidationService {
       return sum + duration;
     }, 0);
 
-    // ✅ Obtener límite desde TutorService
+    // Obtener límite desde TutorService
     const weeklyLimit = await this.tutorService.getWeeklyHoursLimit(tutorId);
 
     // Validar

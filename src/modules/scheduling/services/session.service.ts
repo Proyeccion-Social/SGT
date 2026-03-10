@@ -376,7 +376,7 @@ export class SessionService {
     // 6. Crear solicitud de modificación
     const expiresAt = addDays(new Date(), 1); // 24 horas
 
-  // ✅ Usar constructor en lugar de .create()
+  //  Usar constructor en lugar de .create()
   const modificationRequest = new SessionModificationRequest();
   modificationRequest.idSession = sessionId;
   modificationRequest.requestedBy = userId;
@@ -471,7 +471,7 @@ export class SessionService {
 
     // 5. Procesar respuesta
     if (accept) {
-      // ✅ ACEPTAR (HU-22.3.1)
+      //  ACEPTAR (HU-22.3.1)
       
       // Aplicar cambios a la sesión
       if (pendingRequest.newScheduledDate) {
@@ -521,7 +521,7 @@ export class SessionService {
 
       pendingRequest.status = ModificationStatus.ACCEPTED;
     } else {
-      // ❌ RECHAZAR (HU-22.3.2)
+      //  RECHAZAR (HU-22.3.2)
       session.status = SessionStatus.SCHEDULED;
       await this.sessionRepository.save(session);
 
