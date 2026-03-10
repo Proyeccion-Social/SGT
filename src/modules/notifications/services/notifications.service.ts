@@ -581,8 +581,8 @@ export class NotificationsService {
       );
 
       const subject = accepted
-        ? `✅ Modificación aceptada: ${session.subject?.name}`
-        : `❌ Modificación rechazada: ${session.subject?.name}`;
+        ? ` Modificación aceptada: ${session.subject?.name}`
+        : ` Modificación rechazada: ${session.subject?.name}`;
 
       await this.resend.emails.send({
         from: this.fromEmail,
@@ -602,6 +602,322 @@ export class NotificationsService {
       throw error;
     }
   }
+
+  // ========================================
+  // RF-26: RECORDATORIOS DE SESIÓN
+  // ========================================
+
+  /**
+   * Enviar recordatorio de sesión (24h o 2h antes)
+   * @param session - Datos completos de la sesión
+   * @param reminderType - Tipo de recordatorio (24_HOURS_BEFORE | 2_HOURS_BEFORE)
+   */
+  async sendSessionReminder(
+    session: any, // SessionDetailedDto
+    reminderType: '24_HOURS_BEFORE' | '2_HOURS_BEFORE',
+  ): Promise<void> {
+    try {
+      const is24Hours = reminderType === '24_HOURS_BEFORE';
+      const timeUntilSession = is24Hours ? '24 horas' : '2 horas';
+
+      // Preparar datos comunes
+      const baseData = {
+        subjectName: session.subject.name,
+        date: this.formatDate(session.scheduledDate),
+        startTime: session.startTime,
+        endTime: session.endTime,
+        modality: this.translateModality(session.modality),
+        title: session.title,
+        description: session.description,
+        timeUntilSession,
+        is24Hours,
+        is2Hours: !is24Hours,
+        sessionDetailsUrl: `${this.configService.get('FRONTEND_URL')}/sessions/${session.id}`,
+      };
+
+      // Enviar a tutor
+      const tutorEmail = `${session.tutor.id}@udistrital.edu.co`;
+      const tutorHtml = this.renderTemplate('session-reminder', {
+        ...baseData,
+        recipientName: session.tutor.name,
+        recipientRole: 'tutor',
+        studentName: session.participants[0]?.name || 'Estudiante',
+      });
+
+      await this.resend.emails.send({
+        from: this.fromEmail,
+        to: tutorEmail,
+        subject: is24Hours
+          ? ` Recordatorio: Sesión mañana - ${session.subject.name}`
+          : ` Recordatorio: Sesión en 2 horas - ${session.subject.name}`,
+        html: tutorHtml,
+      });
+
+      // Enviar a estudiante(s)
+      for (const participant of session.participants) {
+        const studentEmail = `${participant.id}@udistrital.edu.co`;
+        const studentHtml = this.renderTemplate('session-reminder', {
+          ...baseData,
+          recipientName: participant.name,
+          recipientRole: 'estudiante',
+          tutorName: session.tutor.name,
+        });
+
+        await this.resend.emails.send({
+          from: this.fromEmail,
+          to: studentEmail,
+          subject: is24Hours
+            ? ` Recordatorio: Sesión mañana - ${session.subject.name}`
+            : ` Recordatorio: Sesión en 2 horas - ${session.subject.name}`,
+          html: studentHtml,
+        });
+      }
+
+      this.logger.log(
+        `Session reminder (${reminderType}) sent for session ${session.id}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Error sending session reminder: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
+  // ========================================
+  // RF-27: EVALUACIÓN PENDIENTE
+  // ========================================
+
+  /**
+   * Enviar recordatorio de evaluación pendiente a estudiante
+   * @param session - Datos de la sesión completada
+   * @param studentId - ID del estudiante que debe evaluar
+   * @param isReminder - Si es un recordatorio (después de 24h)
+   */
+  async sendEvaluationPendingReminder(
+    session: any, // SessionDetailedDto
+    studentId: string,
+    isReminder: boolean = false,
+  ): Promise<void> {
+    try {
+      // Buscar datos del estudiante
+      const student = session.participants.find((p) => p.id === studentId);
+
+      if (!student) {
+        this.logger.warn(
+          `Student ${studentId} not found in session ${session.id} participants`,
+        );
+        return;
+      }
+
+      const studentEmail = `${studentId}@udistrital.edu.co`;
+
+      const templateData = {
+        studentName: student.name,
+        tutorName: session.tutor.name,
+        subjectName: session.subject.name,
+        sessionDate: this.formatDate(session.scheduledDate),
+        sessionTime: session.startTime,
+        title: session.title,
+        isReminder,
+        evaluationUrl: `${this.configService.get('FRONTEND_URL')}/sessions/${session.id}/evaluate`,
+      };
+
+      const htmlContent = this.renderTemplate(
+        'evaluation-pending',
+        templateData,
+      );
+
+      const subject = isReminder
+        ? ` Recordatorio: Califica tu sesión de ${session.subject.name}`
+        : ` Califica tu sesión de tutoría - ${session.subject.name}`;
+
+      await this.resend.emails.send({
+        from: this.fromEmail,
+        to: studentEmail,
+        subject,
+        html: htmlContent,
+      });
+
+      this.logger.log(
+        `Evaluation reminder sent to student ${studentEmail} for session ${session.id}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Error sending evaluation pending reminder: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
+  // ========================================
+  // RF-28: CAMBIO DE DISPONIBILIDAD
+  // ========================================
+
+  /**
+   * Notificar a estudiantes sobre cambios en disponibilidad que afectan sus sesiones
+   * @param tutorId - ID del tutor
+   * @param affectedSessions - Lista de sesiones afectadas
+   * @param changeReason - Razón del cambio (opcional)
+   */
+  async sendAvailabilityChangeNotification(
+    tutorId: string,
+    tutorName: string,
+    affectedSessions: Array<{
+      sessionId: string;
+      studentId: string;
+      studentName: string;
+      studentEmail: string;
+      subjectName: string;
+      scheduledDate: Date;
+      startTime: string;
+      endTime: string;
+      title: string;
+      changeType: 'CANCELLED' | 'MODIFIED' | 'SLOT_DELETED';
+    }>,
+    changeReason?: string,
+  ): Promise<void> {
+    try {
+      for (const affectedSession of affectedSessions) {
+        const templateData = {
+          studentName: affectedSession.studentName,
+          tutorName,
+          subjectName: affectedSession.subjectName,
+          originalDate: this.formatDate(affectedSession.scheduledDate),
+          originalTime: `${affectedSession.startTime} - ${affectedSession.endTime}`,
+          title: affectedSession.title,
+          changeType: affectedSession.changeType,
+          isCancelled: affectedSession.changeType === 'CANCELLED',
+          isModified: affectedSession.changeType === 'MODIFIED',
+          isSlotDeleted: affectedSession.changeType === 'SLOT_DELETED',
+          changeReason: changeReason || 'No especificada',
+          rescheduleUrl: `${this.configService.get('FRONTEND_URL')}/sessions/schedule`,
+          tutorProfileUrl: `${this.configService.get('FRONTEND_URL')}/tutors/${tutorId}`,
+        };
+
+        const htmlContent = this.renderTemplate(
+          'availability-changed',
+          templateData,
+        );
+
+        let subject: string;
+        switch (affectedSession.changeType) {
+          case 'CANCELLED':
+            subject = ` Sesión cancelada: ${affectedSession.subjectName}`;
+            break;
+          case 'MODIFIED':
+            subject = ` Sesión modificada: ${affectedSession.subjectName}`;
+            break;
+          case 'SLOT_DELETED':
+            subject = ` Cambio en disponibilidad - ${affectedSession.subjectName}`;
+            break;
+        }
+
+        await this.resend.emails.send({
+          from: this.fromEmail,
+          to: affectedSession.studentEmail,
+          subject,
+          html: htmlContent,
+        });
+
+        this.logger.log(
+          `Availability change notification sent to ${affectedSession.studentEmail} for session ${affectedSession.sessionId}`,
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        `Error sending availability change notifications: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
+  // ========================================
+  // RF-29: ALERTA DE LÍMITE DE HORAS
+  // ========================================
+
+  /**
+   * Enviar alerta a tutor sobre límite de horas semanales
+   * @param tutorId - ID del tutor
+   * @param tutorName - Nombre del tutor
+   * @param tutorEmail - Email del tutor
+   * @param weeklyHourLimit - Límite semanal de horas
+   * @param hoursUsed - Horas utilizadas
+   * @param usagePercentage - Porcentaje de uso (80, 95, 100)
+   */
+  async sendHourLimitAlert(
+    tutorId: string,
+    tutorName: string,
+    tutorEmail: string,
+    weeklyHourLimit: number,
+    hoursUsed: number,
+    usagePercentage: number,
+  ): Promise<void> {
+    try {
+      const hoursRemaining = weeklyHourLimit - hoursUsed;
+      let alertLevel: '80_PERCENT' | '95_PERCENT' | '100_PERCENT';
+      let urgencyLevel: 'warning' | 'urgent' | 'critical';
+
+      if (usagePercentage >= 100) {
+        alertLevel = '100_PERCENT';
+        urgencyLevel = 'critical';
+      } else if (usagePercentage >= 95) {
+        alertLevel = '95_PERCENT';
+        urgencyLevel = 'urgent';
+      } else {
+        alertLevel = '80_PERCENT';
+        urgencyLevel = 'warning';
+      }
+
+      const templateData = {
+        tutorName,
+        weeklyHourLimit,
+        hoursUsed: hoursUsed.toFixed(1),
+        hoursRemaining: hoursRemaining.toFixed(1),
+        usagePercentage: usagePercentage.toFixed(0),
+        alertLevel,
+        urgencyLevel,
+        is80Percent: alertLevel === '80_PERCENT',
+        is95Percent: alertLevel === '95_PERCENT',
+        is100Percent: alertLevel === '100_PERCENT',
+        canAcceptMore: usagePercentage < 100,
+        sessionsUrl: `${this.configService.get('FRONTEND_URL')}/tutor/sessions`,
+        settingsUrl: `${this.configService.get('FRONTEND_URL')}/tutor/settings`,
+      };
+
+      const htmlContent = this.renderTemplate('hour-limit-alert', templateData);
+
+      let subject: string;
+      if (alertLevel === '100_PERCENT') {
+        subject = ' Límite semanal alcanzado - No puedes aceptar más sesiones';
+      } else if (alertLevel === '95_PERCENT') {
+        subject = ' Casi alcanzas tu límite semanal de horas';
+      } else {
+        subject = '  Aviso: Estás cerca de tu límite semanal';
+      }
+
+      await this.resend.emails.send({
+        from: this.fromEmail,
+        to: tutorEmail,
+        subject,
+        html: htmlContent,
+      });
+
+      this.logger.log(
+        `Hour limit alert (${alertLevel}) sent to tutor ${tutorEmail}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Error sending hour limit alert: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
 
   /**
    * Enviar notificación de actualización de detalles
@@ -667,7 +983,7 @@ export class NotificationsService {
         <p><strong>Email:</strong> ${data.email}</p>
         <p><strong>Contraseña temporal:</strong> ${data.temporaryPassword}</p>
         <p><a href="${data.loginUrl}">Iniciar Sesión</a></p>
-        <p><strong>⚠️ Importante:</strong> Debes cambiar tu contraseña en el primer inicio de sesión.</p>
+        <p><strong> Importante:</strong> Debes cambiar tu contraseña en el primer inicio de sesión.</p>
       `,
       profileCompleted: `
         <h1>¡Perfil Completado, ${data.name}!</h1>
