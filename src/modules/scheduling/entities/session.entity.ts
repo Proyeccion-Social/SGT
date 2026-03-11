@@ -70,6 +70,19 @@ export class Session {
   @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
   createdAt: Date;
 
+  // Nuevos campos para confirmación por parte del tutor
+  @Column({ name: 'tutor_confirmed', type: 'boolean', default: false })
+  tutorConfirmed: boolean;
+
+  @Column({ name: 'tutor_confirmed_at', type: 'timestamp', nullable: true })
+  tutorConfirmedAt?: Date;
+
+  @Column({ name: 'rejection_reason', type: 'text', nullable: true })
+  rejectionReason?: string;
+
+  @Column({ name: 'rejected_at', type: 'timestamp', nullable: true })
+  rejectedAt?: Date;
+
   // Relaciones
   @ManyToOne(() => Tutor, (tutor) => tutor.sessions)
   @JoinColumn({ name: 'id_tutor' })

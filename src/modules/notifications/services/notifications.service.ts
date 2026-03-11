@@ -336,6 +336,106 @@ export class NotificationsService {
   }
 
   /**
+ * Enviar solicitud de confirmación al tutor
+ */
+async sendTutorConfirmationRequest(
+  session: any, // SessionDetailedDto
+  studentId: string,
+): Promise<void> {
+  try {
+    const tutorEmail = `${session.tutor.id}@udistrital.edu.co`;
+    const studentName = session.participants[0]?.name || 'Estudiante';
+
+    const templateData = {
+      tutorName: session.tutor.name,
+      studentName,
+      subjectName: session.subject.name,
+      date: this.formatDate(session.scheduledDate),
+      startTime: session.startTime,
+      endTime: session.endTime,
+      duration: session.duration,
+      modality: this.translateModality(session.modality),
+      title: session.title,
+      description: session.description,
+      confirmUrl: `${this.configService.get('FRONTEND_URL')}/tutor/sessions/${session.id}/confirm`,
+      rejectUrl: `${this.configService.get('FRONTEND_URL')}/tutor/sessions/${session.id}/reject`,
+      expiresAt: this.formatDateTime(
+        new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 horas
+      ),
+    };
+
+    const htmlContent = this.renderTemplate(
+      'tutor-confirmation-request',
+      templateData,
+    );
+
+    await this.resend.emails.send({
+      from: this.fromEmail,
+      to: tutorEmail,
+      subject: ` Nueva solicitud de tutoría: ${session.subject.name}`,
+      html: htmlContent,
+    });
+
+    this.logger.log(
+      `Tutor confirmation request sent to ${tutorEmail} for session ${session.id}`,
+    );
+  } catch (error) {
+    this.logger.error(
+      `Error sending tutor confirmation request: ${error.message}`,
+      error.stack,
+    );
+    throw error;
+  }
+}
+
+/**
+ * Enviar notificación de rechazo al estudiante
+ */
+async sendSessionRejection(
+  session: Session,
+  studentId: string,
+): Promise<void> {
+  try {
+    const studentEmail = `${studentId}@udistrital.edu.co`;
+
+    const templateData = {
+      studentName: session.studentParticipateSessions[0]?.student?.user?.name || 'Estudiante',
+      tutorName: session.tutor?.user?.name || 'Tutor',
+      subjectName: session.subject?.name || 'Materia',
+      date: this.formatDate(session.scheduledDate),
+      startTime: session.startTime,
+      endTime: session.endTime,
+      title: session.title,
+      rejectionReason: session.rejectionReason || 'No especificada',
+      rescheduleUrl: `${this.configService.get('FRONTEND_URL')}/sessions/schedule`,
+      tutorProfileUrl: `${this.configService.get('FRONTEND_URL')}/tutors/${session.idTutor}`,
+    };
+
+    const htmlContent = this.renderTemplate(
+      'session-rejected',
+      templateData,
+    );
+
+    await this.resend.emails.send({
+      from: this.fromEmail,
+      to: studentEmail,
+      subject: ` Solicitud de tutoría no aceptada - ${session.subject?.name}`,
+      html: htmlContent,
+    });
+
+    this.logger.log(
+      `Session rejection notification sent to ${studentEmail} for session ${session.idSession}`,
+    );
+  } catch (error) {
+    this.logger.error(
+      `Error sending rejection notification: ${error.message}`,
+      error.stack,
+    );
+    throw error;
+  }
+}
+
+  /**
    * HU-20.3.1, HU-20.3.2: Enviar confirmación al tutor
    */
   async sendSessionConfirmationTutor(

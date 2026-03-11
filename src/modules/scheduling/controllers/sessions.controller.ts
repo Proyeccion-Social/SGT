@@ -23,6 +23,8 @@ import { CreateIndividualSessionDto } from '../dto/create-individual-session.dto
 import { CancelSessionDto } from '../dto/cancel-session.dto';
 import { ProposeModificationDto } from '../dto/propose-modification.dto';
 import { UpdateSessionDetailsDto } from '../dto/update-session-details.dto';
+import { RejectSessionDto } from '../dto/reject-session.dto';
+import { ConfirmSessionDto } from '../dto/confirm-session.dto';
 
 @Controller('scheduling/sessions')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -45,6 +47,46 @@ export class SessionController {
     @Body() dto: CreateIndividualSessionDto,
   ) {
     return await this.sessionService.createIndividualSession(user.idUser, dto);
+  }
+
+  // ========================================
+  // RF-20: CONFIRMAR SESIÓN (TUTOR)
+  // ========================================
+
+  /**
+   * POST /api/sessions/:id/confirm
+   * Confirmar sesión pendiente (solo tutor)
+   */
+  @Post(':id/confirm')
+  @Roles(UserRole.TUTOR)
+  @HttpCode(HttpStatus.OK)
+  async confirmSession(
+    @Req() req: any,
+    @Param('id') sessionId: string,
+    @Body() dto: ConfirmSessionDto,
+  ) {
+    const tutorId = req.user.userId;
+    return await this.sessionService.confirmSession(tutorId, sessionId, dto);
+  }
+
+  // ========================================
+  // RF-20: RECHAZAR SESIÓN (TUTOR)
+  // ========================================
+
+  /**
+   * POST /api/sessions/:id/reject
+   * Rechazar sesión pendiente (solo tutor)
+   */
+  @Post(':id/reject')
+  @Roles(UserRole.TUTOR)
+  @HttpCode(HttpStatus.OK)
+  async rejectSession(
+    @Req() req: any,
+    @Param('id') sessionId: string,
+    @Body() dto: RejectSessionDto,
+  ) {
+    const tutorId = req.user.userId;
+    return await this.sessionService.rejectSession(tutorId, sessionId, dto);
   }
 
   // ========================================

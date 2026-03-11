@@ -27,11 +27,13 @@ import { UserService } from '../../users/services/users.service';
 import { SubjectsService } from '../../subjects/services/subjects.service';
 import { NotificationsService } from '../../notifications/services/notifications.service';
 import { addDays } from 'date-fns';
+import { ConfirmSessionDto } from '../dto/confirm-session.dto';
+import { RejectSessionDto } from '../dto/reject-session.dto';
 
 @Injectable()
 export class SessionService {
   constructor(
-    // ✅ Solo repositorios del dominio Scheduling
+    // Solo repositorios del dominio Scheduling
     @InjectRepository(Session, 'local')
     private readonly sessionRepository: Repository<Session>,
 
@@ -44,7 +46,7 @@ export class SessionService {
     @InjectRepository(SessionModificationRequest, 'local')
     private readonly modificationRequestRepository: Repository<SessionModificationRequest>,
 
-    // ✅ Servicios de otros módulos
+    // Servicios de otros módulos
     private readonly validationService: SessionValidationService,
     private readonly availabilityService: AvailabilityService,
     private readonly tutorService: TutorService,
@@ -95,7 +97,7 @@ export class SessionService {
     // 5. Validar franja disponible
     await this.validationService.validateAvailabilitySlot(
       dto.tutorId,
-      dto.availabilityId,//toString
+      dto.availabilityId,
       new Date(dto.scheduledDate),
     );
 
@@ -144,9 +146,10 @@ export class SessionService {
       endTime,
       type: SessionType.INDIVIDUAL,
       modality: dto.modality,
-      status: SessionStatus.SCHEDULED,
+      status: SessionStatus.PENDING_TUTOR_CONFIRMATION, // Nuevo estado inicial, mientras el tutor confirma
       title: dto.title,
       description: dto.description,
+      tutorConfirmed: false, // El tutor aún no ha confirmado la sesión
     });
 
     const savedSession = await this.sessionRepository.save(session);
@@ -179,7 +182,9 @@ export class SessionService {
     // FASE 5: NOTIFICACIONES (HU-20.2, HU-20.3)
     // ========================================
 
-    await this.sendConfirmationEmails(savedSession, studentId);
+    await this.sendTutorConfirmationRequest(savedSession, studentId);
+
+    //await this.sendConfirmationEmails(savedSession, studentId);
 
     // ========================================
     // RETORNO
@@ -187,8 +192,116 @@ export class SessionService {
 
     return {
       success: true,
-      message: 'Sesión agendada exitosamente',
+      message: 'Solicitud de sesión enviada al tutor. Recibirás una notificación cuando el tutor confirme.',
       session: await this.getSessionById(savedSession.idSession),
+    };
+  }
+
+
+  // ========================================
+  // RF-20: CONFIRMAR SESIÓN (TUTOR)
+  // ========================================
+
+  async confirmSession(
+    tutorId: string,
+    sessionId: string,
+    dto: ConfirmSessionDto,
+  ) {
+    // 1. Buscar sesión
+    const session = await this.sessionRepository.findOne({
+      where: { idSession: sessionId },
+      relations: ['studentParticipateSessions', 'tutor', 'tutor.user', 'subject'],
+    });
+
+    if (!session) {
+      throw new NotFoundException('Session not found');
+    }
+
+    // 2. Validar que el usuario sea el tutor asignado
+    if (session.idTutor !== tutorId) {
+      throw new ForbiddenException(
+        'Solo el tutor asignado puede confirmar esta sesión',
+      );
+    }
+
+    // 3. Validar que la sesión esté en estado PENDING_TUTOR_CONFIRMATION
+    if (session.status !== SessionStatus.PENDING_TUTOR_CONFIRMATION) {
+      throw new BadRequestException(
+        `No se puede confirmar una sesión con estado ${session.status}`,
+      );
+    }
+
+    // 4. Actualizar estado de la sesión
+    session.status = SessionStatus.SCHEDULED;
+    session.tutorConfirmed = true;
+    session.tutorConfirmedAt = new Date();
+
+    await this.sessionRepository.save(session);
+
+    // 5. Enviar notificaciones de confirmación a ambos
+    await this.sendConfirmationEmails(session, session.studentParticipateSessions[0].idStudent);
+
+    return {
+      success: true,
+      message: 'Sesión confirmada exitosamente',
+      session: await this.getSessionById(sessionId),
+    };
+  }
+
+  // ========================================
+  // RF-20: RECHAZAR SESIÓN (TUTOR)
+  // ========================================
+
+  async rejectSession(
+    tutorId: string,
+    sessionId: string,
+    dto: RejectSessionDto,
+  ) {
+    // 1. Buscar sesión
+    const session = await this.sessionRepository.findOne({
+      where: { idSession: sessionId },
+      relations: ['studentParticipateSessions', 'tutor', 'tutor.user', 'subject'],
+    });
+
+    if (!session) {
+      throw new NotFoundException('Session not found');
+    }
+
+    // 2. Validar que el usuario sea el tutor asignado
+    if (session.idTutor !== tutorId) {
+      throw new ForbiddenException(
+        'Solo el tutor asignado puede rechazar esta sesión',
+      );
+    }
+
+    // 3. Validar que la sesión esté en estado PENDING_TUTOR_CONFIRMATION
+    if (session.status !== SessionStatus.PENDING_TUTOR_CONFIRMATION) {
+      throw new BadRequestException(
+        `No se puede rechazar una sesión con estado ${session.status}`,
+      );
+    }
+
+    // 4. Actualizar estado de la sesión
+    session.status = SessionStatus.REJECTED_BY_TUTOR;
+    session.rejectionReason = dto.reason;
+    session.rejectedAt = new Date();
+
+    await this.sessionRepository.save(session);
+
+    // 5. Liberar franja
+    await this.scheduledSessionRepository.delete({
+      idSession: sessionId,
+    });
+
+    // 6. Notificar al estudiante del rechazo
+    const studentId = session.studentParticipateSessions[0]?.idStudent;
+    if (studentId) {
+      await this.sendSessionRejectionEmail(session, studentId);
+    }
+
+    return {
+      success: true,
+      message: 'Sesión rechazada. Se ha notificado al estudiante.',
     };
   }
 
@@ -742,6 +855,43 @@ export class SessionService {
       await this.notificationsService.sendSessionDetailsUpdate(session);
     } catch (error) {
       console.error('Error sending details update email:', error);
+    }
+  }
+
+  /**
+   * Enviar solicitud de confirmación al tutor
+   */
+  private async sendTutorConfirmationRequest(
+    session: Session,
+    studentId: string,
+  ) {
+    try {
+      const fullSession = await this.getSessionById(session.idSession);
+
+      await this.notificationsService.sendTutorConfirmationRequest(
+        fullSession,
+        studentId,
+      );
+    } catch (error) {
+      console.error('Error sending tutor confirmation request:', error);
+      // No romper el flujo si falla el email
+    }
+  }
+
+  /**
+   * Enviar notificación de rechazo al estudiante
+   */
+  private async sendSessionRejectionEmail(
+    session: Session,
+    studentId: string,
+  ) {
+    try {
+      await this.notificationsService.sendSessionRejection(
+        session,
+        studentId,
+      );
+    } catch (error) {
+      console.error('Error sending rejection email:', error);
     }
   }
 
