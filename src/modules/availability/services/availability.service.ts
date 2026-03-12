@@ -694,6 +694,7 @@ async isSlotAvailableForDate(
     where: {
       idTutor: tutorId,
       idAvailability: availabilityId,
+      scheduledDate: scheduledDate,
     },
     relations: ['session'],
   });
@@ -711,6 +712,7 @@ async isSlotAvailableForDate(
   const isActive = [
     SessionStatus.SCHEDULED,
     SessionStatus.PENDING_MODIFICATION,
+    SessionStatus.PENDING_TUTOR_CONFIRMATION,
   ].includes(session.status);
 
   return !(isSameDate && isActive); // Disponible si NO es misma fecha o NO está activa

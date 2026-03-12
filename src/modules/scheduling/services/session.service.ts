@@ -162,6 +162,7 @@ export class SessionService {
       idTutor: dto.tutorId,
       idAvailability: dto.availabilityId,
       idSession: savedSession.idSession,
+      scheduledDate: new Date(dto.scheduledDate),
     });
 
     await this.scheduledSessionRepository.save(scheduledSession);
@@ -526,133 +527,149 @@ export class SessionService {
   // ========================================
 
   async respondToModification(
-    userId: string,
-    sessionId: string,
-    accept: boolean,
-  ) {
-    // 1. Buscar sesión
-    const session = await this.sessionRepository.findOne({
-      where: { idSession: sessionId },
-      relations: ['studentParticipateSessions', 'modificationRequests'],
-    });
+  userId: string,
+  sessionId: string,
+  accept: boolean,
+) {
+  // 1. Buscar sesión
+  const session = await this.sessionRepository.findOne({
+    where: { idSession: sessionId },
+    relations: ['studentParticipateSessions', 'modificationRequests'],
+  });
 
-    if (!session) {
-      throw new NotFoundException('Session not found');
-    }
+  if (!session) {
+    throw new NotFoundException('Session not found');
+  }
 
-    // 2. Buscar solicitud de modificación pendiente
-    const pendingRequest = session.modificationRequests.find(
-      (r) => r.status === ModificationStatus.PENDING,
+  // 2. Buscar solicitud de modificación pendiente
+  const pendingRequest = session.modificationRequests.find(
+    (r) => r.status === ModificationStatus.PENDING,
+  );
+
+  if (!pendingRequest) {
+    throw new NotFoundException(
+      'No hay solicitud de modificación pendiente',
     );
+  }
 
-    if (!pendingRequest) {
-      throw new NotFoundException(
-        'No hay solicitud de modificación pendiente',
-      );
-    }
+  // 3. Validar que el usuario sea el receptor (no el solicitante)
+  const isParticipant = session.studentParticipateSessions.some(
+    (p) => p.idStudent === userId,
+  );
+  const isTutor = session.idTutor === userId;
 
-    // 3. Validar que el usuario sea el receptor (no el solicitante)
-    const isParticipant = session.studentParticipateSessions.some(
-      (p) => p.idStudent === userId,
+  if (!isParticipant && !isTutor) {
+    throw new ForbiddenException('No tienes permiso para responder');
+  }
+
+  if (pendingRequest.requestedBy === userId) {
+    throw new BadRequestException(
+      'No puedes responder tu propia solicitud',
     );
-    const isTutor = session.idTutor === userId;
+  }
 
-    if (!isParticipant && !isTutor) {
-      throw new ForbiddenException('No tienes permiso para responder');
+  // 4. Validar que no haya expirado (HU-22.1.3, HU-22.2.3)
+  if (new Date() > pendingRequest.expiresAt) {
+    pendingRequest.status = ModificationStatus.EXPIRED;
+    await this.modificationRequestRepository.save(pendingRequest);
+
+    session.status = SessionStatus.SCHEDULED;
+    await this.sessionRepository.save(session);
+
+    throw new BadRequestException(
+      'La solicitud de modificación ha expirado',
+    );
+  }
+
+  // 5. Procesar respuesta
+  if (accept) {
+    //  ACEPTAR (HU-22.3.1)
+
+    // Aplicar cambios a la sesión
+    if (pendingRequest.newScheduledDate) {
+      session.scheduledDate = pendingRequest.newScheduledDate;
     }
 
-    if (pendingRequest.requestedBy === userId) {
-      throw new BadRequestException(
-        'No puedes responder tu propia solicitud',
-      );
-    }
+    if (pendingRequest.newAvailabilityId || pendingRequest.newScheduledDate) {
+      //  Cambio: Usar UPDATE en lugar de DELETE + INSERT
+      const scheduledSession = await this.scheduledSessionRepository.findOne({
+        where: { idSession: sessionId },
+      });
 
-    // 4. Validar que no haya expirado (HU-22.1.3, HU-22.2.3)
-    if (new Date() > pendingRequest.expiresAt) {
-      pendingRequest.status = ModificationStatus.EXPIRED;
-      await this.modificationRequestRepository.save(pendingRequest);
-
-      session.status = SessionStatus.SCHEDULED;
-      await this.sessionRepository.save(session);
-
-      throw new BadRequestException(
-        'La solicitud de modificación ha expirado',
-      );
-    }
-
-    // 5. Procesar respuesta
-    if (accept) {
-      //  ACEPTAR (HU-22.3.1)
-      
-      // Aplicar cambios a la sesión
-      if (pendingRequest.newScheduledDate) {
-        session.scheduledDate = pendingRequest.newScheduledDate;
+      if (!scheduledSession) {
+        throw new NotFoundException(
+          'ScheduledSession not found for this session',
+        );
       }
 
+      // Actualizar availability si cambió
       if (pendingRequest.newAvailabilityId) {
-        const newAvailability = await this.availabilityService.getAvailabilityById(
-          pendingRequest.newAvailabilityId,
-        );
+        const newAvailability =
+          await this.availabilityService.getAvailabilityById(
+            pendingRequest.newAvailabilityId,
+          );
 
         session.startTime = newAvailability.startTime;
 
-        const duration = pendingRequest.newDurationHours || this.calculateDurationFromSession(session);
+        const duration =
+          pendingRequest.newDurationHours ||
+          this.calculateDurationFromSession(session);
         session.endTime = this.validationService.calculateEndTime(
           newAvailability.startTime,
           duration,
         );
 
-        // Actualizar ScheduledSession
-        await this.scheduledSessionRepository.delete({
-          idSession: sessionId,
-        });
-
-        const newScheduledSession = this.scheduledSessionRepository.create({
-          idTutor: session.idTutor,
-          idAvailability: pendingRequest.newAvailabilityId,
-          idSession: sessionId,
-        });
-
-        await this.scheduledSessionRepository.save(newScheduledSession);
+        //  UPDATE simple
+        scheduledSession.idAvailability = pendingRequest.newAvailabilityId;
       }
 
-      if (pendingRequest.newModality) {
-        session.modality = pendingRequest.newModality;
+      // Actualizar fecha si cambió
+      if (pendingRequest.newScheduledDate) {
+        //  UPDATE simple
+        scheduledSession.scheduledDate = pendingRequest.newScheduledDate;
       }
 
-      if (pendingRequest.newDurationHours) {
-        session.endTime = this.validationService.calculateEndTime(
-          session.startTime,
-          pendingRequest.newDurationHours,
-        );
-      }
-
-      session.status = SessionStatus.SCHEDULED;
-      await this.sessionRepository.save(session);
-
-      pendingRequest.status = ModificationStatus.ACCEPTED;
-    } else {
-      //  RECHAZAR (HU-22.3.2)
-      session.status = SessionStatus.SCHEDULED;
-      await this.sessionRepository.save(session);
-
-      pendingRequest.status = ModificationStatus.REJECTED;
+      //  SAVE único
+      await this.scheduledSessionRepository.save(scheduledSession);
     }
 
-    pendingRequest.respondedBy = userId;
-    pendingRequest.respondedAt = new Date();
-    await this.modificationRequestRepository.save(pendingRequest);
+    if (pendingRequest.newModality) {
+      session.modality = pendingRequest.newModality;
+    }
 
-    // 6. Notificar resultado
-    await this.sendModificationResponseEmail(session, pendingRequest, accept);
+    if (pendingRequest.newDurationHours) {
+      session.endTime = this.validationService.calculateEndTime(
+        session.startTime,
+        pendingRequest.newDurationHours,
+      );
+    }
 
-    return {
-      success: true,
-      message: accept
-        ? 'Modificación aceptada exitosamente'
-        : 'Modificación rechazada',
-    };
+    session.status = SessionStatus.SCHEDULED;
+    await this.sessionRepository.save(session);
+
+    pendingRequest.status = ModificationStatus.ACCEPTED;
+  } else {
+    //  RECHAZAR (HU-22.3.2)
+    session.status = SessionStatus.SCHEDULED;
+    await this.sessionRepository.save(session);
+
+    pendingRequest.status = ModificationStatus.REJECTED;
   }
+
+  pendingRequest.respondedBy = userId;
+  pendingRequest.respondedAt = new Date();
+  await this.modificationRequestRepository.save(pendingRequest);
+
+  // 6. Notificar resultado
+  await this.sendModificationResponseEmail(session, pendingRequest, accept);
+
+  return {
+    success: true,
+    message: accept
+      ? 'Modificación aceptada exitosamente'
+      : 'Modificación rechazada',
+  };
+}
 
   // ========================================
   // RF-22: MODIFICAR TÍTULO/DESCRIPCIÓN

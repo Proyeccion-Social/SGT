@@ -5,12 +5,14 @@ import {
   JoinColumn,
   OneToOne,
   Column,
+  Unique,
 } from 'typeorm';
 import { Session } from './session.entity';
 import { Availability } from '../../availability/entities/availability.entity';
 import { Tutor } from '../../tutor/entities/tutor.entity';
 
 @Entity('scheduled_sessions')
+@Unique('UQ_tutor_availability_date', ['idTutor', 'idAvailability', 'scheduledDate'])
 export class ScheduledSession {
   @Column({ name: 'id_tutor', type: 'uuid' })
   idTutor: string;
@@ -20,6 +22,9 @@ export class ScheduledSession {
 
   @PrimaryColumn({ name: 'id_session', type: 'uuid' }) //eliminé el nullable:true
   idSession: string;
+
+  @Column({ name: 'scheduled_date', type: 'date' }) //nuevo campo para almacenar la fecha programada, necesario para validaciones de disponibilidad
+  scheduledDate: Date;
 
   @ManyToOne(() => Tutor)
   @JoinColumn({ name: 'id_tutor' })
