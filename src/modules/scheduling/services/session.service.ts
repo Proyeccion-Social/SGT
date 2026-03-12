@@ -184,8 +184,6 @@ export class SessionService {
 
     await this.sendTutorConfirmationRequest(savedSession, studentId);
 
-    //await this.sendConfirmationEmails(savedSession, studentId);
-
     // ========================================
     // RETORNO
     // ========================================

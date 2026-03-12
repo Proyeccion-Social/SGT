@@ -703,9 +703,11 @@ async isSlotAvailableForDate(
   }
 
   const session = existingScheduledSession.session;
+
+  const sessionDate =new Date(session.scheduledDate);
   
   // Verificar si es la misma fecha y está activa
-  const isSameDate = session.scheduledDate.getTime() === scheduledDate.getTime();
+  const isSameDate = sessionDate.getTime() === scheduledDate.getTime(); //Cambio: Declarar explícitamente sessionDate como "new Date" para evitar errores
   const isActive = [
     SessionStatus.SCHEDULED,
     SessionStatus.PENDING_MODIFICATION,

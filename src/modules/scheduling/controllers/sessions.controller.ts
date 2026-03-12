@@ -54,18 +54,18 @@ export class SessionController {
   // ========================================
 
   /**
-   * POST /api/sessions/:id/confirm
+   * POST /api/scheduling/sessions/:id/confirm
    * Confirmar sesión pendiente (solo tutor)
    */
   @Post(':id/confirm')
   @Roles(UserRole.TUTOR)
   @HttpCode(HttpStatus.OK)
   async confirmSession(
-    @Req() req: any,
+    @CurrentUser() user: User,
     @Param('id') sessionId: string,
     @Body() dto: ConfirmSessionDto,
   ) {
-    const tutorId = req.user.userId;
+    const tutorId = user.idUser;
     return await this.sessionService.confirmSession(tutorId, sessionId, dto);
   }
 
@@ -74,18 +74,18 @@ export class SessionController {
   // ========================================
 
   /**
-   * POST /api/sessions/:id/reject
+   * POST /api/scheduling/sessions/:id/reject
    * Rechazar sesión pendiente (solo tutor)
    */
   @Post(':id/reject')
   @Roles(UserRole.TUTOR)
   @HttpCode(HttpStatus.OK)
   async rejectSession(
-    @Req() req: any,
+    @CurrentUser() user: User,
     @Param('id') sessionId: string,
     @Body() dto: RejectSessionDto,
   ) {
-    const tutorId = req.user.userId;
+    const tutorId = user.idUser;
     return await this.sessionService.rejectSession(tutorId, sessionId, dto);
   }
 

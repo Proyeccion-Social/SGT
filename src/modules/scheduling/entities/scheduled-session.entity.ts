@@ -12,13 +12,13 @@ import { Tutor } from '../../tutor/entities/tutor.entity';
 
 @Entity('scheduled_sessions')
 export class ScheduledSession {
-  @PrimaryColumn({ name: 'id_tutor', type: 'uuid' })
+  @Column({ name: 'id_tutor', type: 'uuid' })
   idTutor: string;
 
-  @PrimaryColumn({ name: 'id_availability', type: 'bigint' })
+  @Column({ name: 'id_availability', type: 'bigint' })
   idAvailability: number;
 
-  @Column({ name: 'id_session', type: 'uuid' }) //eliminé el nullable:true
+  @PrimaryColumn({ name: 'id_session', type: 'uuid' }) //eliminé el nullable:true
   idSession: string;
 
   @ManyToOne(() => Tutor)
