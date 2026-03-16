@@ -7,6 +7,9 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
+
+import { DataSource } from 'typeorm';
 import { Repository } from 'typeorm';
 import { Session } from '../entities/session.entity';
 import { ScheduledSession } from '../entities/scheduled-session.entity';
@@ -46,6 +49,10 @@ export class SessionService {
     @InjectRepository(SessionModificationRequest, 'local')
     private readonly modificationRequestRepository: Repository<SessionModificationRequest>,
 
+
+    @InjectDataSource('local')
+    private readonly dataSource: DataSource,
+
     // Servicios de otros módulos
     private readonly validationService: SessionValidationService,
     private readonly availabilityService: AvailabilityService,
@@ -53,6 +60,7 @@ export class SessionService {
     private readonly userService: UserService,
     private readonly subjectsService: SubjectsService,
     private readonly notificationsService: NotificationsService,
+
   ) {}
 
   // ========================================
@@ -60,55 +68,21 @@ export class SessionService {
   // ========================================
 
   async createIndividualSession(
-    studentId: string,
-    dto: CreateIndividualSessionDto,
-  ) {
-    // ========================================
-    // FASE 1: VALIDACIONES (HU-19.1.x)
-    // ========================================
+  studentId: string,
+  dto: CreateIndividualSessionDto,
+) {
+  const queryRunner = this.dataSource.createQueryRunner();
+  await queryRunner.connect();
+  await queryRunner.startTransaction();
 
-    // 1. Validar tutor activo
+  try {
+    // ========================================
+    // VALIDACIONES PREVIAS (sin cambios)
+    // ========================================
+    
+    await this.validationService.validateStudentNotTutor(studentId, dto.tutorId);
     await this.tutorService.validateTutorActive(dto.tutorId);
-
-    // 2. Validar estudiante ≠ tutor
-    await this.validationService.validateStudentNotTutor(
-      studentId,
-      dto.tutorId,
-    );
-
-    // 3. Validar materia existe
-    const subject = await this.subjectsService.findById(dto.subjectId);
-    if (!subject) {
-      throw new NotFoundException('Subject not found');
-    }
-
-    // 4. Validar que tutor imparta esa materia
-    const tutorTeachesSubject = await this.subjectsService.tutorTeachesSubject(
-      dto.tutorId,
-      dto.subjectId,
-    );
-
-    if (!tutorTeachesSubject) {
-      throw new BadRequestException(
-        'El tutor no imparte esta materia',
-      );
-    }
-
-    // 5. Validar franja disponible
-    await this.validationService.validateAvailabilitySlot(
-      dto.tutorId,
-      dto.availabilityId,
-      new Date(dto.scheduledDate),
-    );
-
-    // 6. Validar modalidad coincide
-    await this.validationService.validateModality(
-      dto.availabilityId,
-      dto.tutorId,
-      dto.modality,
-    );
-
-    // 7. Obtener información de la franja para calcular horarios
+    
     const availability = await this.availabilityService.getAvailabilityById(
       dto.availabilityId,
     );
@@ -119,7 +93,55 @@ export class SessionService {
       dto.durationHours,
     );
 
-    // 8. Validar no conflicto de horarios
+    await this.validationService.validateModality(
+      dto.availabilityId,
+      dto.tutorId,
+      dto.modality,
+    );
+
+    // ========================================
+    //  VALIDACIÓN CRÍTICA: Solo rechazar si hay sesión CONFIRMADA
+    // ========================================
+    
+    const existingScheduledSession = await queryRunner.manager
+      .createQueryBuilder(ScheduledSession, 'ss')
+      .innerJoinAndSelect('ss.session', 'session')
+      .where('ss.idTutor = :tutorId', { tutorId: dto.tutorId })
+      .andWhere('ss.idAvailability = :availabilityId', {
+        availabilityId: dto.availabilityId,
+      })
+      .andWhere('ss.scheduledDate = :scheduledDate', {
+        scheduledDate: new Date(dto.scheduledDate),
+      })
+      .andWhere('session.status = :status', {
+        status: SessionStatus.SCHEDULED, //  Solo si está CONFIRMADA
+      })
+      .setLock('pessimistic_write')
+      .getOne();
+
+    if (existingScheduledSession) {
+      throw new BadRequestException(
+        'Esta franja ya está ocupada para la fecha seleccionada. Por favor elige otro horario.',
+      );
+    }
+
+    //  OPCIONAL: Informar al estudiante si hay solicitudes pendientes
+    const pendingCount = await queryRunner.manager
+      .createQueryBuilder(ScheduledSession, 'ss')
+      .innerJoin('ss.session', 'session')
+      .where('ss.idTutor = :tutorId', { tutorId: dto.tutorId })
+      .andWhere('ss.idAvailability = :availabilityId', {
+        availabilityId: dto.availabilityId,
+      })
+      .andWhere('ss.scheduledDate = :scheduledDate', {
+        scheduledDate: new Date(dto.scheduledDate),
+      })
+      .andWhere('session.status = :status', {
+        status: SessionStatus.PENDING_TUTOR_CONFIRMATION,
+      })
+      .getCount();
+
+    // Validaciones de conflicto de horario y límite semanal
     await this.validationService.validateNoTimeConflict(
       dto.tutorId,
       new Date(dto.scheduledDate),
@@ -127,7 +149,6 @@ export class SessionService {
       dto.durationHours,
     );
 
-    // 9. Validar límite semanal del tutor
     await this.validationService.validateWeeklyHoursLimit(
       dto.tutorId,
       new Date(dto.scheduledDate),
@@ -135,10 +156,10 @@ export class SessionService {
     );
 
     // ========================================
-    // FASE 2: CREAR SESIÓN (HU-20.1.1)
+    // CREAR SESIÓN
     // ========================================
 
-    const session = this.sessionRepository.create({
+    const session = queryRunner.manager.create(Session, {
       idTutor: dto.tutorId,
       idSubject: dto.subjectId,
       scheduledDate: new Date(dto.scheduledDate),
@@ -146,70 +167,88 @@ export class SessionService {
       endTime,
       type: SessionType.INDIVIDUAL,
       modality: dto.modality,
-      status: SessionStatus.PENDING_TUTOR_CONFIRMATION, // Nuevo estado inicial, mientras el tutor confirma
+      status: SessionStatus.PENDING_TUTOR_CONFIRMATION,
       title: dto.title,
       description: dto.description,
-      tutorConfirmed: false, // El tutor aún no ha confirmado la sesión
+      tutorConfirmed: false,
     });
 
-    const savedSession = await this.sessionRepository.save(session);
+    const savedSession = await queryRunner.manager.save(session);
 
-    // ========================================
-    // FASE 3: BLOQUEAR FRANJA (HU-20.1.2)
-    // ========================================
-
-    const scheduledSession = this.scheduledSessionRepository.create({
+    const scheduledSession = queryRunner.manager.create(ScheduledSession, {
+      idSession: savedSession.idSession,
       idTutor: dto.tutorId,
       idAvailability: dto.availabilityId,
-      idSession: savedSession.idSession,
       scheduledDate: new Date(dto.scheduledDate),
     });
 
-    await this.scheduledSessionRepository.save(scheduledSession);
+    await queryRunner.manager.save(scheduledSession);
+
+    const participation = queryRunner.manager.create(
+      StudentParticipateSession,
+      {
+        idStudent: studentId,
+        idSession: savedSession.idSession,
+        status: ParticipationStatus.CONFIRMED,
+      },
+    );
+
+    await queryRunner.manager.save(participation);
+
+    await queryRunner.commitTransaction();
 
     // ========================================
-    // FASE 4: ASOCIAR ESTUDIANTE (HU-20.1.3)
-    // ========================================
-
-    const participation = this.studentParticipateRepository.create({
-      idStudent: studentId,
-      idSession: savedSession.idSession,
-      status: ParticipationStatus.CONFIRMED,
-    });
-
-    await this.studentParticipateRepository.save(participation);
-
-    // ========================================
-    // FASE 5: NOTIFICACIONES (HU-20.2, HU-20.3)
+    // NOTIFICAR
     // ========================================
 
     await this.sendTutorConfirmationRequest(savedSession, studentId);
 
-    // ========================================
-    // RETORNO
-    // ========================================
-
     return {
       success: true,
-      message: 'Solicitud de sesión enviada al tutor. Recibirás una notificación cuando el tutor confirme.',
+      message:
+        pendingCount > 0
+          ? `Solicitud enviada. Hay ${pendingCount} solicitud(es) pendiente(s) para este horario. El tutor elegirá una.`
+          : 'Solicitud de sesión enviada al tutor. Recibirás una notificación cuando el tutor confirme.',
       session: await this.getSessionById(savedSession.idSession),
+      pendingRequestsCount: pendingCount,
     };
+  } catch (error) {
+    await queryRunner.rollbackTransaction();
+    
+    if (error.code === '23505') {
+      throw new BadRequestException(
+        'Esta franja ya está ocupada. Por favor elige otro horario.',
+      );
+    }
+    
+    throw error;
+  } finally {
+    await queryRunner.release();
   }
+}
 
 
   // ========================================
   // RF-20: CONFIRMAR SESIÓN (TUTOR)
   // ========================================
 
-  async confirmSession(
-    tutorId: string,
-    sessionId: string,
-    dto: ConfirmSessionDto,
-  ) {
-    // 1. Buscar sesión
-    const session = await this.sessionRepository.findOne({
+  // src/scheduling/services/session.service.ts
+
+async confirmSession(
+  tutorId: string,
+  sessionId: string,
+  dto: ConfirmSessionDto,
+) {
+  const queryRunner = this.dataSource.createQueryRunner();
+  await queryRunner.connect();
+  await queryRunner.startTransaction();
+
+  try {
+    // 1. Buscar sesión con lock
+    const session = await queryRunner.manager.findOne(Session, {
       where: { idSession: sessionId },
       relations: ['studentParticipateSessions', 'tutor', 'tutor.user', 'subject'],
+      lock: { mode: 'pessimistic_write' },
     });
 
     if (!session) {
@@ -230,22 +269,127 @@ export class SessionService {
       );
     }
 
-    // 4. Actualizar estado de la sesión
+    // ========================================
+    //  VALIDACIÓN CRÍTICA: Verificar que no haya otra sesión SCHEDULED
+    // ========================================
+
+    const scheduledSession = await queryRunner.manager.findOne(
+      ScheduledSession,
+      {
+        where: { idSession: sessionId },
+      },
+    );
+
+    if (!scheduledSession) {
+      throw new NotFoundException('ScheduledSession not found');
+    }
+
+    // Buscar si ya hay una sesión SCHEDULED en la misma franja/fecha
+    const conflictingSession = await queryRunner.manager
+      .createQueryBuilder(ScheduledSession, 'ss')
+      .innerJoinAndSelect('ss.session', 'session')
+      .where('ss.idTutor = :tutorId', { tutorId })
+      .andWhere('ss.idAvailability = :availabilityId', {
+        availabilityId: scheduledSession.idAvailability,
+      })
+      .andWhere('ss.scheduledDate = :scheduledDate', {
+        scheduledDate: scheduledSession.scheduledDate,
+      })
+      .andWhere('session.status = :status', {
+        status: SessionStatus.SCHEDULED,
+      })
+      .andWhere('ss.idSession != :sessionId', { sessionId }) // Excluir esta sesión
+      .setLock('pessimistic_write')
+      .getOne();
+
+    if (conflictingSession) {
+      await queryRunner.rollbackTransaction();
+      
+      throw new BadRequestException(
+        'Esta franja ya fue confirmada para otro estudiante. No puedes confirmar esta solicitud.',
+      );
+    }
+
+    // ========================================
+    // CONFIRMAR SESIÓN
+    // ========================================
+
     session.status = SessionStatus.SCHEDULED;
     session.tutorConfirmed = true;
     session.tutorConfirmedAt = new Date();
 
-    await this.sessionRepository.save(session);
+    await queryRunner.manager.save(session);
 
-    // 5. Enviar notificaciones de confirmación a ambos
-    await this.sendConfirmationEmails(session, session.studentParticipateSessions[0].idStudent);
+    // ========================================
+    //  AUTO-RECHAZAR OTRAS SOLICITUDES PENDIENTES
+    // ========================================
+
+    const otherPendingSessions = await queryRunner.manager
+      .createQueryBuilder(ScheduledSession, 'ss')
+      .innerJoinAndSelect('ss.session', 'session')
+      .where('ss.idTutor = :tutorId', { tutorId })
+      .andWhere('ss.idAvailability = :availabilityId', {
+        availabilityId: scheduledSession.idAvailability,
+      })
+      .andWhere('ss.scheduledDate = :scheduledDate', {
+        scheduledDate: scheduledSession.scheduledDate,
+      })
+      .andWhere('session.status = :status', {
+        status: SessionStatus.PENDING_TUTOR_CONFIRMATION,
+      })
+      .andWhere('ss.idSession != :sessionId', { sessionId })
+      .getMany();
+
+    // Rechazar automáticamente las otras solicitudes
+    for (const otherScheduled of otherPendingSessions) {
+      otherScheduled.session.status = SessionStatus.REJECTED_BY_TUTOR;
+      otherScheduled.session.rejectionReason =
+        'El tutor ya confirmó otra sesión para este horario';
+      otherScheduled.session.rejectedAt = new Date();
+
+      await queryRunner.manager.save(otherScheduled.session);
+
+      // Liberar la franja
+      await queryRunner.manager.remove(otherScheduled);
+
+      // Notificar al estudiante del rechazo automático
+      const studentId = otherScheduled.session.studentParticipateSessions[0]?.idStudent;
+      if (studentId) {
+        // Notificar después del commit
+        this.sendSessionRejectionEmail(otherScheduled.session, studentId).catch(
+          (error) => {
+            console.error('Error sending auto-rejection email:', error);
+          },
+        );
+      }
+    }
+
+    await queryRunner.commitTransaction();
+
+    // ========================================
+    // NOTIFICAR CONFIRMACIÓN
+    // ========================================
+
+    await this.sendConfirmationEmails(
+      session,
+      session.studentParticipateSessions[0].idStudent,
+    );
 
     return {
       success: true,
       message: 'Sesión confirmada exitosamente',
+      autoRejectedCount: otherPendingSessions.length,
       session: await this.getSessionById(sessionId),
     };
+  } catch (error) {
+    await queryRunner.rollbackTransaction();
+    throw error;
+  } finally {
+    await queryRunner.release();
   }
+}
+
+
 
   // ========================================
   // RF-20: RECHAZAR SESIÓN (TUTOR)

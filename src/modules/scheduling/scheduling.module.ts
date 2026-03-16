@@ -14,6 +14,7 @@ import { AvailabilityModule } from '../availability/availability.module';
 import { AuthModule } from '../auth/auth.module';
 import { SessionValidationService } from './services/session-validation.service';
 
+
 @Module({
   imports: [
     TypeOrmModule.forFeature(
@@ -25,6 +26,7 @@ import { SessionValidationService } from './services/session-validation.service'
     UsersModule,
     SubjectsModule,
     NotificationsModule,
+    
   ],
   providers: [SessionService, SessionValidationService],
   controllers: [SessionController],
