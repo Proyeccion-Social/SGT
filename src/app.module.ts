@@ -8,7 +8,7 @@ import { AvailabilityModule } from './modules/availability/availability.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { TutorModule } from './modules/tutor/tutor.module';
 import { SchedulingModule } from './modules/scheduling/scheduling.module';
-import { EvaluationModule } from './modules/session-execution/session-execution';
+import { SessionExecutionModule } from './modules/session-execution/session-execution';
 import { envValidationSchema } from './config/env.config';
 
 @Module({
@@ -27,7 +27,7 @@ import { envValidationSchema } from './config/env.config';
     NotificationsModule,
     TutorModule,
     SchedulingModule,
-    EvaluationModule,
+    SessionExecutionModule,
 
 
   ],
