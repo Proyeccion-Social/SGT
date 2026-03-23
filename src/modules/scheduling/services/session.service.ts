@@ -61,171 +61,171 @@ export class SessionService {
     private readonly subjectsService: SubjectsService,
     private readonly notificationsService: NotificationsService,
 
-  ) {}
+  ) { }
 
   // ========================================
   // RF-19, RF-20: CREAR SESIÓN INDIVIDUAL
   // ========================================
 
   async createIndividualSession(
-  studentId: string,
-  dto: CreateIndividualSessionDto,
-) {
-  const queryRunner = this.dataSource.createQueryRunner();
-  await queryRunner.connect();
-  await queryRunner.startTransaction();
+    studentId: string,
+    dto: CreateIndividualSessionDto,
+  ) {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-  try {
-    // ========================================
-    // VALIDACIONES PREVIAS (sin cambios)
-    // ========================================
-    
-    await this.validationService.validateStudentNotTutor(studentId, dto.tutorId);
-    await this.tutorService.validateTutorActive(dto.tutorId);
-    
-    const availability = await this.availabilityService.getAvailabilityById(
-      dto.availabilityId,
-    );
+    try {
+      // ========================================
+      // VALIDACIONES PREVIAS (sin cambios)
+      // ========================================
 
-    const startTime = availability.startTime;
-    const endTime = this.validationService.calculateEndTime(
-      startTime,
-      dto.durationHours,
-    );
+      await this.validationService.validateStudentNotTutor(studentId, dto.tutorId);
+      await this.tutorService.validateTutorActive(dto.tutorId);
 
-    await this.validationService.validateModality(
-      dto.availabilityId,
-      dto.tutorId,
-      dto.modality,
-    );
-
-    // ========================================
-    //  VALIDACIÓN CRÍTICA: Solo rechazar si hay sesión CONFIRMADA
-    // ========================================
-    
-    const existingScheduledSession = await queryRunner.manager
-      .createQueryBuilder(ScheduledSession, 'ss')
-      .innerJoinAndSelect('ss.session', 'session')
-      .where('ss.idTutor = :tutorId', { tutorId: dto.tutorId })
-      .andWhere('ss.idAvailability = :availabilityId', {
-        availabilityId: dto.availabilityId,
-      })
-      .andWhere('ss.scheduledDate = :scheduledDate', {
-        scheduledDate: new Date(dto.scheduledDate),
-      })
-      .andWhere('session.status = :status', {
-        status: SessionStatus.SCHEDULED, //  Solo si está CONFIRMADA
-      })
-      .setLock('pessimistic_write')
-      .getOne();
-
-    if (existingScheduledSession) {
-      throw new BadRequestException(
-        'Esta franja ya está ocupada para la fecha seleccionada. Por favor elige otro horario.',
+      const availability = await this.availabilityService.getAvailabilityById(
+        dto.availabilityId,
       );
-    }
 
-    //  OPCIONAL: Informar al estudiante si hay solicitudes pendientes
-    const pendingCount = await queryRunner.manager
-      .createQueryBuilder(ScheduledSession, 'ss')
-      .innerJoin('ss.session', 'session')
-      .where('ss.idTutor = :tutorId', { tutorId: dto.tutorId })
-      .andWhere('ss.idAvailability = :availabilityId', {
-        availabilityId: dto.availabilityId,
-      })
-      .andWhere('ss.scheduledDate = :scheduledDate', {
+      const startTime = availability.startTime;
+      const endTime = this.validationService.calculateEndTime(
+        startTime,
+        dto.durationHours,
+      );
+
+      await this.validationService.validateModality(
+        dto.availabilityId,
+        dto.tutorId,
+        dto.modality,
+      );
+
+      // ========================================
+      //  VALIDACIÓN CRÍTICA: Solo rechazar si hay sesión CONFIRMADA
+      // ========================================
+
+      const existingScheduledSession = await queryRunner.manager
+        .createQueryBuilder(ScheduledSession, 'ss')
+        .innerJoinAndSelect('ss.session', 'session')
+        .where('ss.idTutor = :tutorId', { tutorId: dto.tutorId })
+        .andWhere('ss.idAvailability = :availabilityId', {
+          availabilityId: dto.availabilityId,
+        })
+        .andWhere('ss.scheduledDate = :scheduledDate', {
+          scheduledDate: new Date(dto.scheduledDate),
+        })
+        .andWhere('session.status = :status', {
+          status: SessionStatus.SCHEDULED, //  Solo si está CONFIRMADA
+        })
+        .setLock('pessimistic_write')
+        .getOne();
+
+      if (existingScheduledSession) {
+        throw new BadRequestException(
+          'Esta franja ya está ocupada para la fecha seleccionada. Por favor elige otro horario.',
+        );
+      }
+
+      //  OPCIONAL: Informar al estudiante si hay solicitudes pendientes
+      const pendingCount = await queryRunner.manager
+        .createQueryBuilder(ScheduledSession, 'ss')
+        .innerJoin('ss.session', 'session')
+        .where('ss.idTutor = :tutorId', { tutorId: dto.tutorId })
+        .andWhere('ss.idAvailability = :availabilityId', {
+          availabilityId: dto.availabilityId,
+        })
+        .andWhere('ss.scheduledDate = :scheduledDate', {
+          scheduledDate: new Date(dto.scheduledDate),
+        })
+        .andWhere('session.status = :status', {
+          status: SessionStatus.PENDING_TUTOR_CONFIRMATION,
+        })
+        .getCount();
+
+      // Validaciones de conflicto de horario y límite semanal
+      await this.validationService.validateNoTimeConflict(
+        dto.tutorId,
+        new Date(dto.scheduledDate),
+        startTime,
+        dto.durationHours,
+      );
+
+      await this.validationService.validateWeeklyHoursLimit(
+        dto.tutorId,
+        new Date(dto.scheduledDate),
+        dto.durationHours,
+      );
+
+      // ========================================
+      // CREAR SESIÓN
+      // ========================================
+
+      const session = queryRunner.manager.create(Session, {
+        idTutor: dto.tutorId,
+        idSubject: dto.subjectId,
         scheduledDate: new Date(dto.scheduledDate),
-      })
-      .andWhere('session.status = :status', {
+        startTime,
+        endTime,
+        type: SessionType.INDIVIDUAL,
+        modality: dto.modality,
         status: SessionStatus.PENDING_TUTOR_CONFIRMATION,
-      })
-      .getCount();
+        title: dto.title,
+        description: dto.description,
+        tutorConfirmed: false,
+      });
 
-    // Validaciones de conflicto de horario y límite semanal
-    await this.validationService.validateNoTimeConflict(
-      dto.tutorId,
-      new Date(dto.scheduledDate),
-      startTime,
-      dto.durationHours,
-    );
+      const savedSession = await queryRunner.manager.save(session);
 
-    await this.validationService.validateWeeklyHoursLimit(
-      dto.tutorId,
-      new Date(dto.scheduledDate),
-      dto.durationHours,
-    );
-
-    // ========================================
-    // CREAR SESIÓN
-    // ========================================
-
-    const session = queryRunner.manager.create(Session, {
-      idTutor: dto.tutorId,
-      idSubject: dto.subjectId,
-      scheduledDate: new Date(dto.scheduledDate),
-      startTime,
-      endTime,
-      type: SessionType.INDIVIDUAL,
-      modality: dto.modality,
-      status: SessionStatus.PENDING_TUTOR_CONFIRMATION,
-      title: dto.title,
-      description: dto.description,
-      tutorConfirmed: false,
-    });
-
-    const savedSession = await queryRunner.manager.save(session);
-
-    const scheduledSession = queryRunner.manager.create(ScheduledSession, {
-      idSession: savedSession.idSession,
-      idTutor: dto.tutorId,
-      idAvailability: dto.availabilityId,
-      scheduledDate: new Date(dto.scheduledDate),
-    });
-
-    await queryRunner.manager.save(scheduledSession);
-
-    const participation = queryRunner.manager.create(
-      StudentParticipateSession,
-      {
-        idStudent: studentId,
+      const scheduledSession = queryRunner.manager.create(ScheduledSession, {
         idSession: savedSession.idSession,
-        status: ParticipationStatus.CONFIRMED,
-      },
-    );
+        idTutor: dto.tutorId,
+        idAvailability: dto.availabilityId,
+        scheduledDate: new Date(dto.scheduledDate),
+      });
 
-    await queryRunner.manager.save(participation);
+      await queryRunner.manager.save(scheduledSession);
 
-    await queryRunner.commitTransaction();
-
-    // ========================================
-    // NOTIFICAR
-    // ========================================
-
-    await this.sendTutorConfirmationRequest(savedSession, studentId);
-
-    return {
-      success: true,
-      message:
-        pendingCount > 0
-          ? `Solicitud enviada. Hay ${pendingCount} solicitud(es) pendiente(s) para este horario. El tutor elegirá una.`
-          : 'Solicitud de sesión enviada al tutor. Recibirás una notificación cuando el tutor confirme.',
-      session: await this.getSessionById(savedSession.idSession),
-      pendingRequestsCount: pendingCount,
-    };
-  } catch (error) {
-    await queryRunner.rollbackTransaction();
-    
-    if (error.code === '23505') {
-      throw new BadRequestException(
-        'Esta franja ya está ocupada. Por favor elige otro horario.',
+      const participation = queryRunner.manager.create(
+        StudentParticipateSession,
+        {
+          idStudent: studentId,
+          idSession: savedSession.idSession,
+          status: ParticipationStatus.CONFIRMED,
+        },
       );
+
+      await queryRunner.manager.save(participation);
+
+      await queryRunner.commitTransaction();
+
+      // ========================================
+      // NOTIFICAR
+      // ========================================
+
+      await this.sendTutorConfirmationRequest(savedSession, studentId);
+
+      return {
+        success: true,
+        message:
+          pendingCount > 0
+            ? `Solicitud enviada. Hay ${pendingCount} solicitud(es) pendiente(s) para este horario. El tutor elegirá una.`
+            : 'Solicitud de sesión enviada al tutor. Recibirás una notificación cuando el tutor confirme.',
+        session: await this.getSessionById(savedSession.idSession),
+        pendingRequestsCount: pendingCount,
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+
+      if (error.code === '23505') {
+        throw new BadRequestException(
+          'Esta franja ya está ocupada. Por favor elige otro horario.',
+        );
+      }
+
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
-    
-    throw error;
-  } finally {
-    await queryRunner.release();
   }
-}
 
 
   // ========================================
@@ -234,160 +234,203 @@ export class SessionService {
 
   // src/scheduling/services/session.service.ts
 
-async confirmSession(
-  tutorId: string,
-  sessionId: string,
-  dto: ConfirmSessionDto,
-) {
-  const queryRunner = this.dataSource.createQueryRunner();
-  await queryRunner.connect();
-  await queryRunner.startTransaction();
+  async confirmSession(
+    tutorId: string,
+    sessionId: string,
+    dto: ConfirmSessionDto,
+  ) {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-  try {
-    // 1. Buscar sesión con lock
-    const session = await queryRunner.manager.findOne(Session, {
-      where: { idSession: sessionId },
-      relations: ['studentParticipateSessions', 'tutor', 'tutor.user', 'subject'],
-      lock: { mode: 'pessimistic_write' },
-    });
+    try {
+      // ========================================
+      // 1. BLOQUEAR Session
+      // ========================================
 
-    if (!session) {
-      throw new NotFoundException('Session not found');
-    }
+      const session = await queryRunner.manager
+        .createQueryBuilder(Session, 'session')
+        .where('session.idSession = :sessionId', { sessionId })
+        .setLock('pessimistic_write')
+        .getOne();
 
-    // 2. Validar que el usuario sea el tutor asignado
-    if (session.idTutor !== tutorId) {
-      throw new ForbiddenException(
-        'Solo el tutor asignado puede confirmar esta sesión',
-      );
-    }
+      if (!session) {
+        throw new NotFoundException('Session not found');
+      }
 
-    // 3. Validar que la sesión esté en estado PENDING_TUTOR_CONFIRMATION
-    if (session.status !== SessionStatus.PENDING_TUTOR_CONFIRMATION) {
-      throw new BadRequestException(
-        `No se puede confirmar una sesión con estado ${session.status}`,
-      );
-    }
+      // ========================================
+      // 2. VALIDACIONES
+      // ========================================
 
-    // ========================================
-    //  VALIDACIÓN CRÍTICA: Verificar que no haya otra sesión SCHEDULED
-    // ========================================
-
-    const scheduledSession = await queryRunner.manager.findOne(
-      ScheduledSession,
-      {
-        where: { idSession: sessionId },
-      },
-    );
-
-    if (!scheduledSession) {
-      throw new NotFoundException('ScheduledSession not found');
-    }
-
-    // Buscar si ya hay una sesión SCHEDULED en la misma franja/fecha
-    const conflictingSession = await queryRunner.manager
-      .createQueryBuilder(ScheduledSession, 'ss')
-      .innerJoinAndSelect('ss.session', 'session')
-      .where('ss.idTutor = :tutorId', { tutorId })
-      .andWhere('ss.idAvailability = :availabilityId', {
-        availabilityId: scheduledSession.idAvailability,
-      })
-      .andWhere('ss.scheduledDate = :scheduledDate', {
-        scheduledDate: scheduledSession.scheduledDate,
-      })
-      .andWhere('session.status = :status', {
-        status: SessionStatus.SCHEDULED,
-      })
-      .andWhere('ss.idSession != :sessionId', { sessionId }) // Excluir esta sesión
-      .setLock('pessimistic_write')
-      .getOne();
-
-    if (conflictingSession) {
-      await queryRunner.rollbackTransaction();
-      
-      throw new BadRequestException(
-        'Esta franja ya fue confirmada para otro estudiante. No puedes confirmar esta solicitud.',
-      );
-    }
-
-    // ========================================
-    // CONFIRMAR SESIÓN
-    // ========================================
-
-    session.status = SessionStatus.SCHEDULED;
-    session.tutorConfirmed = true;
-    session.tutorConfirmedAt = new Date();
-
-    await queryRunner.manager.save(session);
-
-    // ========================================
-    //  AUTO-RECHAZAR OTRAS SOLICITUDES PENDIENTES
-    // ========================================
-
-    const otherPendingSessions = await queryRunner.manager
-      .createQueryBuilder(ScheduledSession, 'ss')
-      .innerJoinAndSelect('ss.session', 'session')
-      .where('ss.idTutor = :tutorId', { tutorId })
-      .andWhere('ss.idAvailability = :availabilityId', {
-        availabilityId: scheduledSession.idAvailability,
-      })
-      .andWhere('ss.scheduledDate = :scheduledDate', {
-        scheduledDate: scheduledSession.scheduledDate,
-      })
-      .andWhere('session.status = :status', {
-        status: SessionStatus.PENDING_TUTOR_CONFIRMATION,
-      })
-      .andWhere('ss.idSession != :sessionId', { sessionId })
-      .getMany();
-
-    // Rechazar automáticamente las otras solicitudes
-    for (const otherScheduled of otherPendingSessions) {
-      otherScheduled.session.status = SessionStatus.REJECTED_BY_TUTOR;
-      otherScheduled.session.rejectionReason =
-        'El tutor ya confirmó otra sesión para este horario';
-      otherScheduled.session.rejectedAt = new Date();
-
-      await queryRunner.manager.save(otherScheduled.session);
-
-      // Liberar la franja
-      await queryRunner.manager.remove(otherScheduled);
-
-      // Notificar al estudiante del rechazo automático
-      const studentId = otherScheduled.session.studentParticipateSessions[0]?.idStudent;
-      if (studentId) {
-        // Notificar después del commit
-        this.sendSessionRejectionEmail(otherScheduled.session, studentId).catch(
-          (error) => {
-            console.error('Error sending auto-rejection email:', error);
-          },
+      if (session.idTutor !== tutorId) {
+        throw new ForbiddenException(
+          'Solo el tutor asignado puede confirmar esta sesión',
         );
       }
+
+      if (session.status !== SessionStatus.PENDING_TUTOR_CONFIRMATION) {
+        throw new BadRequestException(
+          `No se puede confirmar una sesión con estado ${session.status}`,
+        );
+      }
+
+      // ========================================
+      // 3. VALIDAR que no haya otra sesión SCHEDULED
+      // ========================================
+
+      const scheduledSession = await queryRunner.manager.findOne(
+        ScheduledSession,
+        {
+          where: { idSession: sessionId },
+        },
+      );
+
+      if (!scheduledSession) {
+        throw new NotFoundException('ScheduledSession not found');
+      }
+
+      const conflictingSession = await queryRunner.manager
+        .createQueryBuilder(ScheduledSession, 'ss')
+        .innerJoin('ss.session', 'session')
+        .where('ss.idTutor = :tutorId', { tutorId })
+        .andWhere('ss.idAvailability = :availabilityId', {
+          availabilityId: scheduledSession.idAvailability,
+        })
+        .andWhere('ss.scheduledDate = :scheduledDate', {
+          scheduledDate: scheduledSession.scheduledDate,
+        })
+        .andWhere('session.status = :status', {
+          status: SessionStatus.SCHEDULED,
+        })
+        .andWhere('ss.idSession != :sessionId', { sessionId })
+        .setLock('pessimistic_write')
+        .getOne();
+
+      if (conflictingSession) {
+        throw new BadRequestException(
+          'Esta franja ya fue confirmada para otro estudiante. No puedes confirmar esta solicitud.',
+        );
+      }
+
+      // ========================================
+      // 4. CONFIRMAR SESIÓN
+      // ========================================
+
+      session.status = SessionStatus.SCHEDULED;
+      session.tutorConfirmed = true;
+      session.tutorConfirmedAt = new Date();
+
+      await queryRunner.manager.save(session);
+
+      // ========================================
+      // 5. AUTO-RECHAZAR OTRAS SOLICITUDES PENDIENTES
+      // ========================================
+
+      const otherPendingSessions = await queryRunner.manager
+        .createQueryBuilder(ScheduledSession, 'ss')
+        .innerJoinAndSelect('ss.session', 'session')
+        .where('ss.idTutor = :tutorId', { tutorId })
+        .andWhere('ss.idAvailability = :availabilityId', {
+          availabilityId: scheduledSession.idAvailability,
+        })
+        .andWhere('ss.scheduledDate = :scheduledDate', {
+          scheduledDate: scheduledSession.scheduledDate,
+        })
+        .andWhere('session.status = :status', {
+          status: SessionStatus.PENDING_TUTOR_CONFIRMATION,
+        })
+        .andWhere('ss.idSession != :sessionId', { sessionId })
+        .getMany();
+
+      // Array para guardar IDs de estudiantes rechazados
+      const rejectedStudentIds: string[] = [];
+
+      for (const otherScheduled of otherPendingSessions) {
+        otherScheduled.session.status = SessionStatus.REJECTED_BY_TUTOR;
+        otherScheduled.session.rejectionReason =
+          'El tutor ya confirmó otra sesión para este horario';
+        otherScheduled.session.rejectedAt = new Date();
+
+        await queryRunner.manager.save(otherScheduled.session);
+
+        // OBTENER ID del estudiante ANTES de eliminar ScheduledSession
+        const participation = await queryRunner.manager.findOne(
+          StudentParticipateSession,
+          {
+            where: { idSession: otherScheduled.session.idSession },
+            select: ['idStudent'],
+          },
+        );
+
+        if (participation?.idStudent) {
+          rejectedStudentIds.push(participation.idStudent);
+        }
+
+        // Eliminar ScheduledSession
+        await queryRunner.manager.remove(otherScheduled);
+      }
+
+      // ========================================
+      // 6. OBTENER ID del estudiante CONFIRMADO
+      // ========================================
+
+      // CARGAR participation de la sesión confirmada
+      const confirmedParticipation = await queryRunner.manager.findOne(
+        StudentParticipateSession,
+        {
+          where: { idSession: sessionId },
+          select: ['idStudent'],
+        },
+      );
+
+      if (!confirmedParticipation) {
+        throw new NotFoundException(
+          'No se encontró el estudiante asociado a esta sesión',
+        );
+      }
+
+      const confirmedStudentId = confirmedParticipation.idStudent;
+
+      // ========================================
+      // 7. COMMIT
+      // ========================================
+
+      await queryRunner.commitTransaction();
+
+      // ========================================
+      // 8. NOTIFICACIONES (fuera de transacción)
+      // ========================================
+
+      // Notificar confirmación
+      await this.sendConfirmationEmails(session, confirmedStudentId);
+
+      // Notificar rechazos automáticos
+      for (let i = 0; i < otherPendingSessions.length; i++) {
+        const rejectedSession = otherPendingSessions[i].session;
+        const rejectedStudentId = rejectedStudentIds[i];
+
+        if (rejectedStudentId) {
+          this.sendSessionRejectionEmail(rejectedSession, rejectedStudentId).catch(
+            (error) => {
+              console.error('Error sending auto-rejection email:', error);
+            },
+          );
+        }
+      }
+
+      return {
+        success: true,
+        message: 'Sesión confirmada exitosamente',
+        autoRejectedCount: otherPendingSessions.length,
+        session: await this.getSessionById(sessionId),
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
-
-    await queryRunner.commitTransaction();
-
-    // ========================================
-    // NOTIFICAR CONFIRMACIÓN
-    // ========================================
-
-    await this.sendConfirmationEmails(
-      session,
-      session.studentParticipateSessions[0].idStudent,
-    );
-
-    return {
-      success: true,
-      message: 'Sesión confirmada exitosamente',
-      autoRejectedCount: otherPendingSessions.length,
-      session: await this.getSessionById(sessionId),
-    };
-  } catch (error) {
-    await queryRunner.rollbackTransaction();
-    throw error;
-  } finally {
-    await queryRunner.release();
   }
-}
 
 
 
@@ -632,22 +675,22 @@ async confirmSession(
     // 6. Crear solicitud de modificación
     const expiresAt = addDays(new Date(), 1); // 24 horas
 
-  //  Usar constructor en lugar de .create()
-  const modificationRequest = new SessionModificationRequest();
-  modificationRequest.idSession = sessionId;
-  modificationRequest.requestedBy = userId;
-  modificationRequest.newScheduledDate = dto.newScheduledDate
-    ? new Date(dto.newScheduledDate)
-    : undefined;
-  modificationRequest.newAvailabilityId = dto.newAvailabilityId || undefined;
-  modificationRequest.newModality = dto.newModality || undefined;
-  modificationRequest.newDurationHours = dto.newDurationHours || undefined;
-  modificationRequest.status = ModificationStatus.PENDING;
-  modificationRequest.expiresAt = expiresAt;
+    //  Usar constructor en lugar de .create()
+    const modificationRequest = new SessionModificationRequest();
+    modificationRequest.idSession = sessionId;
+    modificationRequest.requestedBy = userId;
+    modificationRequest.newScheduledDate = dto.newScheduledDate
+      ? new Date(dto.newScheduledDate)
+      : undefined;
+    modificationRequest.newAvailabilityId = dto.newAvailabilityId || undefined;
+    modificationRequest.newModality = dto.newModality || undefined;
+    modificationRequest.newDurationHours = dto.newDurationHours || undefined;
+    modificationRequest.status = ModificationStatus.PENDING;
+    modificationRequest.expiresAt = expiresAt;
 
-  const savedRequest = await this.modificationRequestRepository.save(
-    modificationRequest,
-  );
+    const savedRequest = await this.modificationRequestRepository.save(
+      modificationRequest,
+    );
 
     await this.modificationRequestRepository.save(modificationRequest);
 
@@ -671,149 +714,199 @@ async confirmSession(
   // ========================================
 
   async respondToModification(
-  userId: string,
-  sessionId: string,
-  accept: boolean,
-) {
-  // 1. Buscar sesión
-  const session = await this.sessionRepository.findOne({
-    where: { idSession: sessionId },
-    relations: ['studentParticipateSessions', 'modificationRequests'],
-  });
+    userId: string,
+    sessionId: string,
+    accept: boolean,
+  ) {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-  if (!session) {
-    throw new NotFoundException('Session not found');
-  }
-
-  // 2. Buscar solicitud de modificación pendiente
-  const pendingRequest = session.modificationRequests.find(
-    (r) => r.status === ModificationStatus.PENDING,
-  );
-
-  if (!pendingRequest) {
-    throw new NotFoundException(
-      'No hay solicitud de modificación pendiente',
-    );
-  }
-
-  // 3. Validar que el usuario sea el receptor (no el solicitante)
-  const isParticipant = session.studentParticipateSessions.some(
-    (p) => p.idStudent === userId,
-  );
-  const isTutor = session.idTutor === userId;
-
-  if (!isParticipant && !isTutor) {
-    throw new ForbiddenException('No tienes permiso para responder');
-  }
-
-  if (pendingRequest.requestedBy === userId) {
-    throw new BadRequestException(
-      'No puedes responder tu propia solicitud',
-    );
-  }
-
-  // 4. Validar que no haya expirado (HU-22.1.3, HU-22.2.3)
-  if (new Date() > pendingRequest.expiresAt) {
-    pendingRequest.status = ModificationStatus.EXPIRED;
-    await this.modificationRequestRepository.save(pendingRequest);
-
-    session.status = SessionStatus.SCHEDULED;
-    await this.sessionRepository.save(session);
-
-    throw new BadRequestException(
-      'La solicitud de modificación ha expirado',
-    );
-  }
-
-  // 5. Procesar respuesta
-  if (accept) {
-    //  ACEPTAR (HU-22.3.1)
-
-    // Aplicar cambios a la sesión
-    if (pendingRequest.newScheduledDate) {
-      session.scheduledDate = pendingRequest.newScheduledDate;
-    }
-
-    if (pendingRequest.newAvailabilityId || pendingRequest.newScheduledDate) {
-      //  Cambio: Usar UPDATE en lugar de DELETE + INSERT
-      const scheduledSession = await this.scheduledSessionRepository.findOne({
+    try {
+      // ========================================
+      // 1. Obtener sesión
+      // ========================================
+      const session = await queryRunner.manager.findOne(Session, {
         where: { idSession: sessionId },
       });
 
-      if (!scheduledSession) {
-        throw new NotFoundException(
-          'ScheduledSession not found for this session',
-        );
+      if (!session) {
+        throw new NotFoundException('Session not found');
       }
 
-      // Actualizar availability si cambió
+      // ========================================
+      // 2. Obtener request pendiente
+      // ========================================
+      const pendingRequest = await queryRunner.manager.findOne(
+        SessionModificationRequest,
+        {
+          where: {
+            idSession: sessionId,
+            status: ModificationStatus.PENDING,
+          },
+        },
+      );
+
+      if (!pendingRequest) {
+        throw new NotFoundException('No pending modification request');
+      }
+
+      // ========================================
+      // 3. Validar permisos
+      // ========================================
+      const participations = await queryRunner.manager.find(
+        StudentParticipateSession,
+        {
+          where: { idSession: sessionId },
+          select: ['idStudent'],
+        },
+      );
+
+      const isParticipant = participations.some((p) => p.idStudent === userId);
+      const isTutor = session.idTutor === userId;
+
+      if (!isParticipant && !isTutor) {
+        throw new ForbiddenException('No tienes permiso para responder');
+      }
+
+      if (pendingRequest.requestedBy === userId) {
+        throw new BadRequestException('No puedes responder tu propia solicitud');
+      }
+
+      // ========================================
+      // 4. Validar expiración
+      // ========================================
+      if (new Date() > pendingRequest.expiresAt) {
+        pendingRequest.status = ModificationStatus.EXPIRED;
+        await queryRunner.manager.save(pendingRequest);
+
+        session.status = SessionStatus.SCHEDULED;
+        await queryRunner.manager.save(session);
+
+        throw new BadRequestException('La solicitud ha expirado');
+      }
+
+      // ========================================
+      // 5. RECHAZAR
+      // ========================================
+      if (!accept) {
+        session.status = SessionStatus.SCHEDULED;
+        pendingRequest.status = ModificationStatus.REJECTED;
+        pendingRequest.respondedBy = userId;
+        pendingRequest.respondedAt = new Date();
+
+        await queryRunner.manager.save(session);
+        await queryRunner.manager.save(pendingRequest);
+
+        await queryRunner.commitTransaction();
+
+        await this.sendModificationResponseEmail(session, pendingRequest, false);
+
+        return {
+          success: true,
+          message: 'Modificación rechazada',
+        };
+      }
+
+      // ========================================
+      // 6. ACEPTAR - Calcular valores nuevos
+      // ========================================
+
+      // Duración (ANTES de cambiar startTime)
+      const newDuration =
+        pendingRequest.newDurationHours ??
+        this.calculateDurationFromSession(session);
+
+      // Fecha
+      const newDate = pendingRequest.newScheduledDate ?? session.scheduledDate;
+
+      // Obtener ScheduledSession
+      const scheduledSession = await queryRunner.manager.findOne(
+        ScheduledSession,
+        { where: { idSession: sessionId } },
+      );
+
+      if (!scheduledSession) {
+        throw new NotFoundException('ScheduledSession not found');
+      }
+
+      // Determinar nuevo startTime
+      let newStartTime = session.startTime;
+
       if (pendingRequest.newAvailabilityId) {
         const newAvailability =
           await this.availabilityService.getAvailabilityById(
             pendingRequest.newAvailabilityId,
           );
 
-        session.startTime = newAvailability.startTime;
-
-        const duration =
-          pendingRequest.newDurationHours ||
-          this.calculateDurationFromSession(session);
-        session.endTime = this.validationService.calculateEndTime(
-          newAvailability.startTime,
-          duration,
-        );
-
-        //  UPDATE simple
+        newStartTime = newAvailability.startTime;
         scheduledSession.idAvailability = pendingRequest.newAvailabilityId;
       }
 
-      // Actualizar fecha si cambió
-      if (pendingRequest.newScheduledDate) {
-        //  UPDATE simple
-        scheduledSession.scheduledDate = pendingRequest.newScheduledDate;
+      // ========================================
+      // 7. VALIDAR conflicto de horario
+      // ========================================
+      await this.validationService.validateNoTimeConflict(
+        session.idTutor,
+        newDate,
+        newStartTime,
+        newDuration,
+        session.idSession, // Excluir la misma sesión
+      );
+
+      // ========================================
+      // 8. APLICAR cambios
+      // ========================================
+
+      // Fecha
+      session.scheduledDate = newDate;
+      scheduledSession.scheduledDate = newDate;
+
+      // Horario
+      session.startTime = newStartTime;
+      session.endTime = this.validationService.calculateEndTime(
+        newStartTime,
+        newDuration,
+      );
+
+      // Modalidad
+      if (pendingRequest.newModality) {
+        session.modality = pendingRequest.newModality;
       }
 
-      //  SAVE único
-      await this.scheduledSessionRepository.save(scheduledSession);
+      // Estado
+      session.status = SessionStatus.SCHEDULED;
+
+      // ========================================
+      // 9. GUARDAR cambios
+      // ========================================
+      await queryRunner.manager.save(scheduledSession);
+      await queryRunner.manager.save(session);
+
+      // Actualizar request
+      pendingRequest.status = ModificationStatus.ACCEPTED;
+      pendingRequest.respondedBy = userId;
+      pendingRequest.respondedAt = new Date();
+      await queryRunner.manager.save(pendingRequest);
+
+      await queryRunner.commitTransaction();
+
+      // ========================================
+      // 10. NOTIFICAR (fuera de transacción)
+      // ========================================
+      await this.sendModificationResponseEmail(session, pendingRequest, true);
+
+      return {
+        success: true,
+        message: 'Modificación aceptada exitosamente',
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
-
-    if (pendingRequest.newModality) {
-      session.modality = pendingRequest.newModality;
-    }
-
-    if (pendingRequest.newDurationHours) {
-      session.endTime = this.validationService.calculateEndTime(
-        session.startTime,
-        pendingRequest.newDurationHours,
-      );
-    }
-
-    session.status = SessionStatus.SCHEDULED;
-    await this.sessionRepository.save(session);
-
-    pendingRequest.status = ModificationStatus.ACCEPTED;
-  } else {
-    //  RECHAZAR (HU-22.3.2)
-    session.status = SessionStatus.SCHEDULED;
-    await this.sessionRepository.save(session);
-
-    pendingRequest.status = ModificationStatus.REJECTED;
   }
-
-  pendingRequest.respondedBy = userId;
-  pendingRequest.respondedAt = new Date();
-  await this.modificationRequestRepository.save(pendingRequest);
-
-  // 6. Notificar resultado
-  await this.sendModificationResponseEmail(session, pendingRequest, accept);
-
-  return {
-    success: true,
-    message: accept
-      ? 'Modificación aceptada exitosamente'
-      : 'Modificación rechazada',
-  };
-}
 
   // ========================================
   // RF-22: MODIFICAR TÍTULO/DESCRIPCIÓN
@@ -948,7 +1041,7 @@ async confirmSession(
     try {
       // Obtener datos completos
       const fullSession = await this.getSessionById(session.idSession);
-      
+
       // Email al estudiante (HU-20.2.1, HU-20.2.2)
       await this.notificationsService.sendSessionConfirmationStudent(
         fullSession,
