@@ -486,7 +486,7 @@ export class TutorService {
       throw new NotFoundException('Tutor not found');
     }
 
-    return tutor.limitDisponibility || Infinity;
+    return tutor.limitDisponibility ?? 8;
   }
 
   // =====================================================

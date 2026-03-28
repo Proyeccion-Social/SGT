@@ -132,26 +132,36 @@ async validateNoTimeConflict(
     tutorId: string,
     scheduledDate: Date,
     durationHours: number,
+     excludeSessionId?: string, //Nuevo: para excluir la sesión actual en caso de modificación
   ): Promise<void> {
     // Calcular inicio y fin de la semana
     const weekStart = startOfWeek(scheduledDate, { weekStartsOn: 1 }); // Lunes
     const weekEnd = endOfWeek(scheduledDate, { weekStartsOn: 1 }); // Domingo
 
-    // Solo consulta repositorio de Session (su propio dominio)
-    const sessions = await this.sessionRepository
-      .createQueryBuilder('session')
-      .where('session.idTutor = :tutorId', { tutorId })
-      .andWhere('session.scheduledDate BETWEEN :weekStart AND :weekEnd', {
-        weekStart,
-        weekEnd,
-      })
-      .andWhere('session.status IN (:...activeStatuses)', {
-        activeStatuses: [
-          SessionStatus.SCHEDULED,
-          SessionStatus.PENDING_MODIFICATION,
-        ],
-      })
-      .getMany();
+
+    // Construir consulta
+  const queryBuilder = this.sessionRepository
+    .createQueryBuilder('session')
+    .where('session.idTutor = :tutorId', { tutorId })
+    .andWhere('session.scheduledDate BETWEEN :weekStart AND :weekEnd', {
+      weekStart,
+      weekEnd,
+    })
+    .andWhere('session.status IN (:...activeStatuses)', {
+      activeStatuses: [
+        SessionStatus.SCHEDULED,
+        SessionStatus.PENDING_MODIFICATION,
+      ],
+    });
+
+  // Excluir sesión actual (para modificaciones)
+  if (excludeSessionId) {
+    queryBuilder.andWhere('session.idSession != :excludeSessionId', {
+      excludeSessionId,
+    });
+  }
+
+  const sessions = await queryBuilder.getMany();
 
     // Calcular horas totales
     const totalHours = sessions.reduce((sum, session) => {
@@ -164,7 +174,7 @@ async validateNoTimeConflict(
 
     // Obtener límite desde TutorService
     const weeklyLimit = await this.tutorService.getWeeklyHoursLimit(tutorId);
-
+    
     // Validar
     if (totalHours + durationHours > weeklyLimit) {
       throw new BadRequestException(
