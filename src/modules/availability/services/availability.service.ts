@@ -10,6 +10,7 @@ import { DayOfWeek, DayOfWeekToNumber, NumberToDayOfWeek } from '../enums/day-of
 import { ScheduledSession } from 'src/modules/scheduling/entities/scheduled-session.entity';
 import { Modality } from '../enums/modality.enum';
 import { options } from 'joi';
+import { SessionStatus } from 'src/modules/scheduling/enums/session-status.enum';
 
 export interface AvailabilitySlot {
   slotId: string;
@@ -306,7 +307,7 @@ export class AvailabilityService {
 
     // 3. Mapear y filtrar slots
     let slots: AvailabilitySlot[] = tutorAvailabilities.map((ta) => {
-      const isReserved = reservedAvailabilityIds.has(ta.idAvailability.toString());//Convertir a string (Revisar consistencia)
+      const isReserved = reservedAvailabilityIds.has(ta.idAvailability);//Convertir a string (Revisar consistencia)
       const startTime = ta.availability.startTime;
       const endTime = this.calculateEndTime(startTime);
 
@@ -407,7 +408,7 @@ async getAllAvailableTutors(options?: {
     relations: ['session'],
   });
 
-  const reservedByTutor = new Map<string, Set<string>>();
+  const reservedByTutor = new Map<string, Set<number>>();
   allScheduledSessions.forEach((ss) => {
     if (!reservedByTutor.has(ss.idTutor)) {
       reservedByTutor.set(ss.idTutor, new Set());
@@ -428,7 +429,7 @@ async getAllAvailableTutors(options?: {
 
     const totalSlots = slots.length;
     const availableSlots = slots.filter(
-      (s) => !reservedSlots.has(s.idAvailability.toString()),
+      (s) => !reservedSlots.has(s.idAvailability),
     ).length;
 
     // Si tiene el filtro onlyAvailable, excluir tutores sin slots disponibles
@@ -634,6 +635,87 @@ async getTutorsBySubjectWithAvailability(
   }[];
 
   return result;
+}
+
+
+
+
+/**
+ * Obtener información de una franja específica
+ */
+async getAvailabilityById(availabilityId: number): Promise<Availability> {
+  const availability = await this.availabilityRepository.findOne({
+    where: { idAvailability: availabilityId },
+  });
+
+  if (!availability) {
+    throw new NotFoundException('Availability slot not found');
+  }
+
+  return availability;
+}
+
+/**
+ * Validar que la modalidad de una franja coincida con la solicitada
+ */
+async validateModalityForSlot(
+  availabilityId: number,
+  tutorId: string,
+  requestedModality: Modality,
+): Promise<void> {
+  const tutorAvailability = await this.tutorHaveAvailabilityRepository.findOne({
+    where: {
+      idAvailability: availabilityId,
+      idTutor: tutorId,
+    },
+  });
+
+  if (!tutorAvailability) {
+    throw new NotFoundException('Franja de disponibilidad no encontrada para este tutor');
+  }
+
+  if (tutorAvailability.modality !== requestedModality) {
+    throw new BadRequestException(
+      `La modalidad de la franja es ${tutorAvailability.modality}, pero solicitaste ${requestedModality}`,
+    );
+  }
+}
+
+/**
+ * Verificar si una franja está disponible para una fecha específica
+ * (no tiene sesión agendada activa)
+ */
+async isSlotAvailableForDate(
+  tutorId: string,
+  availabilityId: number,
+  scheduledDate: Date,
+): Promise<boolean> {
+  const existingScheduledSession = await this.scheduledSessionRepository.findOne({
+    where: {
+      idTutor: tutorId,
+      idAvailability: availabilityId,
+      scheduledDate: scheduledDate,
+    },
+    relations: ['session'],
+  });
+
+  if (!existingScheduledSession || !existingScheduledSession.session) {
+    return true; // No hay sesión, está disponible
+  }
+
+  const session = existingScheduledSession.session;
+
+  const sessionDate =new Date(session.scheduledDate);
+  
+  // Verificar si es la misma fecha y está activa
+  const isSameDate = sessionDate.getTime() === scheduledDate.getTime(); //Cambio: Declarar explícitamente sessionDate como "new Date" para evitar errores
+  const isActive = [
+    SessionStatus.SCHEDULED,
+    SessionStatus.PENDING_MODIFICATION,
+    SessionStatus.PENDING_TUTOR_CONFIRMATION,
+  ].includes(session.status);
+
+  return !(isSameDate && isActive); // Disponible si NO es misma fecha o NO está activa
 }
 
 

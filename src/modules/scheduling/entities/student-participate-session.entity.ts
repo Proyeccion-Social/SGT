@@ -3,13 +3,16 @@ import { Student } from '../../student/entities/student.entity';
 import { Session } from './session.entity';
 import { Answer } from '../../session-execution/entities/answer.entity';
 import { OneToMany } from 'typeorm';
+import { ParticipationStatus } from '../enums/participation-status.enum';
 
+/*
 export enum ParticipationStatus {
   REGISTERED = 'REGISTERED',
   ATTENDED = 'ATTENDED',
   ABSENT = 'ABSENT',
   CANCELLED = 'CANCELLED',
 }
+  */
 
 @Entity('student_participate_session')
 export class StudentParticipateSession {
