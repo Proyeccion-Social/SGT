@@ -36,7 +36,6 @@ export class SubjectsService {
       where: { name: name },
     });
   }
-
   /**
    * Obtener múltiples materias por IDs
    */

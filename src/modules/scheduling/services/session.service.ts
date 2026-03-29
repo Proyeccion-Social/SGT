@@ -669,6 +669,7 @@ export class SessionService {
         session.idTutor,
         newDate,
         newDuration,
+        session.idSession, // Excluir sesión actual
       );
     }
 
