@@ -27,6 +27,7 @@ import { SubjectsService } from 'src/modules/subjects/services/subjects.service'
 import { TutorService } from 'src/modules/tutor/services/tutor.service';
 import { AvailabilityService } from '../services/availability.service';
 import { GetAvailabilityQueryDto } from '../dto/GetAvailabilityQueryDto';
+import { buildPaginatedResponse } from 'src/modules/common/helpers/pagination.helper';
 
 @Controller('availability')
 export class AvailabilityController {
@@ -42,72 +43,43 @@ export class AvailabilityController {
   // RF-14: Visualizar tutores por materia (Código o Nombre) con su disponibilidad
   //====================================================
   @Get('tutors/subject')
-  async getTutorsBySubject(@Query() filters: FilterTutorsDto) { //Método modificado; originalmente tenía un error de lógica, donde independientemente de lo que se indicaba en en el parametro, aparecía correcto, pero no se hacía la búsqueda. Ahora, se busca por ID o nombre, se cambió el endpoint para recibir los filtros por query params, y se agregó validación para que al menos se indique un criterio de búsqueda (ID o nombre). Además, se agregó la opción de filtrar por modalidad y solo mostrar tutores con disponibilidad.
-    // 1. Validar que venga al menos un criterio de búsqueda de materia
-    if (!filters.subjectId && !filters.subjectName) {
-      throw new BadRequestException(
-        'Debe proporcionar subjectId o subjectName',
-      );
-    }
+  async getTutorsBySubject(@Query() filters: FilterTutorsDto) {
+  if (!filters.subjectId && !filters.subjectName) {
+    throw new BadRequestException('Debe proporcionar subjectId o subjectName');
+  }
 
-    // 2. Buscar la materia por ID o nombre
-    let subject;
+  let subject;
+  if (filters.subjectId) {
+    subject = await this.subjectsService.findById(filters.subjectId);
+  } else if (filters.subjectName) {
+    subject = await this.subjectsService.findByName(filters.subjectName);
+  }
 
-    if (filters.subjectId) {
-      // Prioridad al ID (más preciso)
-      subject = await this.subjectsService.findById(filters.subjectId);
-    } else if (filters.subjectName) {
-      // Si no hay ID, buscar por nombre
-      subject = await this.subjectsService.findByName(filters.subjectName);
-    }
-
-    if (!subject) {
-      throw new NotFoundException(
-        `Subject not found with ${filters.subjectId ? 'ID' : 'name'}: ${filters.subjectId || filters.subjectName}`,
-      );
-    }
-
-    // 3. Obtener tutores que imparten esa materia con su disponibilidad
-    const tutors = await this.availabilityService.getTutorsBySubjectWithAvailability(
-      subject.idSubject,
-      {
-        onlyAvailable: filters.onlyAvailable,
-        modality: filters.modality,
-      },
+  if (!subject) {
+    throw new NotFoundException(
+      `Subject not found with ${filters.subjectId ? 'ID' : 'name'}: ${filters.subjectId || filters.subjectName}`,
     );
-
-    // 4. Retornar resultado
-    return {
-      success: true,
-      subject: {
-        id: subject.idSubject,
-        name: subject.name,
-      },
-      data: tutors,
-      total: tutors.length,
-    };
   }
 
-  //====================================================
-  // GET /api/v1/availability/tutors/me
-  // Visualizar mi disponibilidad como tutor
-  //====================================================
-  @Get('tutors/me')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.TUTOR)
-  async getMyAvailability(
-    @CurrentUser() user: User
+  const { tutors, total } = await this.availabilityService.getTutorsBySubjectWithAvailability(
+    subject.idSubject,
+    {
+      onlyAvailable: filters.onlyAvailable,
+      modality: filters.modality,
+      page: filters.page,
+      limit: filters.limit,
+    },
+  );
 
-  ) {
-
-    const tutor = await this.tutorService.findByUserId(user.idUser);
-
-    if (!tutor) {
-    throw new NotFoundException('Tutor profile not found');
-  }
-
-    return await this.availabilityService.getTutorAvailability(tutor.idUser, {});
-  }
+  return {
+    success: true,
+    subject: {
+      id: subject.idSubject,
+      name: subject.name,
+    },
+    ...buildPaginatedResponse(tutors, total, filters.page ?? 1, filters.limit ?? 10),
+  };
+}
 
   /**
    * POST /api/v1/availability/tutor/slots
