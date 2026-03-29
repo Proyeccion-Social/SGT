@@ -32,6 +32,7 @@ import { NotificationsService } from '../../notifications/services/notifications
 import { addDays } from 'date-fns';
 import { ConfirmSessionDto } from '../dto/confirm-session.dto';
 import { RejectSessionDto } from '../dto/reject-session.dto';
+import { SessionFilterDto, SessionStatusFilter } from '../dto/session-filter.dto';
 
 @Injectable()
 export class SessionService {
@@ -998,41 +999,76 @@ export class SessionService {
     return this.mapToDetailedDto(session);
   }
 
-  async getMySessionsAsStudent(studentId: string) {
-    const participations = await this.studentParticipateRepository.find({
-      where: { idStudent: studentId },
-      relations: [
-        'session',
-        'session.tutor',
-        'session.tutor.user',
-        'session.subject',
-      ],
-      order: {
-        session: {
-          scheduledDate: 'DESC',
-        },
-      },
-    });
+  async getMySessionsAsStudent(
+  studentId: string,
+  filters: SessionFilterDto,
+) {
+  const { page=1, limit=10, status } = filters;
+  const offset = (page - 1) * limit;
+  const statuses = this.resolveStatusFilter(status);
 
-    return participations.map((p) => this.mapToSummaryDto(p.session));
+  const qb = this.studentParticipateRepository
+    .createQueryBuilder('participation')
+    .innerJoinAndSelect('participation.session', 'session')
+    .innerJoinAndSelect('session.tutor', 'tutor')
+    .innerJoinAndSelect('tutor.user', 'tutorUser')
+    .innerJoinAndSelect('session.subject', 'subject')
+    .leftJoinAndSelect('session.studentParticipateSessions', 'allParticipations')
+    .leftJoinAndSelect('allParticipations.student', 'student')
+    .leftJoinAndSelect('student.user', 'studentUser')
+    .where('participation.idStudent = :studentId', { studentId })
+    .orderBy('session.scheduledDate', 'DESC')
+    .addOrderBy('session.startTime', 'DESC');
+
+  if (statuses) {
+    qb.andWhere('session.status IN (:...statuses)', { statuses });
   }
 
-  async getMySessionsAsTutor(tutorId: string) {
-    const sessions = await this.sessionRepository.find({
-      where: { idTutor: tutorId },
-      relations: [
-        'subject',
-        'studentParticipateSessions',
-        'studentParticipateSessions.student',
-        'studentParticipateSessions.student.user',
-      ],
-      order: {
-        scheduledDate: 'DESC',
-      },
-    });
+  const [participations, total] = await qb
+    .skip(offset)
+    .take(limit)
+    .getManyAndCount();
 
-    return sessions.map((s) => this.mapToSummaryDto(s));
+  const items = participations.map((p) =>
+    this.mapToListDto(p.session),
+  );
+
+  return this.buildPaginatedResponse(items, total, page, limit);
+}
+
+async getMySessionsAsTutor(
+  tutorId: string,
+  filters: SessionFilterDto,
+) {
+  const { page =1, limit=10, status } = filters;
+  const offset = (page - 1) * limit;
+  const statuses = this.resolveStatusFilter(status);
+
+  const qb = this.sessionRepository
+    .createQueryBuilder('session')
+    .innerJoinAndSelect('session.tutor', 'tutor')
+    .innerJoinAndSelect('tutor.user', 'tutorUser')
+    .innerJoinAndSelect('session.subject', 'subject')
+    .leftJoinAndSelect('session.studentParticipateSessions', 'participation')
+    .leftJoinAndSelect('participation.student', 'student')
+    .leftJoinAndSelect('student.user', 'studentUser')
+    .where('session.idTutor = :tutorId', { tutorId })
+    .orderBy('session.scheduledDate', 'DESC')
+    .addOrderBy('session.startTime', 'DESC');
+
+  if (statuses) {
+    qb.andWhere('session.status IN (:...statuses)', { statuses });
   }
+
+  const [sessions, total] = await qb
+    .skip(offset)
+    .take(limit)
+    .getManyAndCount();
+
+  const items = sessions.map((s) => this.mapToListDto(s));
+
+  return this.buildPaginatedResponse(items, total, page, limit);
+}
 
   // ========================================
   // MÉTODOS PRIVADOS - NOTIFICACIONES
@@ -1195,6 +1231,38 @@ export class SessionService {
     };
   }
 
+  private mapToListDto(session: Session): any {
+  return {
+    id: session.idSession,
+    title: session.title,
+    description: session.description,
+    scheduledDate: session.scheduledDate,
+    startTime: session.startTime,
+    endTime: session.endTime,
+    duration: this.calculateDurationFromSession(session),
+    type: session.type,
+    modality: session.modality,
+    status: session.status,
+    tutor: {
+      id: session.tutor.idUser,
+      name: session.tutor.user.name,
+      photo: session.tutor.urlImage,
+    },
+    subject: {
+      id: session.subject.idSubject,
+      name: session.subject.name,
+    },
+    participants: session.studentParticipateSessions?.map((p) => ({
+      id: p.student.idUser,
+      name: p.student.user.name,
+      status: p.status,
+    })) ?? [],
+    createdAt: session.createdAt,
+    cancelledAt: session.cancelledAt ?? null,
+    cancellationReason: session.cancellationReason ?? null,
+  };
+}
+
   private mapToSummaryDto(session: Session): any {
     return {
       id: session.idSession,
@@ -1207,4 +1275,44 @@ export class SessionService {
       subject: session.subject?.name || 'Unknown',
     };
   }
+
+  // Mapea el filtro simplificado del front a los estados internos correspondientes
+private resolveStatusFilter(filter?: SessionStatusFilter): SessionStatus[] | undefined {
+  if (!filter) return undefined;
+
+  const map: Record<SessionStatusFilter, SessionStatus[]> = {
+    [SessionStatusFilter.SCHEDULED]: [
+      SessionStatus.SCHEDULED,
+      SessionStatus.PENDING_MODIFICATION,
+    ],
+    [SessionStatusFilter.COMPLETED]: [SessionStatus.COMPLETED],
+    [SessionStatusFilter.CANCELLED]: [
+      SessionStatus.CANCELLED_BY_STUDENT,
+      SessionStatus.CANCELLED_BY_TUTOR,
+      SessionStatus.CANCELLED_BY_ADMIN,
+    ],
+  };
+
+  return map[filter];
+}
+
+// Envuelve cualquier lista en la estructura de paginación estándar
+private buildPaginatedResponse<T>(
+  items: T[],
+  total: number,
+  page: number,
+  limit: number,
+) {
+  return {
+    data: items,
+    meta: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      hasNextPage: page < Math.ceil(total / limit),
+      hasPreviousPage: page > 1,
+    },
+  };
+}
 }
