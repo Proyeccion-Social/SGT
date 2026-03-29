@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Subject } from '../entities/subjects.entity';
 import { TutorImpartSubject } from '../entities/tutor-subject.entity';
+import { buildPaginatedResponse } from 'src/modules/common/helpers/pagination.helper';
 
 @Injectable()
 export class SubjectsService {
@@ -56,9 +57,20 @@ export class SubjectsService {
   /**
    * Obtener todas las materias activas
    */
-  async findAll(): Promise<Subject[]> {
-    return await this.subjectRepository.find();
-  }
+  async findAll(page: number = 1, limit: number = 10) {
+  const [subjects, total] = await this.subjectRepository.findAndCount({
+    order: { name: 'ASC' },
+    skip: (page - 1) * limit,
+    take: limit,
+  });
+
+  return buildPaginatedResponse(
+    subjects.map((s) => ({ id: s.idSubject, name: s.name })),
+    total,
+    page,
+    limit,
+  );
+}
 
   /**
    * Verificar si una materia existe

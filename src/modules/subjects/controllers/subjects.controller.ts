@@ -1,6 +1,7 @@
-import { Controller, Get, Param, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Param, NotFoundException, Query } from '@nestjs/common';
 import { SubjectsService } from '../services/subjects.service';
 import { Public } from '../../auth/decorators/public.decorator';
+import { SubjectFilterDto } from '../dto/subject-filter.dto';
 
 @Controller('subjects')
 export class SubjectsController {
@@ -12,17 +13,10 @@ export class SubjectsController {
     // =====================================================
     @Public()
     @Get()
-    async findAll() {
-        const subjects = await this.subjectsService.findAll();
-
+    async findAll(@Query() filters: SubjectFilterDto) {
         return {
             success: true,
-            data: subjects.map(s => ({
-                id: s.idSubject,
-                name: s.name,
-
-            })),
-            total: subjects.length,
+            ...(await this.subjectsService.findAll(filters.page, filters.limit)),
         };
     }
 
