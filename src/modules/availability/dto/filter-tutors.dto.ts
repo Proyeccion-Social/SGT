@@ -3,8 +3,9 @@ import { IsOptional, IsString, IsNumber, IsEnum, IsBoolean } from 'class-validat
 import { Transform, Type } from 'class-transformer';
 import { Modality } from '../enums/modality.enum';
 import { UUID } from 'typeorm/driver/mongodb/bson.typings.js';
+import { PaginationDto } from 'src/modules/common/dto/pagination.dto';
 
-export class FilterTutorsDto {
+export class FilterTutorsDto extends PaginationDto{
   @IsOptional()
   @Type(() => UUID)
   @IsNumber()
@@ -20,6 +21,6 @@ export class FilterTutorsDto {
 
   @IsOptional()
   @IsBoolean()
-  @Transform(({ value }) => value === 'true')
+  @Transform(({ value }) => value === 'true' || value === true)
   onlyAvailable?: boolean;
 }

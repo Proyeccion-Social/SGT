@@ -25,6 +25,7 @@ import { ProposeModificationDto } from '../dto/propose-modification.dto';
 import { UpdateSessionDetailsDto } from '../dto/update-session-details.dto';
 import { RejectSessionDto } from '../dto/reject-session.dto';
 import { ConfirmSessionDto } from '../dto/confirm-session.dto';
+import { SessionFilterDto } from '../dto/session-filter.dto';
 
 @Controller('scheduling/sessions')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -213,22 +214,26 @@ export class SessionController {
   }
 
   /**
-   * GET /api/sessions/my-sessions/student
-   * Obtener sesiones del estudiante actual
-   */
-  @Get('my-sessions/student')
-  @Roles(UserRole.STUDENT)
-  async getMySessionsAsStudent(@CurrentUser() user: User) {
-    return await this.sessionService.getMySessionsAsStudent(user.idUser);
-  }
+ * GET /api/sessions/my-sessions/student?page=1&limit=10&status=SCHEDULED
+ */
+@Get('my-sessions/student')
+@Roles(UserRole.STUDENT)
+async getMySessionsAsStudent(
+  @CurrentUser() user: User,
+  @Query() filters: SessionFilterDto,
+) {
+  return await this.sessionService.getMySessionsAsStudent(user.idUser, filters);
+}
 
-  /**
-   * GET /api/sessions/my-sessions/tutor
-   * Obtener sesiones del tutor actual
-   */
-  @Get('my-sessions/tutor')
-  @Roles(UserRole.TUTOR)
-  async getMySessionsAsTutor(@CurrentUser() user: User) {
-    return await this.sessionService.getMySessionsAsTutor(user.idUser);
-  }
+/**
+ * GET /api/sessions/my-sessions/tutor?page=1&limit=10&status=CANCELLED
+ */
+@Get('my-sessions/tutor')
+@Roles(UserRole.TUTOR)
+async getMySessionsAsTutor(
+  @CurrentUser() user: User,
+  @Query() filters: SessionFilterDto,
+) {
+  return await this.sessionService.getMySessionsAsTutor(user.idUser, filters);
+}
 }
