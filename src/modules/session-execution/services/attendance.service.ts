@@ -1,4 +1,5 @@
 import {
+	BadRequestException,
 	ConflictException,
 	ForbiddenException,
 	Injectable,
@@ -10,6 +11,9 @@ import { Session } from '../../scheduling/entities/session.entity';
 import { SessionStatus } from '../../scheduling/enums/session-status.enum';
 import { StudentParticipateSession } from '../../scheduling/entities/student-participate-session.entity';
 import { ParticipationStatus } from '../../scheduling/enums/participation-status.enum';
+import {
+	RegisterStudentAttendanceDto,
+} from '../dto/register-student-attendance.dto';
 
 @Injectable()
 export class AttendanceService {
@@ -19,6 +23,138 @@ export class AttendanceService {
 		@InjectRepository(StudentParticipateSession, 'local')
 		private readonly studentParticipateSessionRepository: Repository<StudentParticipateSession>,
 	) {}
+
+	async registerStudentAttendance(
+		sessionId: string,
+		tutorId: string,
+		dto: RegisterStudentAttendanceDto,
+	) {
+		const attendanceConflictDescription =
+			'No se puede registrar asistencia (sesion no confirmada, fecha invalida, o estado invalido)';
+
+		const session = await this.sessionRepository.findOne({
+			where: { idSession: sessionId },
+		});
+
+		if (!session) {
+			throw new NotFoundException({
+				errorCode: 'RESOURCE_02',
+				message: 'Sesion no encontrada',
+			});
+		}
+
+		if (session.idTutor !== tutorId) {
+			throw new ForbiddenException({
+				errorCode: 'PERMISSION_01',
+				message: 'Esta sesion no pertenece al tutor autenticado',
+			});
+		}
+
+		if (session.status !== SessionStatus.SCHEDULED || !session.tutorConfirmed) {
+			throw new ConflictException({
+				errorCode: 'BUSINESS_09',
+				message: 'Conflicto de asistencia',
+				description: attendanceConflictDescription,
+			});
+		}
+
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
+
+		const scheduledDate = new Date(session.scheduledDate);
+		scheduledDate.setHours(0, 0, 0, 0);
+
+		if (scheduledDate.getTime() > today.getTime()) {
+			throw new ConflictException({
+				errorCode: 'BUSINESS_09',
+				message: 'Conflicto de asistencia',
+				description: attendanceConflictDescription,
+			});
+		}
+
+		const ids = dto.attendances.map((attendance) => attendance.studentId);
+		const uniqueIds = new Set(ids);
+		if (uniqueIds.size !== ids.length) {
+			throw new ConflictException({
+				errorCode: 'BUSINESS_09',
+				message: 'Conflicto de asistencia',
+				description:
+					'No se puede registrar asistencia (sesion no confirmada, fecha invalida, o estado invalido)',
+			});
+		}
+
+		for (const attendance of dto.attendances) {
+			if (attendance.status === ParticipationStatus.LATE && !attendance.arrivalTime) {
+				throw new BadRequestException({
+					errorCode: 'VALIDATION_01',
+					message: 'Datos de entrada invalidos',
+				});
+			}
+
+			if (
+				attendance.status === ParticipationStatus.ABSENT &&
+				attendance.arrivalTime
+			) {
+				throw new BadRequestException({
+					errorCode: 'VALIDATION_01',
+					message: 'Datos de entrada invalidos',
+				});
+			}
+		}
+
+		const participations = await this.studentParticipateSessionRepository.find({
+			where: { idSession: sessionId },
+			relations: ['student', 'student.user'],
+		});
+
+		const participantsById = new Map(
+			participations.map((participation) => [participation.idStudent, participation]),
+		);
+
+		const allParticipants = dto.attendances.every((attendance) =>
+			participantsById.has(attendance.studentId),
+		);
+
+		if (!allParticipants) {
+			throw new ConflictException({
+				errorCode: 'BUSINESS_09',
+				message: 'Conflicto de asistencia',
+				description: attendanceConflictDescription,
+			});
+		}
+
+		const recordedAt = new Date().toISOString();
+
+		const updatedParticipations = dto.attendances.map((attendance) => {
+			const participation = participantsById.get(attendance.studentId)!;
+			participation.status = attendance.status;
+
+			if (attendance.arrivalTime) {
+				participation.comment = `arrivalTime=${attendance.arrivalTime}`;
+			} else {
+				participation.comment = '';
+			}
+
+			return participation;
+		});
+
+		await this.studentParticipateSessionRepository.save(updatedParticipations);
+
+		return {
+			message: 'Asistencia registrada exitosamente',
+			sessionId,
+			attendances: updatedParticipations.map((participation) => {
+				return {
+					studentId: participation.idStudent,
+					studentName: participation.student?.user?.name ?? 'Estudiante',
+					status: participation.status,
+					arrivalTime: this.getArrivalTimeFromComment(participation.comment),
+					recordedAt,
+				};
+			}),
+			recordedAt,
+		};
+	}
 
 	async registerCompletedSession(sessionId: string, tutorId: string) {
 		const session = await this.sessionRepository.findOne({
@@ -121,5 +257,15 @@ export class AttendanceService {
 		}
 
 		return Number((durationMinutes / 60).toFixed(2));
+	}
+
+	private getArrivalTimeFromComment(comment: string): string | null {
+		const prefix = 'arrivalTime=';
+		if (!comment || !comment.startsWith(prefix)) {
+			return null;
+		}
+
+		const value = comment.slice(prefix.length).trim();
+		return value.length > 0 ? value : null;
 	}
 }

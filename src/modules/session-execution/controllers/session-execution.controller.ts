@@ -1,10 +1,13 @@
 import {
+  Body,
   BadRequestException,
   Controller,
+  ForbiddenException,
   Patch,
   Param,
   ParseUUIDPipe,
   UseGuards,
+  ValidationPipe,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -14,6 +17,7 @@ import { User, UserRole } from '../../users/entities/user.entity';
 import { AttendanceService } from '../services/attendance.service';
 import { EvaluationService } from '../services/evaluation.service';
 import { RatingQueryService } from '../services/rating-query.service';
+import { RegisterStudentAttendanceDto } from '../dto/register-student-attendance.dto';
 
 @Controller('session-execution')
 export class SessionExecutionController {
@@ -43,6 +47,49 @@ export class SessionExecutionController {
     @CurrentUser() user: User,
   ) {
     return this.attendanceService.registerCompletedSession(sessionId, user.idUser);
+  }
+
+  @Patch('sessions/:sessionId/attendance')
+  @UseGuards(JwtAuthGuard)
+  registerStudentAttendance(
+    @Param(
+      'sessionId',
+      new ParseUUIDPipe({
+        exceptionFactory: () =>
+          new BadRequestException({
+            errorCode: 'VALIDATION_01',
+            message: 'Datos de entrada invalidos',
+          }),
+      }),
+    )
+    sessionId: string,
+    @Body(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+        exceptionFactory: () =>
+          new BadRequestException({
+            errorCode: 'VALIDATION_01',
+            message: 'Datos de entrada invalidos',
+          }),
+      }),
+    )
+    body: RegisterStudentAttendanceDto,
+    @CurrentUser() user: User,
+  ) {
+    if (user.role !== UserRole.TUTOR) {
+      throw new ForbiddenException({
+        errorCode: 'PERMISSION_01',
+        message: 'Solo los tutores pueden registrar asistencia',
+      });
+    }
+
+    return this.attendanceService.registerStudentAttendance(
+      sessionId,
+      user.idUser,
+      body,
+    );
   }
 
   // ─── Evaluation ───────────────────────────────────────────────────────────
