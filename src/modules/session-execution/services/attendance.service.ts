@@ -128,12 +128,9 @@ export class AttendanceService {
 		const updatedParticipations = dto.attendances.map((attendance) => {
 			const participation = participantsById.get(attendance.studentId)!;
 			participation.status = attendance.status;
-
-			if (attendance.arrivalTime) {
-				participation.comment = `arrivalTime=${attendance.arrivalTime}`;
-			} else {
-				participation.comment = '';
-			}
+			participation.arrivalTime = attendance.arrivalTime
+				? new Date(attendance.arrivalTime)
+				: null;
 
 			return participation;
 		});
@@ -148,7 +145,9 @@ export class AttendanceService {
 					studentId: participation.idStudent,
 					studentName: participation.student?.user?.name ?? 'Estudiante',
 					status: participation.status,
-					arrivalTime: this.getArrivalTimeFromComment(participation.comment),
+					arrivalTime: participation.arrivalTime
+						? participation.arrivalTime.toISOString()
+						: null,
 					recordedAt,
 				};
 			}),
@@ -257,15 +256,5 @@ export class AttendanceService {
 		}
 
 		return Number((durationMinutes / 60).toFixed(2));
-	}
-
-	private getArrivalTimeFromComment(comment: string): string | null {
-		const prefix = 'arrivalTime=';
-		if (!comment || !comment.startsWith(prefix)) {
-			return null;
-		}
-
-		const value = comment.slice(prefix.length).trim();
-		return value.length > 0 ? value : null;
 	}
 }
