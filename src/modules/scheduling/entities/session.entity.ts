@@ -51,6 +51,12 @@ export class Session {
   @Column({ type: 'enum', enum: Modality })
   modality: Modality;
 
+  @Column({ type: 'varchar', nullable: true })
+  location?: string; // para presencial
+
+  @Column({ name: 'virtual_link', type: 'varchar', nullable: true })
+  virtualLink?: string; // para virtual
+
   @Column({ type: 'enum', enum: SessionStatus, default: SessionStatus.SCHEDULED })
   status: SessionStatus;
 

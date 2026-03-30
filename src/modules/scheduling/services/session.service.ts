@@ -962,6 +962,15 @@ export class SessionService {
       session.description = dto.description;
     }
 
+    //nuevos campos
+
+    if(dto.location){
+      session.location = dto.location;
+    }
+    if(dto.virtualLink){
+      session.virtualLink = dto.virtualLink;
+    }
+
     await this.sessionRepository.save(session);
 
     // 5. Notificar cambios (HU-22.4.3)
@@ -1217,6 +1226,10 @@ async getMySessionsAsTutor(
       duration: this.calculateDurationFromSession(session),
       type: session.type,
       modality: session.modality,
+
+      location: session.location, //nuevo
+      virtualLink: session.virtualLink, //nuevo
+
       status: session.status,
       title: session.title,
       description: session.description,
@@ -1242,6 +1255,10 @@ async getMySessionsAsTutor(
     duration: this.calculateDurationFromSession(session),
     type: session.type,
     modality: session.modality,
+
+    location: session.location, //nuevo
+    virtualLink: session.virtualLink, //nuevo
+
     status: session.status,
     tutor: {
       id: session.tutor.idUser,
@@ -1263,18 +1280,7 @@ async getMySessionsAsTutor(
   };
 }
 
-  private mapToSummaryDto(session: Session): any {
-    return {
-      id: session.idSession,
-      title: session.title,
-      scheduledDate: session.scheduledDate,
-      startTime: session.startTime,
-      endTime: session.endTime,
-      modality: session.modality,
-      status: session.status,
-      subject: session.subject?.name || 'Unknown',
-    };
-  }
+  
 
   // Mapea el filtro simplificado del front a los estados internos correspondientes
 private resolveStatusFilter(filter?: SessionStatusFilter): SessionStatus[] | undefined {

@@ -182,10 +182,11 @@ export class SessionController {
 
   /**
    * PATCH /api/sessions/:id/details
-   * Actualizar título y descripción de la sesión (estudiante o tutor)
+   * Actualizar título y descripción de la sesión (tutor) 
+   * Nuevo cambio: solo el tutor puede hacerlo
    */
   @Patch(':id/details')
-  @Roles(UserRole.STUDENT, UserRole.TUTOR)
+  @Roles(UserRole.TUTOR)
   @HttpCode(HttpStatus.OK)
   async updateSessionDetails(
     @CurrentUser() user: User,
