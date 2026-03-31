@@ -142,12 +142,14 @@ export class EvaluationService {
 		};
 
 		const evaluatedAt = new Date();
+		const evaluationId = randomUUID();
 		const answers = questions.map((question) => {
 			const score = ratingsByAspect[question.aspect];
 			return this.answerRepository.create({
 				idQuestion: question.idQuestion,
 				idSession: sessionId,
 				idStudent: studentId,
+				evaluationId,
 				score,
 				evaluatedAt,
 				questionnaireVersion,
@@ -170,7 +172,7 @@ export class EvaluationService {
 		return {
 			message:
 				'Evaluacion enviada exitosamente. Gracias por tu retroalimentacion',
-			evaluationId: randomUUID(),
+			evaluationId,
 			sessionId,
 			studentId,
 			tutorId: session.idTutor,

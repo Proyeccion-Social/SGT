@@ -19,6 +19,9 @@ export class Answer {
   @PrimaryColumn({ name: 'id_session', type: 'uuid' })
   idSession: string;
 
+  @Column({ name: 'evaluation_id', type: 'uuid' })
+  evaluationId: string;
+
   @Column({
     type: 'smallint',
     nullable: true,
