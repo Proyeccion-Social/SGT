@@ -7,6 +7,7 @@ import {
   Post,
   Patch,
   Param,
+  Query,
   ParseUUIDPipe,
   UseGuards,
   ValidationPipe,
@@ -150,6 +151,43 @@ export class SessionExecutionController {
       sessionId,
       user.idUser,
       body,
+    );
+  }
+
+  @Get('sessions/:sessionId/evaluation')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.STUDENT, UserRole.TUTOR, UserRole.ADMIN)
+  getSessionEvaluation(
+    @CurrentUser() user: User,
+    @Param(
+      'sessionId',
+      new ParseUUIDPipe({
+        exceptionFactory: () =>
+          new BadRequestException({
+            errorCode: 'VALIDATION_01',
+            message: 'ID de sesion invalido',
+          }),
+      }),
+    )
+    sessionId: string,
+    @Query(
+      'studentId',
+      new ParseUUIDPipe({
+        optional: true,
+        exceptionFactory: () =>
+          new BadRequestException({
+            errorCode: 'VALIDATION_01',
+            message: 'studentId debe ser UUID valido',
+          }),
+      }),
+    )
+    studentId?: string,
+  ) {
+    return this.evaluationService.getSessionEvaluation(
+      sessionId,
+      user.idUser,
+      user.role,
+      studentId,
     );
   }
 
