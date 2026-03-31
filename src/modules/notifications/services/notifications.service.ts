@@ -1,6 +1,7 @@
 // src/notifications/services/email.service.ts
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { ExternalConfigService } from '../../external-config/services/external-config.service';
 import { Resend } from 'resend';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -15,7 +16,10 @@ export class NotificationsService {
   private readonly fromEmail: string;
   private readonly frontendUrl: string;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly externalConfigService: ExternalConfigService,
+  ) {
     const apiKey = this.configService.get<string>('RESEND_API_KEY');
 
     if (!apiKey) {
@@ -360,7 +364,7 @@ async sendTutorConfirmationRequest(
       confirmUrl: `${this.configService.get('FRONTEND_URL')}/tutor/sessions/${session.id}/confirm`,
       rejectUrl: `${this.configService.get('FRONTEND_URL')}/tutor/sessions/${session.id}/reject`,
       expiresAt: this.formatDateTime(
-        new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 horas
+        new Date(Date.now() + this.externalConfigService.getConfig().notifications.confirmation_expiry_hours * 60 * 60 * 1000),
       ),
     };
 
