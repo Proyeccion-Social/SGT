@@ -615,5 +615,304 @@ export class EvaluationService {
 			},
 		};
 	}
+
+	async getTutorMetrics(
+		tutorId: string,
+		startDate?: string,
+		endDate?: string,
+		subjectId?: string,
+	) {
+		// Verificar que el tutor existe
+		const tutor = await this.userRepository.findOne({
+			where: { idUser: tutorId },
+		});
+
+		if (!tutor) {
+			throw new NotFoundException({
+				errorCode: 'RESOURCE_02',
+				message: 'Tutor no encontrado',
+			});
+		}
+
+		// Validar rango de fechas
+		if (startDate && endDate) {
+			const start = new Date(startDate);
+			const end = new Date(endDate);
+			if (start > end) {
+				throw new BadRequestException({
+					errorCode: 'VALIDATION_01',
+					message: 'Rango de fechas inválido',
+					description: 'startDate debe ser menor o igual a endDate',
+				});
+			}
+		}
+
+		// Construir query para sesiones completadas
+		let sessionQuery = this.sessionRepository
+			.createQueryBuilder('session')
+			.leftJoinAndSelect('session.subject', 'subject')
+			.where('session.id_tutor = :tutorId', { tutorId })
+			.andWhere('session.status = :status', { status: SessionStatus.COMPLETED });
+
+		if (subjectId) {
+			sessionQuery.andWhere('session.id_subject = :subjectId', { subjectId });
+		}
+
+		if (startDate) {
+			sessionQuery.andWhere('DATE(session.scheduled_date) >= :startDate', {
+				startDate,
+			});
+		}
+
+		if (endDate) {
+			sessionQuery.andWhere('DATE(session.scheduled_date) <= :endDate', {
+				endDate,
+			});
+		}
+
+		const sessions = await sessionQuery.getMany();
+
+		if (sessions.length === 0) {
+			// Retornar métricas vacías
+			return {
+				tutorId,
+				tutorName: tutor.name,
+				period: {
+					startDate: startDate || null,
+					endDate: endDate || null,
+					description: startDate || endDate ? `Período: ${startDate} a ${endDate}` : 'Todas las métricas históricas',
+				},
+				ratingMetrics: {
+					averageOverall: 0,
+					totalEvaluations: 0,
+					averageByAspect: {
+						clarity: 0,
+						patience: 0,
+						punctuality: 0,
+						knowledge: 0,
+					},
+					ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+				},
+				sessionMetrics: {
+					totalSessionsCompleted: 0,
+					sessionsByType: { individual: 0, collaborative: 0 },
+					sessionsByModality: { presencial: 0, virtual: 0 },
+					sessionsBySubject: [],
+				},
+				attendanceMetrics: {
+					attendanceRate: 0,
+					presentCount: 0,
+					absentCount: 0,
+					lateCount: 0,
+					noShowCount: 0,
+				},
+				temporalMetrics: {
+					sessionsByMonth: [],
+				},
+				calculatedAt: new Date().toISOString(),
+			};
+		}
+
+		const sessionIds = sessions.map((s) => s.idSession);
+
+		// Obtener evaluaciones (answers) para rating metrics
+		const answers = await this.answerRepository
+			.createQueryBuilder('answer')
+			.leftJoinAndSelect('answer.question', 'question')
+			.where('answer.id_session IN (:...sessionIds)', { sessionIds })
+			.getMany();
+
+		// Obtener participaciones para attendance metrics
+		const participations = await this.participationRepository
+			.createQueryBuilder('participation')
+			.where('participation.id_session IN (:...sessionIds)', { sessionIds })
+			.getMany();
+
+		// ─── Rating Metrics ───────────────────────────────────────────────────────
+
+		const allRatings: number[] = [];
+		const aspectRatings: Map<string, number[]> = new Map();
+		aspectRatings.set('CLARITY', []);
+		aspectRatings.set('PATIENCE', []);
+		aspectRatings.set('PUNCTUALITY', []);
+		aspectRatings.set('KNOWLEDGE', []);
+
+		for (const answer of answers) {
+			if (answer.score !== null && answer.score !== undefined) {
+				allRatings.push(answer.score);
+				aspectRatings.get(answer.question.aspect)?.push(answer.score);
+			}
+		}
+
+		const ratingDistribution: { [key: number]: number } = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+		for (const rating of allRatings) {
+			ratingDistribution[rating]++;
+		}
+
+		const averageOverall = allRatings.length > 0 
+			? Number((allRatings.reduce((a, b) => a + b, 0) / allRatings.length).toFixed(2))
+			: 0;
+
+		const averageByAspect = {
+			clarity: this.calculateAspectAverage(aspectRatings, 'CLARITY'),
+			patience: this.calculateAspectAverage(aspectRatings, 'PATIENCE'),
+			punctuality: this.calculateAspectAverage(aspectRatings, 'PUNCTUALITY'),
+			knowledge: this.calculateAspectAverage(aspectRatings, 'KNOWLEDGE'),
+		};
+
+		// Get unique evaluation count (by evaluationId)
+		const uniqueEvaluationIds = new Set(answers.map((a) => a.evaluationId));
+
+		// ─── Session Metrics ──────────────────────────────────────────────────────
+
+		const sessionsByType = { individual: 0, collaborative: 0 };
+		const sessionsByModalityMap = { presencial: 0, virtual: 0 };
+		const sessionsBySubjectMap: Map<string, { subjectName: string; count: number; subjectId: string }> = new Map();
+
+		for (const session of sessions) {
+			// Type counting (GROUP = collaborative)
+			if (session.type === 'INDIVIDUAL') {
+				sessionsByType.individual++;
+			} else if (session.type === 'GROUP') {
+				sessionsByType.collaborative++;
+			}
+
+			// Modality counting (from session.modality field)
+			if (session.modality) {
+				if (session.modality.toUpperCase() === 'PRESENCIAL' || session.modality.toUpperCase() === 'PRES') {
+					sessionsByModalityMap.presencial++;
+				} else if (session.modality.toUpperCase() === 'VIRTUAL' || session.modality.toUpperCase() === 'VIRT') {
+					sessionsByModalityMap.virtual++;
+				}
+			}
+
+			// Subject counting
+			if (session.subject) {
+				const subjectKey = session.subject.idSubject;
+				if (!sessionsBySubjectMap.has(subjectKey)) {
+					sessionsBySubjectMap.set(subjectKey, {
+						subjectName: session.subject.name,
+						count: 0,
+						subjectId: session.subject.idSubject,
+					});
+				}
+				const data = sessionsBySubjectMap.get(subjectKey)!;
+				data.count++;
+			}
+		}
+
+		const sessionsBySubject = Array.from(sessionsBySubjectMap.values()).map((item) => ({
+			subjectId: item.subjectId,
+			subjectName: item.subjectName,
+			count: item.count,
+		}));
+
+		// ─── Attendance Metrics ───────────────────────────────────────────────────
+
+		let presentCount = 0;
+		let absentCount = 0;
+		let lateCount = 0;
+		let noShowCount = 0;
+
+		for (const participation of participations) {
+			if (participation.status === 'ATTENDED') {
+				presentCount++;
+			} else if (participation.status === 'ABSENT') {
+				absentCount++;
+			} else if (participation.status === 'LATE') {
+				lateCount++;
+			}
+		}
+
+		// noShowCount: participantes esperados - participantes con estado registrado
+		// Los participantes esperados incluyen TODOS los StudentParticipateSession (individuales y grupales)
+		const totalExpectedParticipants = participations.length;
+		const totalWithStatus = presentCount + absentCount + lateCount;
+		noShowCount = Math.max(0, totalExpectedParticipants - totalWithStatus);
+
+		// attendanceRate: (participantes que comparecieron) / (total esperado) * 100
+		// Cuenta ATTENDED + LATE (se presentaron) pero excluye ABSENT
+		const totalPresent = presentCount + lateCount;
+		const attendanceRate = totalExpectedParticipants > 0
+			? Number(((totalPresent / totalExpectedParticipants) * 100).toFixed(2))
+			: 0;
+
+		// ─── Temporal Metrics ─────────────────────────────────────────────────────
+
+		const sessionsByMonthMap: Map<string, { sessions: number; ratingSum: number; ratingCount: number }> = new Map();
+
+		for (const session of sessions) {
+			const monthKey = new Date(session.scheduledDate).toISOString().substring(0, 7); // YYYY-MM
+
+			if (!sessionsByMonthMap.has(monthKey)) {
+				sessionsByMonthMap.set(monthKey, { sessions: 0, ratingSum: 0, ratingCount: 0 });
+			}
+
+			const monthData = sessionsByMonthMap.get(monthKey)!;
+			monthData.sessions++;
+
+			// Add ratings for this session
+			const sessionAnswers = answers.filter((a) => a.idSession === session.idSession);
+			const sessionRatings = sessionAnswers
+				.filter((a) => a.score !== null && a.score !== undefined)
+				.map((a) => a.score);
+
+			if (sessionRatings.length > 0) {
+				monthData.ratingSum += sessionRatings.reduce((a, b) => a + b, 0);
+				monthData.ratingCount += sessionRatings.length;
+			}
+		}
+
+		const sessionsByMonth = Array.from(sessionsByMonthMap.entries())
+			.map(([month, data]) => ({
+				month,
+				sessions: data.sessions,
+				averageRating: data.ratingCount > 0
+					? Number((data.ratingSum / data.ratingCount).toFixed(2))
+					: 0,
+			}))
+			.sort((a, b) => a.month.localeCompare(b.month));
+
+		// Build response
+		return {
+			tutorId,
+			tutorName: tutor.name,
+			period: {
+				startDate: startDate || null,
+				endDate: endDate || null,
+				description: startDate || endDate ? `Período: ${startDate} a ${endDate}` : 'Todas las métricas históricas',
+			},
+			ratingMetrics: {
+				averageOverall,
+				totalEvaluations: uniqueEvaluationIds.size,
+				averageByAspect,
+				ratingDistribution,
+			},
+			sessionMetrics: {
+				totalSessionsCompleted: sessions.length,
+				sessionsByType,
+				sessionsByModality: sessionsByModalityMap,
+				sessionsBySubject,
+			},
+			attendanceMetrics: {
+				attendanceRate,
+				presentCount,
+				absentCount,
+				lateCount,
+				noShowCount,
+			},
+			temporalMetrics: {
+				sessionsByMonth,
+			},
+			calculatedAt: new Date().toISOString(),
+		};
+	}
+
+	private calculateAspectAverage(aspectRatings: Map<string, number[]>, aspect: string): number {
+		const ratings = aspectRatings.get(aspect) || [];
+		return ratings.length > 0
+			? Number((ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(2))
+			: 0;
+	}
 }
 
