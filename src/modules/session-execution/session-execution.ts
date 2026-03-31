@@ -4,7 +4,6 @@ import { AuthModule } from '../auth/auth.module';
 import { SessionExecutionController } from './controllers/session-execution.controller';
 import { AttendanceService } from './services/attendance.service';
 import { EvaluationService } from './services/evaluation.service';
-import { RatingQueryService } from './services/rating-query.service';
 import { QuestionCatalogBootstrapService } from './services/question-catalog-bootstrap.service';
 import { Question } from './entities/question.entity';
 import { Answer } from './entities/answer.entity';
@@ -23,7 +22,6 @@ import { StudentParticipateSession } from '../scheduling/entities/student-partic
   providers: [
     AttendanceService,
     EvaluationService,
-    RatingQueryService,
     QuestionCatalogBootstrapService,
   ],
   exports: [TypeOrmModule, EvaluationService],
