@@ -79,45 +79,51 @@ export class SessionValidationService {
   /**
    * Validar que no haya conflictos de horario con otras sesiones del tutor
    */
-  async validateNoTimeConflict(
-    tutorId: string,
-    scheduledDate: Date,
-    startTime: string,
-    durationHours: number,
-  ): Promise<void> {
-    // Calcular endTime
-    const endTime = this.calculateEndTime(startTime, durationHours);
+  
+async validateNoTimeConflict(
+  tutorId: string,
+  scheduledDate: Date,
+  startTime: string,
+  durationHours: number,
+  excludeSessionId?: string,
+): Promise<void> {
+  const endTime = this.calculateEndTime(startTime, durationHours);
 
-    const sessions = await this.sessionRepository.find({
-      where: {
-        idTutor: tutorId,
-        scheduledDate: scheduledDate,
-      },
-    });
+  const dateOnly = new Date(scheduledDate);
+  dateOnly.setHours(0, 0, 0, 0);
 
-    // Filtrar solo sesiones activas
-    const activeSessions = sessions.filter((s) =>
-      [SessionStatus.SCHEDULED, SessionStatus.PENDING_MODIFICATION].includes(
-        s.status,
-      ),
-    );
+  // CAMBIO: Solo validar contra sesiones SCHEDULED
+  const conflictingSessions = await this.sessionRepository
+    .createQueryBuilder('session')
+    .where('session.idTutor = :tutorId', { tutorId })
+    .andWhere('DATE(session.scheduledDate) = DATE(:scheduledDate)', {
+      scheduledDate: dateOnly,
+    })
+    .andWhere('session.status = :status', {
+      status: SessionStatus.SCHEDULED, // Solo SCHEDULED
+    })
+    .andWhere(
+      excludeSessionId ? 'session.idSession != :excludeSessionId' : '1=1',
+      { excludeSessionId },
+    )
+    .getMany();
 
-    // Verificar solapamiento
-    for (const session of activeSessions) {
-      const sessionStart = this.timeToMinutes(session.startTime);
-      const sessionEnd = this.timeToMinutes(session.endTime);
-      const requestStart = this.timeToMinutes(startTime);
-      const requestEnd = this.timeToMinutes(endTime);
+  for (const session of conflictingSessions) {
+    const sessionStart = session.startTime;
+    const sessionEnd = session.endTime;
 
-      // Hay solapamiento si:
-      // (nuevo inicio < fin existente) Y (nuevo fin > inicio existente)
-      if (requestStart < sessionEnd && requestEnd > sessionStart) {
-        throw new ConflictException(
-          `Ya tienes una sesión agendada de ${session.startTime} a ${session.endTime}`,
-        );
-      }
+    const hasOverlap =
+      (startTime >= sessionStart && startTime < sessionEnd) ||
+      (endTime > sessionStart && endTime <= sessionEnd) ||
+      (startTime <= sessionStart && endTime >= sessionEnd);
+
+    if (hasOverlap) {
+      throw new BadRequestException(
+        `Ya tienes una sesión confirmada de ${sessionStart} a ${sessionEnd} el ${scheduledDate.toISOString().split('T')[0]}`,
+      );
     }
   }
+}
 
   /**
    * HU-19.1.4: Validar límite semanal del tutor
@@ -126,26 +132,36 @@ export class SessionValidationService {
     tutorId: string,
     scheduledDate: Date,
     durationHours: number,
+     excludeSessionId?: string, //Nuevo: para excluir la sesión actual en caso de modificación
   ): Promise<void> {
     // Calcular inicio y fin de la semana
     const weekStart = startOfWeek(scheduledDate, { weekStartsOn: 1 }); // Lunes
     const weekEnd = endOfWeek(scheduledDate, { weekStartsOn: 1 }); // Domingo
 
-    // Solo consulta repositorio de Session (su propio dominio)
-    const sessions = await this.sessionRepository
-      .createQueryBuilder('session')
-      .where('session.idTutor = :tutorId', { tutorId })
-      .andWhere('session.scheduledDate BETWEEN :weekStart AND :weekEnd', {
-        weekStart,
-        weekEnd,
-      })
-      .andWhere('session.status IN (:...activeStatuses)', {
-        activeStatuses: [
-          SessionStatus.SCHEDULED,
-          SessionStatus.PENDING_MODIFICATION,
-        ],
-      })
-      .getMany();
+
+    // Construir consulta
+  const queryBuilder = this.sessionRepository
+    .createQueryBuilder('session')
+    .where('session.idTutor = :tutorId', { tutorId })
+    .andWhere('session.scheduledDate BETWEEN :weekStart AND :weekEnd', {
+      weekStart,
+      weekEnd,
+    })
+    .andWhere('session.status IN (:...activeStatuses)', {
+      activeStatuses: [
+        SessionStatus.SCHEDULED,
+        SessionStatus.PENDING_MODIFICATION,
+      ],
+    });
+
+  // Excluir sesión actual (para modificaciones)
+  if (excludeSessionId) {
+    queryBuilder.andWhere('session.idSession != :excludeSessionId', {
+      excludeSessionId,
+    });
+  }
+
+  const sessions = await queryBuilder.getMany();
 
     // Calcular horas totales
     const totalHours = sessions.reduce((sum, session) => {
@@ -158,7 +174,7 @@ export class SessionValidationService {
 
     // Obtener límite desde TutorService
     const weeklyLimit = await this.tutorService.getWeeklyHoursLimit(tutorId);
-
+    
     // Validar
     if (totalHours + durationHours > weeklyLimit) {
       throw new BadRequestException(

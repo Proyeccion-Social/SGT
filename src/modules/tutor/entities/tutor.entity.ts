@@ -26,6 +26,7 @@ export class Tutor {
     name: 'limit_disponibility',
     type: 'smallint',
     nullable: true,
+    default: 8, //Limite semanal por defecto, puede ser modificado por el tutor
   })
   limitDisponibility: number | null;
 

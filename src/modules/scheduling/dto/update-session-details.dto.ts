@@ -13,4 +13,12 @@ export class UpdateSessionDetailsDto {
   @MinLength(10)
   @MaxLength(500)
   description?: string;
+
+  @IsOptional()
+  @IsString()
+  location?: string; // para presencial
+    
+  @IsOptional()
+  @IsString()
+  virtualLink?: string; // para virtual
 }

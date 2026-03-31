@@ -34,7 +34,6 @@ export class SessionModificationRequest {
   @Column({ name: 'new_availability_id', type: 'bigint', nullable: true }) 
   newAvailabilityId?: number; 
 
-
   @Column({
     name: 'new_modality',
     type: 'enum',

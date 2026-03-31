@@ -10,6 +10,7 @@ import { TutorModule } from './modules/tutor/tutor.module';
 import { SchedulingModule } from './modules/scheduling/scheduling.module';
 import { SessionExecutionModule } from './modules/session-execution/session-execution';
 import { envValidationSchema } from './config/env.config';
+import { TypeOrmModule } from '@nestjs/typeorm';
 
 @Module({
   imports: [
