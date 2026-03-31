@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Detalles de sesión actualizados</title>
+  <style>
+    body { margin: 0; padding: 0; background-color: #f4f4f5; font-family: Arial, sans-serif; }
+    .wrapper { max-width: 600px; margin: 32px auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .header { background-color: #0369a1; padding: 32px 40px; }
+    .header h1 { margin: 0; color: #ffffff; font-size: 22px; font-weight: 700; }
+    .header p { margin: 6px 0 0; color: #bae6fd; font-size: 14px; }
+    .body { padding: 32px 40px; }
+    .body p { color: #374151; font-size: 15px; line-height: 1.6; margin: 0 0 16px; }
+    .detail-box { background: #f0f9ff; border-left: 4px solid #0369a1; border-radius: 4px; padding: 16px 20px; margin: 24px 0; }
+    .detail-box h3 { margin: 0 0 10px; font-size: 13px; color: #0369a1; text-transform: uppercase; letter-spacing: 0.05em; }
+    .detail-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #e0f2fe; font-size: 14px; }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-label { color: #6b7280; font-weight: 600; }
+    .detail-value { color: #111827; text-align: right; max-width: 60%; }
+    .link-box { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 12px 16px; font-size: 14px; color: #1d4ed8; margin: 12px 0; }
+    .link-box a { color: #1d4ed8; font-weight: 700; word-break: break-all; }
+    .btn { display: inline-block; padding: 12px 28px; border-radius: 6px; font-size: 15px; font-weight: 700; text-decoration: none; background-color: #0369a1; color: #ffffff; margin-top: 8px; }
+    .footer { background: #f9fafb; padding: 20px 40px; text-align: center; font-size: 12px; color: #9ca3af; border-top: 1px solid #e5e7eb; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      <h1>Detalles de sesión actualizados</h1>
+      <p>Atlas — Sistema de Gestión de Tutorías</p>
+    </div>
+    <div class="body">
+      <p>Los detalles de tu próxima sesión de <strong>{{subjectName}}</strong> han sido actualizados.</p>
+
+      <div class="detail-box">
+        <h3>Datos de la sesión</h3>
+        <div class="detail-row">
+          <span class="detail-label">Fecha</span>
+          <span class="detail-value">{{date}}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Horario</span>
+          <span class="detail-value">{{startTime}} – {{endTime}}</span>
+        </div>
+      </div>
+
+      <div class="detail-box">
+        <h3>Información actualizada</h3>
+        <div class="detail-row">
+          <span class="detail-label">Nuevo título</span>
+          <span class="detail-value">{{newTitle}}</span>
+        </div>
+        {{#if newDescription}}
+        <div class="detail-row">
+          <span class="detail-label">Descripción</span>
+          <span class="detail-value">{{newDescription}}</span>
+        </div>
+        {{/if}}
+        {{#if newLocation}}
+        <div class="detail-row">
+          <span class="detail-label">Ubicación</span>
+          <span class="detail-value">{{newLocation}}</span>
+        </div>
+        {{/if}}
+      </div>
+
+      {{#if newVirtualLink}}
+      <div class="link-box">
+        🔗 Enlace de acceso virtual actualizado: <a href="{{newVirtualLink}}">{{newVirtualLink}}</a>
+      </div>
+      {{/if}}
+
+      <a href="{{sessionDetailsUrl}}" class="btn">Ver sesión completa</a>
+    </div>
+    <div class="footer">
+      Atlas · Universidad Distrital Francisco José de Caldas<br/>
+      Este mensaje fue generado automáticamente, por favor no respondas a este correo.
+    </div>
+  </div>
+</body>
+</html>
