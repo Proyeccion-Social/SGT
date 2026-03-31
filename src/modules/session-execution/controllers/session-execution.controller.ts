@@ -3,6 +3,7 @@ import {
   BadRequestException,
   Controller,
   ForbiddenException,
+  Get,
   Patch,
   Param,
   ParseUUIDPipe,
@@ -93,6 +94,19 @@ export class SessionExecutionController {
   }
 
   // ─── Evaluation ───────────────────────────────────────────────────────────
+
+  @Get('evaluations/questions')
+  @UseGuards(JwtAuthGuard)
+  getEvaluationQuestionnaire(@CurrentUser() user: User) {
+    if (user.role !== UserRole.STUDENT) {
+      throw new ForbiddenException({
+        errorCode: 'PERMISSION_01',
+        message: 'Solo los estudiantes pueden acceder al cuestionario',
+      });
+    }
+
+    return this.evaluationService.getEvaluationQuestionnaire();
+  }
 
   // ─── Tutor Ratings ────────────────────────────────────────────────────────
 

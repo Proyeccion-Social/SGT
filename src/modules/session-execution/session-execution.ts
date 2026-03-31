@@ -5,6 +5,7 @@ import { SessionExecutionController } from './controllers/session-execution.cont
 import { AttendanceService } from './services/attendance.service';
 import { EvaluationService } from './services/evaluation.service';
 import { RatingQueryService } from './services/rating-query.service';
+import { QuestionCatalogBootstrapService } from './services/question-catalog-bootstrap.service';
 import { Question } from './entities/question.entity';
 import { Answer } from './entities/answer.entity';
 import { Session } from '../scheduling/entities/session.entity';
@@ -19,7 +20,12 @@ import { StudentParticipateSession } from '../scheduling/entities/student-partic
     AuthModule,
   ],
   controllers: [SessionExecutionController],
-  providers: [AttendanceService, EvaluationService, RatingQueryService],
+  providers: [
+    AttendanceService,
+    EvaluationService,
+    RatingQueryService,
+    QuestionCatalogBootstrapService,
+  ],
   exports: [TypeOrmModule, EvaluationService],
 })
 export class SessionExecutionModule {}
