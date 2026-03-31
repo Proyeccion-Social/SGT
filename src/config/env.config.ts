@@ -13,7 +13,7 @@ export const envValidationSchema = Joi.object({
 
   //Resend
   RESEND_API_KEY: Joi.string().required(),
-  RESEND_EMAIL: Joi.string().email().required(),
+  RESEND_FROM_EMAIL: Joi.string().email().required(),
 
   // JWT Config
   JWT_SECRET: Joi.string().min(32).required(),

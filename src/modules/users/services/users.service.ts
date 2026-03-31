@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { User, UserRole, UserStatus } from '../entities/user.entity';
 import * as bcrypt from 'bcrypt';
 
@@ -102,6 +102,11 @@ export class UserService {
       where: { idUser: id },
     });
   }
+
+  async findByIds(ids: string[]): Promise<User[]> {
+  if (!ids.length) return [];
+  return this.userRepository.findBy({ idUser: In(ids) });
+}
 
   /**
    * Verificar si existe un usuario con ese email
