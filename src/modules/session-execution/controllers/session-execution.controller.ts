@@ -19,7 +19,6 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { User, UserRole } from '../../users/entities/user.entity';
 import { AttendanceService } from '../services/attendance.service';
 import { EvaluationService } from '../services/evaluation.service';
-import { RatingQueryService } from '../services/rating-query.service';
 import { RegisterStudentAttendanceDto } from '../dto/register-student-attendance.dto';
 import { SendSessionEvaluationDto } from '../dto/send-session-evaluation.dto';
 import { GetTutorEvaluationsQueryDto } from '../dto/get-tutor-evaluations-query.dto';
@@ -31,7 +30,6 @@ export class SessionExecutionController {
   constructor(
     private readonly attendanceService: AttendanceService,
     private readonly evaluationService: EvaluationService,
-    private readonly ratingQueryService: RatingQueryService,
   ) {}
 
   // ─── Attendance ───────────────────────────────────────────────────────────
