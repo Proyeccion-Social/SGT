@@ -4,6 +4,7 @@ import {
   Controller,
   ForbiddenException,
   Get,
+  Post,
   Patch,
   Param,
   ParseUUIDPipe,
@@ -19,6 +20,7 @@ import { AttendanceService } from '../services/attendance.service';
 import { EvaluationService } from '../services/evaluation.service';
 import { RatingQueryService } from '../services/rating-query.service';
 import { RegisterStudentAttendanceDto } from '../dto/register-student-attendance.dto';
+import { SendSessionEvaluationDto } from '../dto/send-session-evaluation.dto';
 
 @Controller('session-execution')
 export class SessionExecutionController {
@@ -106,6 +108,49 @@ export class SessionExecutionController {
     }
 
     return this.evaluationService.getEvaluationQuestionnaire();
+  }
+
+  @Post('sessions/:sessionId/evaluation')
+  @UseGuards(JwtAuthGuard)
+  sendSessionEvaluation(
+    @Param(
+      'sessionId',
+      new ParseUUIDPipe({
+        exceptionFactory: () =>
+          new BadRequestException({
+            errorCode: 'VALIDATION_01',
+            message: 'Datos de entrada invalidos',
+          }),
+      }),
+    )
+    sessionId: string,
+    @Body(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+        exceptionFactory: () =>
+          new BadRequestException({
+            errorCode: 'VALIDATION_01',
+            message: 'Datos de entrada invalidos',
+          }),
+      }),
+    )
+    body: SendSessionEvaluationDto,
+    @CurrentUser() user: User,
+  ) {
+    if (user.role !== UserRole.STUDENT) {
+      throw new ForbiddenException({
+        errorCode: 'PERMISSION_01',
+        message: 'Solo los estudiantes pueden evaluar sesiones',
+      });
+    }
+
+    return this.evaluationService.sendSessionEvaluation(
+      sessionId,
+      user.idUser,
+      body,
+    );
   }
 
   // ─── Tutor Ratings ────────────────────────────────────────────────────────
