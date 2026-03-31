@@ -22,6 +22,7 @@ import { EvaluationService } from '../services/evaluation.service';
 import { RatingQueryService } from '../services/rating-query.service';
 import { RegisterStudentAttendanceDto } from '../dto/register-student-attendance.dto';
 import { SendSessionEvaluationDto } from '../dto/send-session-evaluation.dto';
+import { GetTutorEvaluationsQueryDto } from '../dto/get-tutor-evaluations-query.dto';
 
 @Controller('session-execution')
 export class SessionExecutionController {
@@ -192,5 +193,45 @@ export class SessionExecutionController {
   }
 
   // ─── Tutor Ratings ────────────────────────────────────────────────────────
+
+  @Get('tutors/:tutorId/evaluations')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.STUDENT, UserRole.TUTOR, UserRole.ADMIN)
+  getTutorEvaluations(
+    @CurrentUser() user: User,
+    @Param(
+      'tutorId',
+      new ParseUUIDPipe({
+        exceptionFactory: () =>
+          new BadRequestException({
+            errorCode: 'VALIDATION_01',
+            message: 'ID de tutor inválido',
+          }),
+      }),
+    )
+    tutorId: string,
+    @Query(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+        exceptionFactory: () =>
+          new BadRequestException({
+            errorCode: 'VALIDATION_01',
+            message: 'Parámetros de consulta inválidos',
+          }),
+      }),
+    )
+    query: GetTutorEvaluationsQueryDto,
+  ) {
+    return this.evaluationService.getTutorEvaluations(
+      tutorId,
+      query.subjectId,
+      query.startDate,
+      query.endDate,
+      query.page,
+      query.limit,
+    );
+  }
 
 }

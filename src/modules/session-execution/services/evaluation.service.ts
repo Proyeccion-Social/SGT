@@ -1,11 +1,12 @@
 import {
+	BadRequestException,
 	ConflictException,
 	ForbiddenException,
 	Injectable,
 	NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { randomUUID } from 'crypto';
 import { Question, QuestionAspect } from '../entities/question.entity';
 import { Answer } from '../entities/answer.entity';
@@ -357,6 +358,261 @@ export class EvaluationService {
 			evaluations: finalEvaluations,
 			averageRating,
 			totalEvaluations: finalEvaluations.length,
+		};
+	}
+
+	async getTutorEvaluations(
+		tutorId: string,
+		subjectId?: string,
+		startDate?: string,
+		endDate?: string,
+		page: number = 1,
+		limit: number = 20,
+	) {
+		// Verificar que el tutor existe
+		const tutor = await this.userRepository.findOne({
+			where: { idUser: tutorId },
+		});
+
+		if (!tutor) {
+			throw new NotFoundException({
+				errorCode: 'RESOURCE_02',
+				message: 'Tutor no encontrado',
+			});
+		}
+
+		// Validar rango de fechas si ambas están presentes
+		if (startDate && endDate) {
+			const start = new Date(startDate);
+			const end = new Date(endDate);
+			if (start > end) {
+				throw new BadRequestException({
+					errorCode: 'VALIDATION_01',
+					message: 'Rango de fechas inválido',
+					description: 'startDate debe ser menor o igual a endDate',
+				});
+			}
+		}
+
+		// Construir query base para obtener answers de sesiones del tutor
+		let answerQuery = this.answerRepository
+			.createQueryBuilder('answer')
+			.leftJoinAndSelect('answer.question', 'question')
+			.leftJoinAndSelect('answer.session', 'session')
+			.leftJoinAndSelect('session.tutor', 'tutor')
+			.leftJoinAndSelect('session.subject', 'subject')
+			.leftJoinAndSelect('answer.studentParticipateSession', 'participation')
+			.where('session.id_tutor = :tutorId', { tutorId })
+			.andWhere('session.status = :status', { status: SessionStatus.COMPLETED });
+
+		// Aplicar filtro de materia si existe
+		if (subjectId) {
+			answerQuery.andWhere('session.id_subject = :subjectId', { subjectId });
+		}
+
+		// Aplicar filtro de rango de fechas si existe
+		if (startDate) {
+			answerQuery.andWhere('DATE(session.scheduled_date) >= :startDate', {
+				startDate: startDate,
+			});
+		}
+
+		if (endDate) {
+			answerQuery.andWhere('DATE(session.scheduled_date) <= :endDate', {
+				endDate: endDate,
+			});
+		}
+
+		// Obtener total de evaluaciones (por evaluationId único)
+		const distinctAnswersQuery = answerQuery.clone();
+		const allAnswers = await distinctAnswersQuery.getMany();
+
+		const uniqueEvaluationIds = new Set(allAnswers.map((a) => a.evaluationId));
+		const totalRecords = uniqueEvaluationIds.size;
+
+		// Obtener respuestas ordenadas para paginación
+		answerQuery
+			.orderBy('answer.evaluated_at', 'DESC')
+			.addOrderBy('answer.id_question', 'ASC');
+
+		const answers = await answerQuery.getMany();
+
+		// Agrupar por evaluationId con datos de sesión
+		const sessionsByEval: Map<
+			string,
+			{
+				sessionId: string;
+				sessionDate: string;
+				subjectName: string;
+				evaluationId: string;
+				ratings: Map<string, number>;
+				comments?: string;
+				evaluatedAt: Date;
+			}
+		> = new Map();
+
+		const ratingsBySubject: Map<string, number[]> = new Map();
+		const allRatings: number[] = [];
+		const allAspectRatings: Map<string, number[]> = new Map();
+		allAspectRatings.set('CLARITY', []);
+		allAspectRatings.set('PATIENCE', []);
+		allAspectRatings.set('PUNCTUALITY', []);
+		allAspectRatings.set('KNOWLEDGE', []);
+
+		// Información de sesiones (necesitamos cargarla por separado)
+		const sessionIds = Array.from(new Set(answers.map((a) => a.idSession)));
+		const sessions = sessionIds.length > 0
+			? await this.sessionRepository.find({
+					where: {
+						idSession: In(sessionIds),
+					},
+					relations: ['subject'],
+			  })
+			: [];
+
+		const sessionMap = new Map(sessions.map((s) => [s.idSession, s]));
+
+		for (const answer of answers) {
+			const evalKey = answer.evaluationId;
+			const session = sessionMap.get(answer.idSession);
+
+			if (!sessionsByEval.has(evalKey)) {
+				sessionsByEval.set(evalKey, {
+					sessionId: answer.idSession,
+					sessionDate: session
+						? new Date(session.scheduledDate).toISOString().split('T')[0]
+						: 'Desconocido',
+					subjectName: session?.subject?.name || 'Desconocido',
+					evaluationId: evalKey,
+					ratings: new Map(),
+					comments: answer.studentParticipateSession?.comment,
+					evaluatedAt: answer.evaluatedAt,
+				});
+			}
+
+			// Guardar score bajo el aspecto de la pregunta
+			if (answer.question && answer.score !== null && answer.score !== undefined) {
+				const sessionData = sessionsByEval.get(evalKey)!;
+				sessionData.ratings.set(answer.question.aspect, answer.score);
+
+				// Acumular para cálculos de promedio
+				allRatings.push(answer.score);
+				allAspectRatings.get(answer.question.aspect)?.push(answer.score);
+
+				// Acumular por materia
+				const subjectKey = session?.subject?.name || 'Desconocido';
+				if (!ratingsBySubject.has(subjectKey)) {
+					ratingsBySubject.set(subjectKey, []);
+				}
+				ratingsBySubject.get(subjectKey)?.push(answer.score);
+			}
+		}
+
+		// Construir array de evaluaciones con cálculos, aplicar paginación
+		let evaluationsList = Array.from(sessionsByEval.values()).map((sessionData) => {
+			const ratingValues = Array.from(sessionData.ratings.values());
+			const overallRating =
+				ratingValues.length > 0
+					? ratingValues.reduce((a, b) => a + b, 0) / ratingValues.length
+					: 0;
+
+			return {
+				evaluationId: sessionData.evaluationId,
+				sessionId: sessionData.sessionId,
+				sessionDate: new Date(sessionData.sessionDate).toISOString().split('T')[0],
+				subjectName: sessionData.subjectName,
+				ratings: {
+					clarity: sessionData.ratings.get('CLARITY') || 0,
+					patience: sessionData.ratings.get('PATIENCE') || 0,
+					punctuality: sessionData.ratings.get('PUNCTUALITY') || 0,
+					knowledge: sessionData.ratings.get('KNOWLEDGE') || 0,
+				},
+				overallRating: Number(overallRating.toFixed(2)),
+				comments: sessionData.comments,
+				evaluatedAt: sessionData.evaluatedAt.toISOString(),
+			};
+		});
+
+		// Aplicar paginación al array de evaluaciones finales
+		const offset = (page - 1) * limit;
+		const paginatedEvaluations = evaluationsList.slice(offset, offset + limit);
+
+		// Calcular promedios SOLO del tutor (todos sus reviews)
+		const averageRating =
+			allRatings.length > 0
+				? Number((allRatings.reduce((a, b) => a + b, 0) / allRatings.length).toFixed(2))
+				: 0;
+
+		const ratingsByAspect = {
+			clarity: allAspectRatings.get('CLARITY')?.length
+				? Number(
+						(
+							allAspectRatings
+								.get('CLARITY')!
+								.reduce((a, b) => a + b, 0) / allAspectRatings.get('CLARITY')!.length
+						).toFixed(2),
+				)
+				: 0,
+			patience: allAspectRatings.get('PATIENCE')?.length
+				? Number(
+						(
+							allAspectRatings
+								.get('PATIENCE')!
+								.reduce((a, b) => a + b, 0) / allAspectRatings.get('PATIENCE')!.length
+						).toFixed(2),
+				)
+				: 0,
+			punctuality: allAspectRatings.get('PUNCTUALITY')?.length
+				? Number(
+						(
+							allAspectRatings
+								.get('PUNCTUALITY')!
+								.reduce((a, b) => a + b, 0) / allAspectRatings.get('PUNCTUALITY')!.length
+						).toFixed(2),
+				)
+				: 0,
+			knowledge: allAspectRatings.get('KNOWLEDGE')?.length
+				? Number(
+						(
+							allAspectRatings
+								.get('KNOWLEDGE')!
+								.reduce((a, b) => a + b, 0) / allAspectRatings.get('KNOWLEDGE')!.length
+						).toFixed(2),
+				)
+				: 0,
+		};
+
+		// Calcular promedios por materia
+		const averageBySubject: Record<string, number> = {};
+		for (const [subject, ratings] of ratingsBySubject) {
+			averageBySubject[subject] = Number(
+				(ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(2),
+			);
+		}
+
+		const totalPages = Math.ceil(totalRecords / limit);
+
+		return {
+			tutorId,
+			tutorName: tutor.name,
+			summary: {
+				totalEvaluations: totalRecords,
+				averageRating,
+				ratingsByAspect,
+				averageBySubject: Object.keys(averageBySubject).length > 0 ? averageBySubject : undefined,
+			},
+			evaluations: paginatedEvaluations,
+			pagination: {
+				page,
+				limit,
+				totalRecords,
+				totalPages,
+			},
+			filters: {
+				subjectId: subjectId || null,
+				startDate: startDate || null,
+				endDate: endDate || null,
+			},
 		};
 	}
 }
