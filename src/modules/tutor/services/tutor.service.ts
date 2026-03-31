@@ -16,6 +16,7 @@ import { AssignSubjectsDto } from '../../subjects/dto/assign-subjects.dto';
 import { UserService } from '../../users/services/users.service';
 import { SubjectsService } from '../../subjects/services/subjects.service';
 import { NotificationsService } from '../../notifications/services/notifications.service';
+import { ExternalConfigService } from '../../external-config/services/external-config.service';
 
 @Injectable()
 export class TutorService {
@@ -25,6 +26,7 @@ export class TutorService {
     private readonly userService: UserService,
     private readonly subjectService: SubjectsService,
     private readonly notificationService: NotificationsService,
+    private readonly externalConfigService: ExternalConfigService,
   ) { }
 
   // =====================================================
@@ -127,7 +129,10 @@ export class TutorService {
       throw new NotFoundException('Tutor profile not found');
     }
 
-    // 4. Actualizar datos del tutor
+    // 4. Validar rango de horas semanales con config dinámica
+    this.validateWeeklyHours(dto.max_weekly_hours);
+
+    // 5. Actualizar datos del tutor
     tutor.phone = dto.phone;
     tutor.urlImage = dto.url_image;
     tutor.limitDisponibility = dto.max_weekly_hours;
@@ -161,7 +166,10 @@ export class TutorService {
       throw new NotFoundException('Tutor profile not found');
     }
 
-    // 3. Actualizar datos del tutor
+    // 3. Validar rango de horas semanales con config dinámica
+    this.validateWeeklyHours(dto.max_weekly_hours);
+
+    // 4. Actualizar datos del tutor
     tutor.phone = dto.phone;
     tutor.urlImage = dto.url_image;
     tutor.limitDisponibility = dto.max_weekly_hours;
@@ -486,12 +494,21 @@ export class TutorService {
       throw new NotFoundException('Tutor not found');
     }
 
-    return tutor.limitDisponibility ?? 8;
+    return tutor.limitDisponibility ?? this.externalConfigService.getConfig().tutor.default_weekly_hours_limit;
   }
 
   // =====================================================
   // HELPERS PRIVADOS
   // =====================================================
+  private validateWeeklyHours(hours: number): void {
+    const { min_weekly_hours, max_weekly_hours } = this.externalConfigService.getConfig().tutor;
+    if (hours < min_weekly_hours || hours > max_weekly_hours) {
+      throw new BadRequestException(
+        `max_weekly_hours debe estar entre ${min_weekly_hours} y ${max_weekly_hours}`,
+      );
+    }
+  }
+
   private generateTemporaryPassword(): string {
     const randomPart = randomBytes(4).toString('hex');
     const year = new Date().getFullYear();

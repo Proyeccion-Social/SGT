@@ -11,6 +11,7 @@ import { SchedulingModule } from './modules/scheduling/scheduling.module';
 import { EvaluationModule } from './modules/session-execution/session-execution';
 import { envValidationSchema } from './config/env.config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ExternalConfigModule } from './modules/external-config/external-config.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
       envFilePath: '.env',
       validationSchema: envValidationSchema,
     }),
+    ExternalConfigModule,
     DatabaseModule,
     AuthModule,
     UsersModule,

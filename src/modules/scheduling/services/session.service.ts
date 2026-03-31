@@ -29,7 +29,8 @@ import { TutorService } from '../../tutor/services/tutor.service';
 import { UserService } from '../../users/services/users.service';
 import { SubjectsService } from '../../subjects/services/subjects.service';
 import { NotificationsService } from '../../notifications/services/notifications.service';
-import { addDays } from 'date-fns';
+import { addHours } from 'date-fns';
+import { ExternalConfigService } from '../../external-config/services/external-config.service';
 import { ConfirmSessionDto } from '../dto/confirm-session.dto';
 import { RejectSessionDto } from '../dto/reject-session.dto';
 import { SessionFilterDto, SessionStatusFilter } from '../dto/session-filter.dto';
@@ -61,6 +62,7 @@ export class SessionService {
     private readonly userService: UserService,
     private readonly subjectsService: SubjectsService,
     private readonly notificationsService: NotificationsService,
+    private readonly externalConfigService: ExternalConfigService,
 
   ) { }
 
@@ -83,6 +85,13 @@ export class SessionService {
 
       await this.validationService.validateStudentNotTutor(studentId, dto.tutorId);
       await this.tutorService.validateTutorActive(dto.tutorId);
+
+      const allowedDurations = this.externalConfigService.getConfig().scheduling.allowed_duration_hours;
+      if (!allowedDurations.includes(dto.durationHours)) {
+        throw new BadRequestException(
+          `durationHours debe ser uno de: ${allowedDurations.join(', ')}`,
+        );
+      }
 
       const availability = await this.availabilityService.getAvailabilityById(
         dto.availabilityId,
@@ -675,7 +684,8 @@ export class SessionService {
     }
 
     // 6. Crear solicitud de modificación
-    const expiresAt = addDays(new Date(), 1); // 24 horas
+    const { modification_expiry_hours } = this.externalConfigService.getConfig().scheduling;
+    const expiresAt = addHours(new Date(), modification_expiry_hours);
 
     //  Usar constructor en lugar de .create()
     const modificationRequest = new SessionModificationRequest();

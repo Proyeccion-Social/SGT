@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { ExternalConfigService } from '../../external-config/services/external-config.service';
 import { In, MoreThanOrEqual, Repository } from 'typeorm';
 import { Availability } from '../entities/availability.entity';
 import { TutorHaveAvailability } from '../entities/tutor-availability.entity';
@@ -32,8 +33,6 @@ export interface TutorAvailabilityPublic {
 @Injectable()
 export class AvailabilityService {
 
-  private readonly SLOT_DURATION_MINUTES = 30;
-  private readonly MAX_SLOTS_PER_DAY = 8; // 4 horas
   //private readonly MIN_DAYS_WITH_AVAILABILITY = 2;
 
   constructor(
@@ -44,7 +43,16 @@ export class AvailabilityService {
 
     @InjectRepository(ScheduledSession, 'local')
     private readonly scheduledSessionRepository: Repository<ScheduledSession>,
+    private readonly externalConfigService: ExternalConfigService,
   ) { }
+
+  private get SLOT_DURATION_MINUTES(): number {
+    return this.externalConfigService.getConfig().availability.slot_duration_minutes;
+  }
+
+  private get MAX_SLOTS_PER_DAY(): number {
+    return this.externalConfigService.getConfig().availability.max_slots_per_day;
+  }
 
   /**
    * Crea una franja de disponibilidad para un tutor.

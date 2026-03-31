@@ -2,8 +2,7 @@
 import {
   IsString,
   IsInt,
-  Min,
-  Max,
+  IsPositive,
   Matches,
   IsArray,
   ArrayMinSize,
@@ -23,8 +22,7 @@ export class CompleteTutorProfileDto {
   url_image: string;
 
   @IsInt()
-  @Min(1, { message: 'Debe agendar mínimo 1 hora semanal' })
-  @Max(40, { message: 'Máximo 40 horas semanales' })
+  @IsPositive({ message: 'max_weekly_hours debe ser un número positivo' })
   max_weekly_hours: number;
 
   @IsArray()

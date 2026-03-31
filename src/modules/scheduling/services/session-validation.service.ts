@@ -11,6 +11,7 @@ import { AvailabilityService } from '../../availability/services/availability.se
 import { TutorService } from '../../tutor/services/tutor.service';
 import { startOfWeek, endOfWeek, differenceInHours, addHours } from 'date-fns';
 import { Modality } from 'src/modules/availability/enums/modality.enum';
+import { ExternalConfigService } from '../../external-config/services/external-config.service';
 
 @Injectable()
 export class SessionValidationService {
@@ -22,6 +23,7 @@ export class SessionValidationService {
     //  Servicios de otros módulos
     private readonly availabilityService: AvailabilityService,
     private readonly tutorService: TutorService,
+    private readonly externalConfigService: ExternalConfigService,
   ) {}
 
   /**
@@ -202,7 +204,8 @@ async validateNoTimeConflict(
     // Calcular diferencia en horas
     const hoursUntilSession = differenceInHours(sessionDateTime, now);
 
-    return hoursUntilSession >= 24;
+    const { cancellation_notice_hours } = this.externalConfigService.getConfig().scheduling;
+    return hoursUntilSession >= cancellation_notice_hours;
   }
 
   // ========================================

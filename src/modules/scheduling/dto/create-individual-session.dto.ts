@@ -7,7 +7,6 @@ import {
   IsString,
   MaxLength,
   MinLength,
-  IsIn,
 } from 'class-validator';
 import { Modality } from 'src/modules/availability/enums';
 
@@ -28,7 +27,6 @@ export class CreateIndividualSessionDto {
   modality: Modality;
 
   @IsNumber()
-  @IsIn([1, 1.5, 2], { message: 'durationHours debe ser 1, 1.5 o 2' })
   durationHours: number; // Se usa para calcular endTime, no se guarda
 
   @IsString()
