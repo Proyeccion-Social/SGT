@@ -24,6 +24,7 @@ import { RegisterStudentAttendanceDto } from '../dto/register-student-attendance
 import { SendSessionEvaluationDto } from '../dto/send-session-evaluation.dto';
 import { GetTutorEvaluationsQueryDto } from '../dto/get-tutor-evaluations-query.dto';
 import { GetTutorMetricsQueryDto } from '../dto/get-tutor-metrics-query.dto';
+import { GetStudentEvaluationsQueryDto } from '../dto/get-student-evaluations-query.dto';
 
 @Controller('session-execution')
 export class SessionExecutionController {
@@ -235,6 +236,54 @@ export class SessionExecutionController {
     );
   }
 
+  @Get('students/:studentId/evaluations')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.STUDENT, UserRole.ADMIN)
+  getStudentEvaluations(
+    @CurrentUser() user: User,
+    @Param(
+      'studentId',
+      new ParseUUIDPipe({
+        exceptionFactory: () =>
+          new BadRequestException({
+            errorCode: 'VALIDATION_01',
+            message: 'ID de estudiante inválido',
+          }),
+      }),
+    )
+    studentId: string,
+    @Query(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+        exceptionFactory: () =>
+          new BadRequestException({
+            errorCode: 'VALIDATION_01',
+            message: 'Parámetros de consulta inválidos',
+          }),
+      }),
+    )
+    query: GetStudentEvaluationsQueryDto,
+  ) {
+    if (user.role === UserRole.STUDENT && user.idUser !== studentId) {
+      throw new ForbiddenException({
+        errorCode: 'PERMISSION_01',
+        message: 'Solo puedes ver tus propias evaluaciones',
+      });
+    }
+
+    return this.evaluationService.getStudentEvaluations(
+      studentId,
+      query.tutorId,
+      query.subjectId,
+      query.startDate,
+      query.endDate,
+      query.page,
+      query.limit,
+    );
+  }
+
   @Get('tutors/:tutorId/stats')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.TUTOR, UserRole.ADMIN)
@@ -265,7 +314,6 @@ export class SessionExecutionController {
     )
     query: GetTutorMetricsQueryDto,
   ) {
-    // Permission check: TUTOR solo ve sus propias métricas
     if (user.role === UserRole.TUTOR && user.idUser !== tutorId) {
       throw new ForbiddenException({
         errorCode: 'PERMISSION_01',

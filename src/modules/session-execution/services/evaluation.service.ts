@@ -616,6 +616,217 @@ export class EvaluationService {
 		};
 	}
 
+	async getStudentEvaluations(
+		studentId: string,
+		tutorId?: string,
+		subjectId?: string,
+		startDate?: string,
+		endDate?: string,
+		page: number = 1,
+		limit: number = 20,
+	) {
+		// Verificar que el estudiante existe
+		const student = await this.userRepository.findOne({
+			where: { idUser: studentId },
+		});
+
+		if (!student) {
+			throw new NotFoundException({
+				errorCode: 'RESOURCE_02',
+				message: 'Estudiante no encontrado',
+			});
+		}
+
+		// Validar rango de fechas si ambas están presentes
+		if (startDate && endDate) {
+			const start = new Date(startDate);
+			const end = new Date(endDate);
+			if (start > end) {
+				throw new BadRequestException({
+					errorCode: 'VALIDATION_01',
+					message: 'Rango de fechas inválido',
+					description: 'startDate debe ser menor o igual a endDate',
+				});
+			}
+		}
+
+		// Construir query base para obtener answers del estudiante
+		let answerQuery = this.answerRepository
+			.createQueryBuilder('answer')
+			.leftJoinAndSelect('answer.question', 'question')
+			.leftJoinAndSelect('answer.studentParticipateSession', 'participation')
+			.where('answer.id_student = :studentId', { studentId })
+			.andWhere('answer.score IS NOT NULL');
+
+		// Necesitamos cargar sesión, tutor y materia por separado
+		const allAnswers = await answerQuery.getMany();
+
+		// Obtener IDs de sesiones únicas
+		const sessionIds = Array.from(new Set(allAnswers.map((a) => a.idSession)));
+		
+		// Cargar sesiones con sus relaciones
+		const sessions = sessionIds.length > 0
+			? await this.sessionRepository
+					.createQueryBuilder('session')
+					.leftJoinAndSelect('session.tutor', 'tutor')
+					.leftJoinAndSelect('session.subject', 'subject')
+					.where('session.id_session IN (:...ids)', { ids: sessionIds })
+					.andWhere('session.status = :status', { status: SessionStatus.COMPLETED })
+					.getMany()
+			: [];
+
+		const sessionMap = new Map(sessions.map((s) => [s.idSession, s]));
+
+		// Filtrar answers para sesiones completadas y aplicar filtros
+		let filteredAnswers = allAnswers.filter((answer) => {
+			const session = sessionMap.get(answer.idSession);
+			if (!session) return false;
+
+			// Filtro por tutor
+			if (tutorId && session.idTutor !== tutorId) {
+				return false;
+			}
+
+			// Filtro por materia
+			if (subjectId && session.idSubject !== subjectId) {
+				return false;
+			}
+
+			// Filtro por rango de fechas
+			if (startDate) {
+				const answerDate = new Date(answer.evaluatedAt);
+				if (answerDate < new Date(startDate)) {
+					return false;
+				}
+			}
+
+			if (endDate) {
+				const answerDate = new Date(answer.evaluatedAt);
+				if (answerDate > new Date(endDate)) {
+					return false;
+				}
+			}
+
+			return true;
+		});
+
+		// Obtener total de evaluaciones únicas
+		const uniqueEvaluationIds = new Set(filteredAnswers.map((a) => a.evaluationId));
+		const totalRecords = uniqueEvaluationIds.size;
+
+		// Agrupar answers por evaluationId
+		const evaluationsByEvalId: Map<
+			string,
+			{
+				evaluationId: string;
+				sessionId: string;
+				sessionDate: string;
+				tutorId: string;
+				tutorName: string;
+				subjectName: string;
+				ratings: Map<string, number>;
+				comments?: string;
+				evaluatedAt: Date;
+			}
+		> = new Map();
+
+		const allRatings: number[] = [];
+
+		for (const answer of filteredAnswers) {
+			const session = sessionMap.get(answer.idSession);
+			if (!session) continue;
+
+			const evalKey = answer.evaluationId;
+
+			if (!evaluationsByEvalId.has(evalKey)) {
+				evaluationsByEvalId.set(evalKey, {
+					evaluationId: evalKey,
+					sessionId: answer.idSession,
+					sessionDate: new Date(session.scheduledDate).toISOString().split('T')[0],
+					tutorId: session.idTutor,
+					tutorName: session.tutor?.user?.name || 'Desconocido',
+					subjectName: session.subject?.name || 'Desconocido',
+					ratings: new Map(),
+					comments: answer.studentParticipateSession?.comment,
+					evaluatedAt: answer.evaluatedAt,
+				});
+			}
+
+			// Guardar score bajo el aspecto de la pregunta
+			if (answer.question && answer.score !== null && answer.score !== undefined) {
+				const evalData = evaluationsByEvalId.get(evalKey)!;
+				evalData.ratings.set(answer.question.aspect, answer.score);
+				allRatings.push(answer.score);
+			}
+		}
+
+		// Construir array de evaluaciones con cálculos
+		let evaluationsList = Array.from(evaluationsByEvalId.values()).map((evalData) => {
+			const ratingValues = Array.from(evalData.ratings.values());
+			const overallRating =
+				ratingValues.length > 0
+					? ratingValues.reduce((a, b) => a + b, 0) / ratingValues.length
+					: 0;
+
+			return {
+				evaluationId: evalData.evaluationId,
+				sessionId: evalData.sessionId,
+				sessionDate: evalData.sessionDate,
+				tutorId: evalData.tutorId,
+				tutorName: evalData.tutorName,
+				subjectName: evalData.subjectName,
+				ratings: {
+					clarity: evalData.ratings.get('CLARITY') || 0,
+					patience: evalData.ratings.get('PATIENCE') || 0,
+					punctuality: evalData.ratings.get('PUNCTUALITY') || 0,
+					knowledge: evalData.ratings.get('KNOWLEDGE') || 0,
+				},
+				overallRating: Number(overallRating.toFixed(2)),
+				comments: evalData.comments || null,
+				evaluatedAt: evalData.evaluatedAt.toISOString(),
+			};
+		});
+
+		// Ordenar por fecha de evaluación descendente
+		evaluationsList = evaluationsList.sort((a, b) => 
+			new Date(b.evaluatedAt).getTime() - new Date(a.evaluatedAt).getTime()
+		);
+
+		// Aplicar paginación
+		const offset = (page - 1) * limit;
+		const paginatedEvaluations = evaluationsList.slice(offset, offset + limit);
+
+		// Calcular promedio general
+		const averageRatingGiven =
+			allRatings.length > 0
+				? Number((allRatings.reduce((a, b) => a + b, 0) / allRatings.length).toFixed(2))
+				: 0;
+
+		const totalPages = Math.ceil(totalRecords / limit);
+
+		return {
+			studentId,
+			studentName: student.name,
+			evaluations: paginatedEvaluations,
+			summary: {
+				totalEvaluations: totalRecords,
+				averageRatingGiven,
+			},
+			pagination: {
+				page,
+				limit,
+				totalRecords,
+				totalPages,
+			},
+			filters: {
+				tutorId: tutorId || null,
+				subjectId: subjectId || null,
+				startDate: startDate || null,
+				endDate: endDate || null,
+			},
+		};
+	}
+
 	async getTutorMetrics(
 		tutorId: string,
 		startDate?: string,
