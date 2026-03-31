@@ -138,7 +138,6 @@ export class EvaluationService {
 			[QuestionAspect.PATIENCE]: dto.ratings.patience,
 			[QuestionAspect.PUNCTUALITY]: dto.ratings.punctuality,
 			[QuestionAspect.KNOWLEDGE]: dto.ratings.knowledge,
-			[QuestionAspect.USEFULNESS]: dto.ratings.usefulness,
 		};
 
 		const evaluatedAt = new Date();
@@ -165,9 +164,8 @@ export class EvaluationService {
 			(dto.ratings.clarity +
 				dto.ratings.patience +
 				dto.ratings.punctuality +
-				dto.ratings.knowledge +
-				dto.ratings.usefulness) /
-			5;
+				dto.ratings.knowledge) /
+			4;
 
 		return {
 			message:

@@ -6,7 +6,6 @@ export enum QuestionAspect {
   PATIENCE = 'PATIENCE',
   PUNCTUALITY = 'PUNCTUALITY',
   KNOWLEDGE = 'KNOWLEDGE',
-  USEFULNESS = 'USEFULNESS',
 }
 
 @Entity('questions')

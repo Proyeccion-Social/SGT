@@ -42,13 +42,6 @@ const DEFAULT_QUESTIONS: DefaultQuestion[] = [
     description: 'Que tan bien dominaba el tutor el tema?',
     displayOrder: 4,
   },
-  {
-    aspect: QuestionAspect.USEFULNESS,
-    label: 'Utilidad de la sesion',
-    content: 'Utilidad de la sesion',
-    description: 'Que tan util fue la sesion para tu aprendizaje?',
-    displayOrder: 5,
-  },
 ];
 
 @Injectable()

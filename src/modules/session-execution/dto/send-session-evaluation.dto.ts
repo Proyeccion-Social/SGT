@@ -30,11 +30,6 @@ export class SessionRatingsDto {
   @Min(1)
   @Max(5)
   knowledge: number;
-
-  @IsNumber()
-  @Min(1)
-  @Max(5)
-  usefulness: number;
 }
 
 export class SendSessionEvaluationDto {
