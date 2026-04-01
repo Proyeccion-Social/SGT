@@ -7,9 +7,11 @@
 // responsabilidad del servicio llamante antes de llegar aquí.
  
 import {
+  BadRequestException,
   Body,
   Controller,
   HttpCode,
+  HttpException,
   HttpStatus,
   InternalServerErrorException,
   Logger,
@@ -32,7 +34,7 @@ import {
   HoursLimitAlertDto,
 } from '../dto/notifications.dto';
  
-@Controller('api/v1/notifications')
+@Controller('notifications')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.ADMIN)
 export class NotificationsController {
@@ -260,11 +262,10 @@ export class NotificationsController {
  
     if (dto.hoursUsed > dto.weeklyHourLimit) {
       // Inconsistencia de datos del llamante; retornamos 400 semántico
-      return {
-        statusCode: HttpStatus.BAD_REQUEST,
-        errorCode:  'VALIDATION_01',
-        message:    'Datos inconsistentes: hoursUsed no puede superar weeklyHourLimit',
-      };
+      throw new BadRequestException({
+      errorCode: 'VALIDATION_01',
+      message: 'Datos inconsistentes: hoursUsed no puede superar weeklyHourLimit',
+    });
     }
  
     try {
@@ -350,18 +351,29 @@ export class NotificationsController {
   // ─────────────────────────────────────────────────────────────────────────
  
   private handleProviderError(
-    error: unknown,
-    endpoint: string,
-    resourceId: string,
-  ): never {
-    this.logger.error(
-      `[${endpoint}] Error del proveedor de email | id=${resourceId} | ${(error as Error).message}`,
-      (error as Error).stack,
+  error: unknown,
+  endpoint: string,
+  resourceId: string,
+): never {
+  // Si ya es una HttpException, la re-lanzamos tal cual para conservar
+  // su código de estado y estructura original
+  if (error instanceof HttpException) {
+    this.logger.warn(
+      `[${endpoint}] Error de dominio propagado | id=${resourceId} | status=${error.getStatus()} | ${error.message}`,
     );
-    throw new InternalServerErrorException({
-      errorCode:   'INTERNAL_02',
-      message:     'Error al enviar notificación',
-      description: 'Falla del proveedor de notificaciones',
-    });
+    throw error;
   }
+
+  // Para errores no-HTTP (errores de red, timeout, etc.), 
+  // consideramos que es un problema del proveedor externo
+  this.logger.error(
+    `[${endpoint}] Error del proveedor de email | id=${resourceId} | ${(error as Error).message}`,
+    (error as Error).stack,
+  );
+  throw new InternalServerErrorException({
+    errorCode: 'INTERNAL_02',
+    message: 'Error al enviar notificación',
+    description: 'Falla del proveedor de notificaciones',
+  });
+}
 }

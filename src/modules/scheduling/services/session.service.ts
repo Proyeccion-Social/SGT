@@ -319,11 +319,21 @@ export class SessionService {
       ]);
  
       // RF-20: rechazo automático a los demás estudiantes
+      //Cambio propuesto por copilot, originalmente:
+
+      /*
       for (const { session: rejectedSession, studentId: rejectedStudentId } of autoRejectedData) {
         this.fireAndLogNotifications([
           this.notificationsService.sendSessionRejection(rejectedSession, rejectedStudentId),
         ]);
       }
+      */
+     
+      const autoRejectNotificationPromises = autoRejectedData.map(
+        ({ session: rejectedSession, studentId: rejectedStudentId }) =>
+          this.notificationsService.sendSessionRejection(rejectedSession, rejectedStudentId),
+      );
+      await this.fireAndLogNotifications(autoRejectNotificationPromises);
  
       return {
         success: true,

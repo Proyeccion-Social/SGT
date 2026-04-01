@@ -20,7 +20,7 @@ export class NotificationsService {
     private readonly configService: ConfigService,
     private readonly usersService: UserService,
   ) {
-    console.log('FROM EMAIL:', this.configService.get('RESEND_FROM_EMAIL'));
+
     const apiKey = this.configService.get<string>('RESEND_API_KEY');
  
     if (!apiKey) {
@@ -1149,7 +1149,14 @@ export class NotificationsService {
       );
  
       const templateContent = fs.readFileSync(templatePath, 'utf-8');
-      const template        = Handlebars.compile(templateContent);
+
+
+      //Cambio propuesto por copilot para evitar error de Handlebars: "Missing helper: 'eq'". Originalmente:       const template        = Handlebars.compile(templateContent);
+      // Registrar helpers necesarios para las plantillas.
+      // `eq` se usa en las vistas como subexpresión: (eq a b)
+      Handlebars.registerHelper('eq', (a: any, b: any) => a === b);
+      const template = Handlebars.compile(templateContent);
+
       return template(data);
     } catch (error) {
       this.logger.error(

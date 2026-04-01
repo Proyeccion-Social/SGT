@@ -3,7 +3,6 @@
 // Principio de diseño: cada DTO contiene TODOS los datos necesarios para
 // renderizar el email. El servicio llamante (scheduling, availability, cron
 // jobs) resuelve los IDs a nombres y datos concretos ANTES de llamar.
-// El módulo de notificaciones no tiene dependencias con otros módulos de dominio.
  
 import {
   IsArray,
