@@ -6,38 +6,39 @@ import {
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { InjectDataSource } from '@nestjs/typeorm';
+import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
+import { DataSource, Repository } from 'typeorm';
+import { addDays } from 'date-fns';
 
-import { DataSource } from 'typeorm';
-import { Repository } from 'typeorm';
 import { Session } from '../entities/session.entity';
 import { ScheduledSession } from '../entities/scheduled-session.entity';
 import { StudentParticipateSession } from '../entities/student-participate-session.entity';
 import { SessionModificationRequest } from '../entities/session-modification-request.entity';
+
 import { CreateIndividualSessionDto } from '../dto/create-individual-session.dto';
 import { CancelSessionDto } from '../dto/cancel-session.dto';
 import { ProposeModificationDto } from '../dto/propose-modification.dto';
 import { UpdateSessionDetailsDto } from '../dto/update-session-details.dto';
+import { ConfirmSessionDto } from '../dto/confirm-session.dto';
+import { RejectSessionDto } from '../dto/reject-session.dto';
+import { SessionFilterDto, SessionStatusFilter } from '../dto/session-filter.dto';
+
 import { SessionType } from '../enums/session-type.enum';
 import { SessionStatus } from '../enums/session-status.enum';
 import { ParticipationStatus } from '../enums/participation-status.enum';
 import { ModificationStatus } from '../enums/modification-status.enum';
+
 import { SessionValidationService } from './session-validation.service';
 import { AvailabilityService } from '../../availability/services/availability.service';
 import { TutorService } from '../../tutor/services/tutor.service';
 import { UserService } from '../../users/services/users.service';
 import { SubjectsService } from '../../subjects/services/subjects.service';
 import { NotificationsService } from '../../notifications/services/notifications.service';
-import { addDays } from 'date-fns';
-import { ConfirmSessionDto } from '../dto/confirm-session.dto';
-import { RejectSessionDto } from '../dto/reject-session.dto';
-import { SessionFilterDto, SessionStatusFilter } from '../dto/session-filter.dto';
+import { buildPaginatedResponse } from 'src/modules/common/helpers/pagination.helper';
 
 @Injectable()
 export class SessionService {
   constructor(
-    // Solo repositorios del dominio Scheduling
     @InjectRepository(Session, 'local')
     private readonly sessionRepository: Repository<Session>,
 
@@ -50,22 +51,19 @@ export class SessionService {
     @InjectRepository(SessionModificationRequest, 'local')
     private readonly modificationRequestRepository: Repository<SessionModificationRequest>,
 
-
     @InjectDataSource('local')
     private readonly dataSource: DataSource,
 
-    // Servicios de otros módulos
     private readonly validationService: SessionValidationService,
     private readonly availabilityService: AvailabilityService,
     private readonly tutorService: TutorService,
     private readonly userService: UserService,
     private readonly subjectsService: SubjectsService,
     private readonly notificationsService: NotificationsService,
-
   ) { }
 
   // ========================================
-  // RF-19, RF-20: CREAR SESIÓN INDIVIDUAL
+  // RF-19 / RF-20: CREAR SESIÓN INDIVIDUAL
   // ========================================
 
   async createIndividualSession(
@@ -77,22 +75,15 @@ export class SessionService {
     await queryRunner.startTransaction();
 
     try {
-      // ========================================
-      // VALIDACIONES PREVIAS (sin cambios)
-      // ========================================
-
+      // --- Validaciones previas ---
       await this.validationService.validateStudentNotTutor(studentId, dto.tutorId);
       await this.tutorService.validateTutorActive(dto.tutorId);
 
       const availability = await this.availabilityService.getAvailabilityById(
         dto.availabilityId,
       );
-
       const startTime = availability.startTime;
-      const endTime = this.validationService.calculateEndTime(
-        startTime,
-        dto.durationHours,
-      );
+      const endTime = this.validationService.calculateEndTime(startTime, dto.durationHours);
 
       await this.validationService.validateModality(
         dto.availabilityId,
@@ -100,23 +91,14 @@ export class SessionService {
         dto.modality,
       );
 
-      // ========================================
-      //  VALIDACIÓN CRÍTICA: Solo rechazar si hay sesión CONFIRMADA
-      // ========================================
-
+      // Solo rechazar si la franja ya tiene una sesión CONFIRMADA
       const existingScheduledSession = await queryRunner.manager
         .createQueryBuilder(ScheduledSession, 'ss')
         .innerJoinAndSelect('ss.session', 'session')
         .where('ss.idTutor = :tutorId', { tutorId: dto.tutorId })
-        .andWhere('ss.idAvailability = :availabilityId', {
-          availabilityId: dto.availabilityId,
-        })
-        .andWhere('ss.scheduledDate = :scheduledDate', {
-          scheduledDate: new Date(dto.scheduledDate),
-        })
-        .andWhere('session.status = :status', {
-          status: SessionStatus.SCHEDULED, //  Solo si está CONFIRMADA
-        })
+        .andWhere('ss.idAvailability = :availabilityId', { availabilityId: dto.availabilityId })
+        .andWhere('ss.scheduledDate = :scheduledDate', { scheduledDate: new Date(dto.scheduledDate) })
+        .andWhere('session.status = :status', { status: SessionStatus.SCHEDULED })
         .setLock('pessimistic_write')
         .getOne();
 
@@ -126,23 +108,16 @@ export class SessionService {
         );
       }
 
-      //  OPCIONAL: Informar al estudiante si hay solicitudes pendientes
+      // Contar solicitudes pendientes para informar al estudiante
       const pendingCount = await queryRunner.manager
         .createQueryBuilder(ScheduledSession, 'ss')
         .innerJoin('ss.session', 'session')
         .where('ss.idTutor = :tutorId', { tutorId: dto.tutorId })
-        .andWhere('ss.idAvailability = :availabilityId', {
-          availabilityId: dto.availabilityId,
-        })
-        .andWhere('ss.scheduledDate = :scheduledDate', {
-          scheduledDate: new Date(dto.scheduledDate),
-        })
-        .andWhere('session.status = :status', {
-          status: SessionStatus.PENDING_TUTOR_CONFIRMATION,
-        })
+        .andWhere('ss.idAvailability = :availabilityId', { availabilityId: dto.availabilityId })
+        .andWhere('ss.scheduledDate = :scheduledDate', { scheduledDate: new Date(dto.scheduledDate) })
+        .andWhere('session.status = :status', { status: SessionStatus.PENDING_TUTOR_CONFIRMATION })
         .getCount();
 
-      // Validaciones de conflicto de horario y límite semanal
       await this.validationService.validateNoTimeConflict(
         dto.tutorId,
         new Date(dto.scheduledDate),
@@ -156,10 +131,7 @@ export class SessionService {
         dto.durationHours,
       );
 
-      // ========================================
-      // CREAR SESIÓN
-      // ========================================
-
+      // --- Crear sesión ---
       const session = queryRunner.manager.create(Session, {
         idTutor: dto.tutorId,
         idSubject: dto.subjectId,
@@ -182,34 +154,30 @@ export class SessionService {
         idAvailability: dto.availabilityId,
         scheduledDate: new Date(dto.scheduledDate),
       });
-
       await queryRunner.manager.save(scheduledSession);
 
-      const participation = queryRunner.manager.create(
-        StudentParticipateSession,
-        {
-          idStudent: studentId,
-          idSession: savedSession.idSession,
-          status: ParticipationStatus.CONFIRMED,
-        },
-      );
-
+      const participation = queryRunner.manager.create(StudentParticipateSession, {
+        idStudent: studentId,
+        idSession: savedSession.idSession,
+        status: ParticipationStatus.CONFIRMED,
+      });
       await queryRunner.manager.save(participation);
 
       await queryRunner.commitTransaction();
 
-      // ========================================
-      // NOTIFICAR
-      // ========================================
-
-      await this.sendTutorConfirmationRequest(savedSession, studentId);
+      // --- Notificaciones (fuera de transacción) ---
+      // RF-25: notificar al tutor (solicitud pendiente) y acusar recibo al estudiante
+      await this.fireAndLogNotifications([
+        this.sendTutorConfirmationRequestNotification(savedSession, studentId),
+        this.sendStudentRequestAckNotification(savedSession, studentId),
+      ]);
 
       return {
         success: true,
         message:
           pendingCount > 0
             ? `Solicitud enviada. Hay ${pendingCount} solicitud(es) pendiente(s) para este horario. El tutor elegirá una.`
-            : 'Solicitud de sesión enviada al tutor. Recibirás una notificación cuando el tutor confirme.',
+            : 'Solicitud enviada al tutor. Recibirás una notificación cuando confirme.',
         session: await this.getSessionById(savedSession.idSession),
         pendingRequestsCount: pendingCount,
       };
@@ -228,12 +196,9 @@ export class SessionService {
     }
   }
 
-
   // ========================================
   // RF-20: CONFIRMAR SESIÓN (TUTOR)
   // ========================================
-
-  // src/scheduling/services/session.service.ts
 
   async confirmSession(
     tutorId: string,
@@ -245,50 +210,30 @@ export class SessionService {
     await queryRunner.startTransaction();
 
     try {
-      // ========================================
-      // 1. BLOQUEAR Session
-      // ========================================
-
+      // 1. Bloquear y obtener la sesión
       const session = await queryRunner.manager
         .createQueryBuilder(Session, 'session')
         .where('session.idSession = :sessionId', { sessionId })
         .setLock('pessimistic_write')
         .getOne();
 
-      if (!session) {
-        throw new NotFoundException('Session not found');
-      }
+      if (!session) throw new NotFoundException('Session not found');
 
-      // ========================================
-      // 2. VALIDACIONES
-      // ========================================
-
+      // 2. Validaciones
       if (session.idTutor !== tutorId) {
-        throw new ForbiddenException(
-          'Solo el tutor asignado puede confirmar esta sesión',
-        );
+        throw new ForbiddenException('Solo el tutor asignado puede confirmar esta sesión');
       }
-
       if (session.status !== SessionStatus.PENDING_TUTOR_CONFIRMATION) {
         throw new BadRequestException(
           `No se puede confirmar una sesión con estado ${session.status}`,
         );
       }
 
-      // ========================================
-      // 3. VALIDAR que no haya otra sesión SCHEDULED
-      // ========================================
-
-      const scheduledSession = await queryRunner.manager.findOne(
-        ScheduledSession,
-        {
-          where: { idSession: sessionId },
-        },
-      );
-
-      if (!scheduledSession) {
-        throw new NotFoundException('ScheduledSession not found');
-      }
+      // 3. Verificar que no haya otra sesión ya SCHEDULED en la misma franja
+      const scheduledSession = await queryRunner.manager.findOne(ScheduledSession, {
+        where: { idSession: sessionId },
+      });
+      if (!scheduledSession) throw new NotFoundException('ScheduledSession not found');
 
       const conflictingSession = await queryRunner.manager
         .createQueryBuilder(ScheduledSession, 'ss')
@@ -300,33 +245,24 @@ export class SessionService {
         .andWhere('ss.scheduledDate = :scheduledDate', {
           scheduledDate: scheduledSession.scheduledDate,
         })
-        .andWhere('session.status = :status', {
-          status: SessionStatus.SCHEDULED,
-        })
+        .andWhere('session.status = :status', { status: SessionStatus.SCHEDULED })
         .andWhere('ss.idSession != :sessionId', { sessionId })
         .setLock('pessimistic_write')
         .getOne();
 
       if (conflictingSession) {
         throw new BadRequestException(
-          'Esta franja ya fue confirmada para otro estudiante. No puedes confirmar esta solicitud.',
+          'Esta franja ya fue confirmada para otro estudiante.',
         );
       }
 
-      // ========================================
-      // 4. CONFIRMAR SESIÓN
-      // ========================================
-
+      // 4. Confirmar sesión
       session.status = SessionStatus.SCHEDULED;
       session.tutorConfirmed = true;
       session.tutorConfirmedAt = new Date();
-
       await queryRunner.manager.save(session);
 
-      // ========================================
-      // 5. AUTO-RECHAZAR OTRAS SOLICITUDES PENDIENTES
-      // ========================================
-
+      // 5. Auto-rechazar otras solicitudes pendientes en la misma franja
       const otherPendingSessions = await queryRunner.manager
         .createQueryBuilder(ScheduledSession, 'ss')
         .innerJoinAndSelect('ss.session', 'session')
@@ -337,87 +273,68 @@ export class SessionService {
         .andWhere('ss.scheduledDate = :scheduledDate', {
           scheduledDate: scheduledSession.scheduledDate,
         })
-        .andWhere('session.status = :status', {
-          status: SessionStatus.PENDING_TUTOR_CONFIRMATION,
-        })
+        .andWhere('session.status = :status', { status: SessionStatus.PENDING_TUTOR_CONFIRMATION })
         .andWhere('ss.idSession != :sessionId', { sessionId })
         .getMany();
 
-      // Array para guardar IDs de estudiantes rechazados
-      const rejectedStudentIds: string[] = [];
+      const autoRejectedData: Array<{ session: Session; studentId: string }> = [];
 
       for (const otherScheduled of otherPendingSessions) {
         otherScheduled.session.status = SessionStatus.REJECTED_BY_TUTOR;
         otherScheduled.session.rejectionReason =
           'El tutor ya confirmó otra sesión para este horario';
         otherScheduled.session.rejectedAt = new Date();
-
         await queryRunner.manager.save(otherScheduled.session);
 
-        // OBTENER ID del estudiante ANTES de eliminar ScheduledSession
         const participation = await queryRunner.manager.findOne(
           StudentParticipateSession,
-          {
-            where: { idSession: otherScheduled.session.idSession },
-            select: ['idStudent'],
-          },
+          { where: { idSession: otherScheduled.session.idSession }, select: ['idStudent'] },
         );
 
         if (participation?.idStudent) {
-          rejectedStudentIds.push(participation.idStudent);
+          autoRejectedData.push({
+            session: otherScheduled.session,
+            studentId: participation.idStudent,
+          });
         }
 
-        // Eliminar ScheduledSession
         await queryRunner.manager.remove(otherScheduled);
       }
 
-      // ========================================
-      // 6. OBTENER ID del estudiante CONFIRMADO
-      // ========================================
-
-      // CARGAR participation de la sesión confirmada
+      // 6. Obtener el estudiante de la sesión confirmada
       const confirmedParticipation = await queryRunner.manager.findOne(
         StudentParticipateSession,
-        {
-          where: { idSession: sessionId },
-          select: ['idStudent'],
-        },
+        { where: { idSession: sessionId }, select: ['idStudent'] },
       );
-
       if (!confirmedParticipation) {
-        throw new NotFoundException(
-          'No se encontró el estudiante asociado a esta sesión',
-        );
+        throw new NotFoundException('No se encontró el estudiante asociado a esta sesión');
       }
-
       const confirmedStudentId = confirmedParticipation.idStudent;
-
-      // ========================================
-      // 7. COMMIT
-      // ========================================
 
       await queryRunner.commitTransaction();
 
-      // ========================================
-      // 8. NOTIFICACIONES (fuera de transacción)
-      // ========================================
+      // 7. Notificaciones (fuera de transacción)
+      // RF-20: confirmación a estudiante y tutor
+      await this.fireAndLogNotifications([
+        this.sendConfirmationEmailsNotification(session, confirmedStudentId),
+      ]);
 
-      // Notificar confirmación
-      await this.sendConfirmationEmails(session, confirmedStudentId);
+      // RF-20: rechazo automático a los demás estudiantes
+      //Cambio propuesto por copilot, originalmente:
 
-      // Notificar rechazos automáticos
-      for (let i = 0; i < otherPendingSessions.length; i++) {
-        const rejectedSession = otherPendingSessions[i].session;
-        const rejectedStudentId = rejectedStudentIds[i];
-
-        if (rejectedStudentId) {
-          this.sendSessionRejectionEmail(rejectedSession, rejectedStudentId).catch(
-            (error) => {
-              console.error('Error sending auto-rejection email:', error);
-            },
-          );
-        }
+      /*
+      for (const { session: rejectedSession, studentId: rejectedStudentId } of autoRejectedData) {
+        this.fireAndLogNotifications([
+          this.notificationsService.sendSessionRejection(rejectedSession, rejectedStudentId),
+        ]);
       }
+      */
+
+      const autoRejectNotificationPromises = autoRejectedData.map(
+        ({ session: rejectedSession, studentId: rejectedStudentId }) =>
+          this.notificationsService.sendSessionRejection(rejectedSession, rejectedStudentId),
+      );
+      await this.fireAndLogNotifications(autoRejectNotificationPromises);
 
       return {
         success: true,
@@ -433,8 +350,6 @@ export class SessionService {
     }
   }
 
-
-
   // ========================================
   // RF-20: RECHAZAR SESIÓN (TUTOR)
   // ========================================
@@ -444,46 +359,35 @@ export class SessionService {
     sessionId: string,
     dto: RejectSessionDto,
   ) {
-    // 1. Buscar sesión
     const session = await this.sessionRepository.findOne({
       where: { idSession: sessionId },
       relations: ['studentParticipateSessions', 'tutor', 'tutor.user', 'subject'],
     });
+    if (!session) throw new NotFoundException('Session not found');
 
-    if (!session) {
-      throw new NotFoundException('Session not found');
-    }
-
-    // 2. Validar que el usuario sea el tutor asignado
     if (session.idTutor !== tutorId) {
-      throw new ForbiddenException(
-        'Solo el tutor asignado puede rechazar esta sesión',
-      );
+      throw new ForbiddenException('Solo el tutor asignado puede rechazar esta sesión');
     }
-
-    // 3. Validar que la sesión esté en estado PENDING_TUTOR_CONFIRMATION
     if (session.status !== SessionStatus.PENDING_TUTOR_CONFIRMATION) {
       throw new BadRequestException(
         `No se puede rechazar una sesión con estado ${session.status}`,
       );
     }
 
-    // 4. Actualizar estado de la sesión
     session.status = SessionStatus.REJECTED_BY_TUTOR;
     session.rejectionReason = dto.reason;
     session.rejectedAt = new Date();
-
     await this.sessionRepository.save(session);
 
-    // 5. Liberar franja
-    await this.scheduledSessionRepository.delete({
-      idSession: sessionId,
-    });
+    // Liberar franja
+    await this.scheduledSessionRepository.delete({ idSession: sessionId });
 
-    // 6. Notificar al estudiante del rechazo
+    // RF-20: notificar al estudiante del rechazo
     const studentId = session.studentParticipateSessions[0]?.idStudent;
     if (studentId) {
-      await this.sendSessionRejectionEmail(session, studentId);
+      await this.fireAndLogNotifications([
+        this.notificationsService.sendSessionRejection(session, studentId),
+      ]);
     }
 
     return {
@@ -501,17 +405,12 @@ export class SessionService {
     sessionId: string,
     dto: CancelSessionDto,
   ) {
-    // 1. Buscar sesión con relaciones
     const session = await this.sessionRepository.findOne({
       where: { idSession: sessionId },
       relations: ['studentParticipateSessions', 'tutor', 'tutor.user', 'subject'],
     });
+    if (!session) throw new NotFoundException('Session not found');
 
-    if (!session) {
-      throw new NotFoundException('Session not found');
-    }
-
-    // 2. Validar que el usuario sea participante, tutor o admin
     const isParticipant = session.studentParticipateSessions.some(
       (p) => p.idStudent === userId,
     );
@@ -519,19 +418,15 @@ export class SessionService {
     const isAdmin = await this.userService.isAdmin(userId);
 
     if (!isParticipant && !isTutor && !isAdmin) {
-      throw new ForbiddenException(
-        'No tienes permiso para cancelar esta sesión',
-      );
+      throw new ForbiddenException('No tienes permiso para cancelar esta sesión');
     }
 
-    // 3. Validar que la sesión esté en estado SCHEDULED
     if (session.status !== SessionStatus.SCHEDULED) {
       throw new BadRequestException(
         `No se puede cancelar una sesión con estado ${session.status}`,
       );
     }
 
-    // 4. Validar 24h de anticipación (excepto admin)
     const isWithin24Hours = this.validationService.validateCancellationTime(
       session.scheduledDate,
       session.startTime,
@@ -543,32 +438,25 @@ export class SessionService {
       );
     }
 
-    // 5. Actualizar estado de la sesión
     let newStatus: SessionStatus;
-
-    if (isParticipant) {
-      newStatus = SessionStatus.CANCELLED_BY_STUDENT;
-    } else if (isTutor) {
-      newStatus = SessionStatus.CANCELLED_BY_TUTOR;
-    } else {
-      newStatus = SessionStatus.CANCELLED_BY_ADMIN;
-    }
+    if (isParticipant) newStatus = SessionStatus.CANCELLED_BY_STUDENT;
+    else if (isTutor) newStatus = SessionStatus.CANCELLED_BY_TUTOR;
+    else newStatus = SessionStatus.CANCELLED_BY_ADMIN;
 
     session.status = newStatus;
     session.cancellationReason = dto.reason;
     session.cancelledAt = new Date();
     session.cancelledWithin24h = isWithin24Hours;
     session.cancelledBy = userId;
-
     await this.sessionRepository.save(session);
 
-    // 6. Liberar franja (HU-21.1.3)
-    await this.scheduledSessionRepository.delete({
-      idSession: sessionId,
-    });
+    // Liberar franja
+    await this.scheduledSessionRepository.delete({ idSession: sessionId });
 
-    // 7. Notificar cancelación
-    await this.sendCancellationEmail(session, userId);
+    // RF-21: notificar a ambas partes
+    await this.fireAndLogNotifications([
+      this.notificationsService.sendSessionCancellation(session, userId),
+    ]);
 
     return {
       success: true,
@@ -578,6 +466,7 @@ export class SessionService {
 
   // ========================================
   // RF-22: PROPONER MODIFICACIÓN
+  // (fecha, disponibilidad, modalidad, duración)
   // ========================================
 
   async proposeModification(
@@ -585,55 +474,43 @@ export class SessionService {
     sessionId: string,
     dto: ProposeModificationDto,
   ) {
-    // 1. Buscar sesión
     const session = await this.sessionRepository.findOne({
       where: { idSession: sessionId },
-      relations: ['studentParticipateSessions'],
+      relations: ['studentParticipateSessions', 'subject'],
     });
+    if (!session) throw new NotFoundException('Session not found');
 
-    if (!session) {
-      throw new NotFoundException('Session not found');
-    }
-
-    // 2. Validar que el usuario sea participante o tutor
     const isParticipant = session.studentParticipateSessions.some(
       (p) => p.idStudent === userId,
     );
     const isTutor = session.idTutor === userId;
 
     if (!isParticipant && !isTutor) {
-      throw new ForbiddenException(
-        'No tienes permiso para modificar esta sesión',
-      );
+      throw new ForbiddenException('No tienes permiso para modificar esta sesión');
     }
-
-    // 3. Validar que la sesión esté SCHEDULED
     if (session.status !== SessionStatus.SCHEDULED) {
       throw new BadRequestException(
         'Solo puedes modificar sesiones en estado SCHEDULED',
       );
     }
-
-    // 4. Validar que se esté proponiendo al menos un cambio
     if (
       !dto.newScheduledDate &&
       !dto.newAvailabilityId &&
       !dto.newModality &&
       !dto.newDurationHours
     ) {
-      throw new BadRequestException(
-        'Debes proponer al menos un cambio',
-      );
+      throw new BadRequestException('Debes proponer al menos un cambio');
     }
 
-    // 5. Si se propone nueva fecha/hora, validar disponibilidad y límite semanal
+    // Validar nueva disponibilidad si aplica
     if (dto.newScheduledDate || dto.newAvailabilityId || dto.newDurationHours) {
       const newDate = dto.newScheduledDate
         ? new Date(dto.newScheduledDate)
         : session.scheduledDate;
 
       let newStartTime = session.startTime;
-      let newDuration = dto.newDurationHours || this.calculateDurationFromSession(session);
+      const newDuration =
+        dto.newDurationHours ?? this.calculateDurationFromSession(session);
 
       if (dto.newAvailabilityId) {
         const newAvailability = await this.availabilityService.getAvailabilityById(
@@ -641,15 +518,13 @@ export class SessionService {
         );
         newStartTime = newAvailability.startTime;
 
-        // Validar franja disponible
         await this.validationService.validateAvailabilitySlot(
           session.idTutor,
           dto.newAvailabilityId,
           newDate,
         );
 
-        // Validar modalidad si se propone cambio
-        const newModality = dto.newModality || session.modality;
+        const newModality = dto.newModality ?? session.modality;
         await this.validationService.validateModality(
           dto.newAvailabilityId,
           session.idTutor,
@@ -657,7 +532,6 @@ export class SessionService {
         );
       }
 
-      // Validar no conflicto
       await this.validationService.validateNoTimeConflict(
         session.idTutor,
         newDate,
@@ -665,54 +539,50 @@ export class SessionService {
         newDuration,
       );
 
-      // Validar límite semanal (HU-22.1.2, HU-22.2.2)
       await this.validationService.validateWeeklyHoursLimit(
         session.idTutor,
         newDate,
         newDuration,
-        session.idSession, // Excluir sesión actual
+        session.idSession,
       );
     }
 
-    // 6. Crear solicitud de modificación
-    const expiresAt = addDays(new Date(), 1); // 24 horas
+    // Crear solicitud de modificación
+    const expiresAt = addDays(new Date(), 1);
 
-    //  Usar constructor en lugar de .create()
     const modificationRequest = new SessionModificationRequest();
     modificationRequest.idSession = sessionId;
     modificationRequest.requestedBy = userId;
     modificationRequest.newScheduledDate = dto.newScheduledDate
       ? new Date(dto.newScheduledDate)
       : undefined;
-    modificationRequest.newAvailabilityId = dto.newAvailabilityId || undefined;
-    modificationRequest.newModality = dto.newModality || undefined;
-    modificationRequest.newDurationHours = dto.newDurationHours || undefined;
+    modificationRequest.newAvailabilityId = dto.newAvailabilityId ?? undefined;
+    modificationRequest.newModality = dto.newModality ?? undefined;
+    modificationRequest.newDurationHours = dto.newDurationHours ?? undefined;
     modificationRequest.status = ModificationStatus.PENDING;
     modificationRequest.expiresAt = expiresAt;
 
-    const savedRequest = await this.modificationRequestRepository.save(
-      modificationRequest,
-    );
+    const savedRequest = await this.modificationRequestRepository.save(modificationRequest);
 
-    await this.modificationRequestRepository.save(modificationRequest);
-
-    // 7. Cambiar estado de sesión a PENDING_MODIFICATION (HU-22.1.1, HU-22.2.1)
+    // Pasar sesión a PENDING_MODIFICATION
     session.status = SessionStatus.PENDING_MODIFICATION;
     await this.sessionRepository.save(session);
 
-    // 8. Notificar a la otra parte
-    await this.sendModificationRequestEmail(session, userId, modificationRequest);
+    // RF-22: notificar a la contraparte sobre la propuesta
+    await this.fireAndLogNotifications([
+      this.notificationsService.sendModificationRequest(session, userId, savedRequest),
+    ]);
 
     return {
       success: true,
       message: 'Modificación propuesta exitosamente',
-      requestId: modificationRequest.idRequest,
+      requestId: savedRequest.idRequest,
       expiresAt,
     };
   }
 
   // ========================================
-  // RF-22: RESPONDER A MODIFICACIÓN
+  // RF-22: RESPONDER A PROPUESTA DE MODIFICACIÓN
   // ========================================
 
   async respondToModification(
@@ -725,44 +595,21 @@ export class SessionService {
     await queryRunner.startTransaction();
 
     try {
-      // ========================================
-      // 1. Obtener sesión
-      // ========================================
       const session = await queryRunner.manager.findOne(Session, {
         where: { idSession: sessionId },
       });
+      if (!session) throw new NotFoundException('Session not found');
 
-      if (!session) {
-        throw new NotFoundException('Session not found');
-      }
-
-      // ========================================
-      // 2. Obtener request pendiente
-      // ========================================
       const pendingRequest = await queryRunner.manager.findOne(
         SessionModificationRequest,
-        {
-          where: {
-            idSession: sessionId,
-            status: ModificationStatus.PENDING,
-          },
-        },
+        { where: { idSession: sessionId, status: ModificationStatus.PENDING } },
       );
+      if (!pendingRequest) throw new NotFoundException('No pending modification request');
 
-      if (!pendingRequest) {
-        throw new NotFoundException('No pending modification request');
-      }
-
-      // ========================================
-      // 3. Validar permisos
-      // ========================================
-      const participations = await queryRunner.manager.find(
-        StudentParticipateSession,
-        {
-          where: { idSession: sessionId },
-          select: ['idStudent'],
-        },
-      );
+      const participations = await queryRunner.manager.find(StudentParticipateSession, {
+        where: { idSession: sessionId },
+        select: ['idStudent'],
+      });
 
       const isParticipant = participations.some((p) => p.idStudent === userId);
       const isTutor = session.idTutor === userId;
@@ -770,27 +617,20 @@ export class SessionService {
       if (!isParticipant && !isTutor) {
         throw new ForbiddenException('No tienes permiso para responder');
       }
-
       if (pendingRequest.requestedBy === userId) {
         throw new BadRequestException('No puedes responder tu propia solicitud');
       }
 
-      // ========================================
-      // 4. Validar expiración
-      // ========================================
+      // Verificar expiración
       if (new Date() > pendingRequest.expiresAt) {
         pendingRequest.status = ModificationStatus.EXPIRED;
         await queryRunner.manager.save(pendingRequest);
-
         session.status = SessionStatus.SCHEDULED;
         await queryRunner.manager.save(session);
-
         throw new BadRequestException('La solicitud ha expirado');
       }
 
-      // ========================================
-      // 5. RECHAZAR
-      // ========================================
+      // --- RECHAZAR ---
       if (!accept) {
         session.status = SessionStatus.SCHEDULED;
         pendingRequest.status = ModificationStatus.REJECTED;
@@ -799,93 +639,55 @@ export class SessionService {
 
         await queryRunner.manager.save(session);
         await queryRunner.manager.save(pendingRequest);
-
         await queryRunner.commitTransaction();
 
-        await this.sendModificationResponseEmail(session, pendingRequest, false);
+        // RF-22: notificar al solicitante que fue rechazada
+        await this.fireAndLogNotifications([
+          this.notificationsService.sendModificationResponse(session, pendingRequest, false),
+        ]);
 
-        return {
-          success: true,
-          message: 'Modificación rechazada',
-        };
+        return { success: true, message: 'Modificación rechazada' };
       }
 
-      // ========================================
-      // 6. ACEPTAR - Calcular valores nuevos
-      // ========================================
-
-      // Duración (ANTES de cambiar startTime)
+      // --- ACEPTAR ---
       const newDuration =
-        pendingRequest.newDurationHours ??
-        this.calculateDurationFromSession(session);
-
-      // Fecha
+        pendingRequest.newDurationHours ?? this.calculateDurationFromSession(session);
       const newDate = pendingRequest.newScheduledDate ?? session.scheduledDate;
 
-      // Obtener ScheduledSession
-      const scheduledSession = await queryRunner.manager.findOne(
-        ScheduledSession,
-        { where: { idSession: sessionId } },
-      );
+      const scheduledSession = await queryRunner.manager.findOne(ScheduledSession, {
+        where: { idSession: sessionId },
+      });
+      if (!scheduledSession) throw new NotFoundException('ScheduledSession not found');
 
-      if (!scheduledSession) {
-        throw new NotFoundException('ScheduledSession not found');
-      }
-
-      // Determinar nuevo startTime
       let newStartTime = session.startTime;
 
       if (pendingRequest.newAvailabilityId) {
-        const newAvailability =
-          await this.availabilityService.getAvailabilityById(
-            pendingRequest.newAvailabilityId,
-          );
-
+        const newAvailability = await this.availabilityService.getAvailabilityById(
+          pendingRequest.newAvailabilityId,
+        );
         newStartTime = newAvailability.startTime;
         scheduledSession.idAvailability = pendingRequest.newAvailabilityId;
       }
 
-      // ========================================
-      // 7. VALIDAR conflicto de horario
-      // ========================================
       await this.validationService.validateNoTimeConflict(
         session.idTutor,
         newDate,
         newStartTime,
         newDuration,
-        session.idSession, // Excluir la misma sesión
+        session.idSession,
       );
 
-      // ========================================
-      // 8. APLICAR cambios
-      // ========================================
-
-      // Fecha
+      // Aplicar cambios
       session.scheduledDate = newDate;
       scheduledSession.scheduledDate = newDate;
-
-      // Horario
       session.startTime = newStartTime;
-      session.endTime = this.validationService.calculateEndTime(
-        newStartTime,
-        newDuration,
-      );
-
-      // Modalidad
-      if (pendingRequest.newModality) {
-        session.modality = pendingRequest.newModality;
-      }
-
-      // Estado
+      session.endTime = this.validationService.calculateEndTime(newStartTime, newDuration);
+      if (pendingRequest.newModality) session.modality = pendingRequest.newModality;
       session.status = SessionStatus.SCHEDULED;
 
-      // ========================================
-      // 9. GUARDAR cambios
-      // ========================================
       await queryRunner.manager.save(scheduledSession);
       await queryRunner.manager.save(session);
 
-      // Actualizar request
       pendingRequest.status = ModificationStatus.ACCEPTED;
       pendingRequest.respondedBy = userId;
       pendingRequest.respondedAt = new Date();
@@ -893,15 +695,12 @@ export class SessionService {
 
       await queryRunner.commitTransaction();
 
-      // ========================================
-      // 10. NOTIFICAR (fuera de transacción)
-      // ========================================
-      await this.sendModificationResponseEmail(session, pendingRequest, true);
+      // RF-22: notificar al solicitante que fue aceptada
+      await this.fireAndLogNotifications([
+        this.notificationsService.sendModificationResponse(session, pendingRequest, true),
+      ]);
 
-      return {
-        success: true,
-        message: 'Modificación aceptada exitosamente',
-      };
+      return { success: true, message: 'Modificación aceptada exitosamente' };
     } catch (error) {
       await queryRunner.rollbackTransaction();
       throw error;
@@ -911,7 +710,8 @@ export class SessionService {
   }
 
   // ========================================
-  // RF-22: MODIFICAR TÍTULO/DESCRIPCIÓN
+  // RF-22: ACTUALIZAR DETALLES (sin aprobación)
+  // título, descripción, virtualLink, location
   // ========================================
 
   async updateSessionDetails(
@@ -919,62 +719,44 @@ export class SessionService {
     sessionId: string,
     dto: UpdateSessionDetailsDto,
   ) {
-    // 1. Buscar sesión
     const session = await this.sessionRepository.findOne({
       where: { idSession: sessionId },
-      relations: ['studentParticipateSessions'],
+      relations: ['studentParticipateSessions', 'subject'],
     });
+    if (!session) throw new NotFoundException('Session not found');
 
-    if (!session) {
-      throw new NotFoundException('Session not found');
-    }
-
-    // 2. Validar que el usuario sea participante o tutor
     const isParticipant = session.studentParticipateSessions.some(
       (p) => p.idStudent === userId,
     );
     const isTutor = session.idTutor === userId;
 
     if (!isParticipant && !isTutor) {
-      throw new ForbiddenException(
-        'No tienes permiso para modificar esta sesión',
-      );
+      throw new ForbiddenException('No tienes permiso para modificar esta sesión');
     }
 
-    // 3. Validar que la sesión no haya iniciado (HU-22.4.2)
-    const now = new Date();
+    // No se puede editar si la sesión ya comenzó
     const sessionDateTime = new Date(session.scheduledDate);
     const [hours, minutes] = session.startTime.split(':').map(Number);
     sessionDateTime.setHours(hours, minutes, 0, 0);
 
-    if (now >= sessionDateTime) {
+    if (new Date() >= sessionDateTime) {
       throw new BadRequestException(
         'No puedes modificar una sesión que ya ha iniciado',
       );
     }
 
-    // 4. Actualizar campos (HU-22.4.1)
-    if (dto.title) {
-      session.title = dto.title;
-    }
-
-    if (dto.description) {
-      session.description = dto.description;
-    }
-
-    //nuevos campos
-
-    if(dto.location){
-      session.location = dto.location;
-    }
-    if(dto.virtualLink){
-      session.virtualLink = dto.virtualLink;
-    }
+    // Aplicar cambios directamente sin propuesta
+    if (dto.title) session.title = dto.title;
+    if (dto.description) session.description = dto.description;
+    if (dto.location) session.location = dto.location;
+    if (dto.virtualLink) session.virtualLink = dto.virtualLink;
 
     await this.sessionRepository.save(session);
 
-    // 5. Notificar cambios (HU-22.4.3)
-    await this.sendSessionDetailsUpdateEmail(session);
+    // RF-22: notificar a ambas partes (sin necesidad de aprobación)
+    await this.fireAndLogNotifications([
+      this.notificationsService.sendSessionDetailsUpdate(session),
+    ]);
 
     return {
       success: true,
@@ -1000,11 +782,7 @@ export class SessionService {
         'scheduledSession.availability',
       ],
     });
-
-    if (!session) {
-      throw new NotFoundException('Session not found');
-    }
-
+    if (!session) throw new NotFoundException('Session not found');
     return this.mapToDetailedDto(session);
   }
 
@@ -1012,9 +790,9 @@ export class SessionService {
   studentId: string,
   filters: SessionFilterDto,
 ) {
-  const { page=1, limit=10, status } = filters;
+  const { page=1, limit=10 } = filters;
   const offset = (page - 1) * limit;
-  const statuses = this.resolveStatusFilter(status);
+  const { statuses, isNoShow } = this.resolveStatusFilter(filters.status);
 
   const qb = this.studentParticipateRepository
     .createQueryBuilder('participation')
@@ -1033,179 +811,115 @@ export class SessionService {
     qb.andWhere('session.status IN (:...statuses)', { statuses });
   }
 
+  // Condición adicional para NO_SHOW:
+  // La participación de este estudiante específico debe ser ABSENT
+  if (isNoShow) {
+    qb.andWhere('participation.status = :absentStatus', {
+      absentStatus: ParticipationStatus.ABSENT,
+    });
+  }
+
   const [participations, total] = await qb
     .skip(offset)
     .take(limit)
     .getManyAndCount();
 
-  const items = participations.map((p) =>
-    this.mapToListDto(p.session),
-  );
+  const items = participations.map((p) => this.mapToListDto(p.session));
 
-  return this.buildPaginatedResponse(items, total, page, limit);
+  return buildPaginatedResponse(items, total, page, limit);
 }
 
-async getMySessionsAsTutor(
-  tutorId: string,
-  filters: SessionFilterDto,
-) {
-  const { page =1, limit=10, status } = filters;
-  const offset = (page - 1) * limit;
-  const statuses = this.resolveStatusFilter(status);
+  async getMySessionsAsTutor(tutorId: string, filters: SessionFilterDto) {
+    const { page = 1, limit = 10, status } = filters;
+    const offset = (page - 1) * limit;
+    const statuses = this.resolveStatusFilter(status);
 
-  const qb = this.sessionRepository
-    .createQueryBuilder('session')
-    .innerJoinAndSelect('session.tutor', 'tutor')
-    .innerJoinAndSelect('tutor.user', 'tutorUser')
-    .innerJoinAndSelect('session.subject', 'subject')
-    .leftJoinAndSelect('session.studentParticipateSessions', 'participation')
-    .leftJoinAndSelect('participation.student', 'student')
-    .leftJoinAndSelect('student.user', 'studentUser')
-    .where('session.idTutor = :tutorId', { tutorId })
-    .orderBy('session.scheduledDate', 'DESC')
-    .addOrderBy('session.startTime', 'DESC');
+    const qb = this.sessionRepository
+      .createQueryBuilder('session')
+      .innerJoinAndSelect('session.tutor', 'tutor')
+      .innerJoinAndSelect('tutor.user', 'tutorUser')
+      .innerJoinAndSelect('session.subject', 'subject')
+      .leftJoinAndSelect('session.studentParticipateSessions', 'participation')
+      .leftJoinAndSelect('participation.student', 'student')
+      .leftJoinAndSelect('student.user', 'studentUser')
+      .where('session.idTutor = :tutorId', { tutorId })
+      .orderBy('session.scheduledDate', 'DESC')
+      .addOrderBy('session.startTime', 'DESC');
 
-  if (statuses) {
-    qb.andWhere('session.status IN (:...statuses)', { statuses });
+    if (statuses) {
+      qb.andWhere('session.status IN (:...statuses)', { statuses });
+    }
+
+    const [sessions, total] = await qb.skip(offset).take(limit).getManyAndCount();
+    const items = sessions.map((s) => this.mapToListDto(s));
+    return this.buildPaginatedResponse(items, total, page, limit);
   }
-
-  const [sessions, total] = await qb
-    .skip(offset)
-    .take(limit)
-    .getManyAndCount();
-
-  const items = sessions.map((s) => this.mapToListDto(s));
-
-  return this.buildPaginatedResponse(items, total, page, limit);
-}
 
   // ========================================
-  // MÉTODOS PRIVADOS - NOTIFICACIONES
+  // HELPERS PRIVADOS — NOTIFICACIONES
   // ========================================
 
-  private async sendConfirmationEmails(session: Session, studentId: string) {
-    try {
-      // Obtener datos completos
-      const fullSession = await this.getSessionById(session.idSession);
-
-      // Email al estudiante (HU-20.2.1, HU-20.2.2)
-      await this.notificationsService.sendSessionConfirmationStudent(
-        fullSession,
-        studentId,
-      );
-
-      // Email al tutor (HU-20.3.1, HU-20.3.2)
-      await this.notificationsService.sendSessionConfirmationTutor(
-        fullSession,
-        session.idTutor,
-      );
-    } catch (error) {
-      console.error('Error sending confirmation emails:', error);
-      // No romper el flujo si falla el email
-    }
-  }
-
-  private async sendCancellationEmail(session: Session, cancelledBy: string) {
-    try {
-      await this.notificationsService.sendSessionCancellation(
-        session,
-        cancelledBy,
-      );
-    } catch (error) {
-      console.error('Error sending cancellation email:', error);
-    }
-  }
-
-  private async sendModificationRequestEmail(
-    session: Session,
-    requestedBy: string,
-    request: SessionModificationRequest,
-  ) {
-    try {
-      await this.notificationsService.sendModificationRequest(
-        session,
-        requestedBy,
-        request,
-      );
-    } catch (error) {
-      console.error('Error sending modification request email:', error);
-    }
-  }
-
-  private async sendModificationResponseEmail(
-    session: Session,
-    request: SessionModificationRequest,
-    accepted: boolean,
-  ) {
-    try {
-      await this.notificationsService.sendModificationResponse(
-        session,
-        request,
-        accepted,
-      );
-    } catch (error) {
-      console.error('Error sending modification response email:', error);
-    }
-  }
-
-  private async sendSessionDetailsUpdateEmail(session: Session) {
-    try {
-      await this.notificationsService.sendSessionDetailsUpdate(session);
-    } catch (error) {
-      console.error('Error sending details update email:', error);
+  /**
+   * Envuelve las llamadas de notificación para que un fallo de email
+   * nunca interrumpa el flujo de negocio, pero siempre quede registrado en el log.
+   */
+  private async fireAndLogNotifications(promises: Promise<void>[]): Promise<void> {
+    const results = await Promise.allSettled(promises);
+    for (const result of results) {
+      if (result.status === 'rejected') {
+        // El Logger de NotificationsService ya registra el detalle;
+        // aquí solo anotamos que hubo un fallo para visibilidad en SessionService.
+        console.error('[SessionService] Fallo al enviar notificación:', result.reason);
+      }
     }
   }
 
   /**
-   * Enviar solicitud de confirmación al tutor
+   * RF-25: Obtiene la sesión completa y notifica al tutor sobre la nueva solicitud.
    */
-  private async sendTutorConfirmationRequest(
+  private async sendTutorConfirmationRequestNotification(
     session: Session,
     studentId: string,
-  ) {
-    try {
-      const fullSession = await this.getSessionById(session.idSession);
-
-      await this.notificationsService.sendTutorConfirmationRequest(
-        fullSession,
-        studentId,
-      );
-    } catch (error) {
-      console.error('Error sending tutor confirmation request:', error);
-      // No romper el flujo si falla el email
-    }
+  ): Promise<void> {
+    const fullSession = await this.getSessionById(session.idSession);
+    await this.notificationsService.sendTutorConfirmationRequest(fullSession, studentId);
   }
 
   /**
-   * Enviar notificación de rechazo al estudiante
+   * RF-25: Obtiene la sesión completa y envía acuse de recibo al estudiante.
    */
-  private async sendSessionRejectionEmail(
+  private async sendStudentRequestAckNotification(
     session: Session,
     studentId: string,
-  ) {
-    try {
-      await this.notificationsService.sendSessionRejection(
-        session,
-        studentId,
-      );
-    } catch (error) {
-      console.error('Error sending rejection email:', error);
-    }
+  ): Promise<void> {
+    const fullSession = await this.getSessionById(session.idSession);
+    await this.notificationsService.sendStudentSessionRequestAck(fullSession, studentId);
+  }
+
+  /**
+   * RF-20: Notifica al estudiante y al tutor que la sesión fue confirmada.
+   */
+  private async sendConfirmationEmailsNotification(
+    session: Session,
+    confirmedStudentId: string,
+  ): Promise<void> {
+    const fullSession = await this.getSessionById(session.idSession);
+    await Promise.all([
+      this.notificationsService.sendSessionConfirmationStudent(fullSession, confirmedStudentId),
+      this.notificationsService.sendSessionConfirmationTutor(fullSession, session.idTutor),
+    ]);
   }
 
   // ========================================
-  // HELPERS PRIVADOS
+  // HELPERS PRIVADOS — CÁLCULOS Y MAPEOS
   // ========================================
 
   private calculateDurationFromSession(session: Session): number {
-    const startMinutes = this.timeToMinutes(session.startTime);
-    const endMinutes = this.timeToMinutes(session.endTime);
-    return (endMinutes - startMinutes) / 60;
-  }
-
-  private timeToMinutes(time: string): number {
-    const [hours, minutes] = time.split(':').map(Number);
-    return hours * 60 + minutes;
+    const toMinutes = (t: string) => {
+      const [h, m] = t.split(':').map(Number);
+      return h * 60 + m;
+    };
+    return (toMinutes(session.endTime) - toMinutes(session.startTime)) / 60;
   }
 
   private mapToDetailedDto(session: Session): any {
@@ -1226,10 +940,8 @@ async getMySessionsAsTutor(
       duration: this.calculateDurationFromSession(session),
       type: session.type,
       modality: session.modality,
-
-      location: session.location, //nuevo
-      virtualLink: session.virtualLink, //nuevo
-
+      location: session.location,
+      virtualLink: session.virtualLink,
       status: session.status,
       title: session.title,
       description: session.description,
@@ -1245,80 +957,82 @@ async getMySessionsAsTutor(
   }
 
   private mapToListDto(session: Session): any {
-  return {
-    id: session.idSession,
-    title: session.title,
-    description: session.description,
-    scheduledDate: session.scheduledDate,
-    startTime: session.startTime,
-    endTime: session.endTime,
-    duration: this.calculateDurationFromSession(session),
-    type: session.type,
-    modality: session.modality,
+    return {
+      id: session.idSession,
+      title: session.title,
+      description: session.description,
+      scheduledDate: session.scheduledDate,
+      startTime: session.startTime,
+      endTime: session.endTime,
+      duration: this.calculateDurationFromSession(session),
+      type: session.type,
+      modality: session.modality,
+      location: session.location,
+      virtualLink: session.virtualLink,
+      status: session.status,
+      tutor: {
+        id: session.tutor.idUser,
+        name: session.tutor.user.name,
+        photo: session.tutor.urlImage,
+      },
+      subject: {
+        id: session.subject.idSubject,
+        name: session.subject.name,
+      },
+      participants:
+        session.studentParticipateSessions?.map((p) => ({
+          id: p.student.idUser,
+          name: p.student.user.name,
+          status: p.status,
+        })) ?? [],
+      createdAt: session.createdAt,
+      cancelledAt: session.cancelledAt ?? null,
+      cancellationReason: session.cancellationReason ?? null,
+    };
+  }
 
-    location: session.location, //nuevo
-    virtualLink: session.virtualLink, //nuevo
+  private resolveStatusFilter(filter?: SessionStatusFilter): {
+    statuses: SessionStatus[] | undefined;
+    isNoShow: boolean; // Se añade para manejar el caso especial de NO_SHOW
+  } {
+    if (!filter) return { statuses: undefined, isNoShow: false };
 
-    status: session.status,
-    tutor: {
-      id: session.tutor.idUser,
-      name: session.tutor.user.name,
-      photo: session.tutor.urlImage,
-    },
-    subject: {
-      id: session.subject.idSubject,
-      name: session.subject.name,
-    },
-    participants: session.studentParticipateSessions?.map((p) => ({
-      id: p.student.idUser,
-      name: p.student.user.name,
-      status: p.status,
-    })) ?? [],
-    createdAt: session.createdAt,
-    cancelledAt: session.cancelledAt ?? null,
-    cancellationReason: session.cancellationReason ?? null,
-  };
-}
+    const map: Record<SessionStatusFilter, SessionStatus[]> = {
+      [SessionStatusFilter.SCHEDULED]: [
+        SessionStatus.SCHEDULED,
+        SessionStatus.PENDING_MODIFICATION,
+      ],
+      [SessionStatusFilter.COMPLETED]: [SessionStatus.COMPLETED],
+      [SessionStatusFilter.CANCELLED]: [
+        SessionStatus.CANCELLED_BY_STUDENT,
+        SessionStatus.CANCELLED_BY_TUTOR,
+        SessionStatus.CANCELLED_BY_ADMIN,
+      ],
+      [SessionStatusFilter.NO_SHOW]: [SessionStatus.COMPLETED], // mismo estado base
+    };
 
-  
+    return {
+      statuses: map[filter],
+      isNoShow: filter === SessionStatusFilter.NO_SHOW,
+    };
+  }
 
-  // Mapea el filtro simplificado del front a los estados internos correspondientes
-private resolveStatusFilter(filter?: SessionStatusFilter): SessionStatus[] | undefined {
-  if (!filter) return undefined;
-
-  const map: Record<SessionStatusFilter, SessionStatus[]> = {
-    [SessionStatusFilter.SCHEDULED]: [
-      SessionStatus.SCHEDULED,
-      SessionStatus.PENDING_MODIFICATION,
-    ],
-    [SessionStatusFilter.COMPLETED]: [SessionStatus.COMPLETED],
-    [SessionStatusFilter.CANCELLED]: [
-      SessionStatus.CANCELLED_BY_STUDENT,
-      SessionStatus.CANCELLED_BY_TUTOR,
-      SessionStatus.CANCELLED_BY_ADMIN,
-    ],
-  };
-
-  return map[filter];
-}
-
-// Envuelve cualquier lista en la estructura de paginación estándar
-private buildPaginatedResponse<T>(
-  items: T[],
-  total: number,
-  page: number,
-  limit: number,
-) {
-  return {
-    data: items,
-    meta: {
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-      hasNextPage: page < Math.ceil(total / limit),
-      hasPreviousPage: page > 1,
-    },
-  };
-}
+  private buildPaginatedResponse<T>(
+    items: T[],
+    total: number,
+    page: number,
+    limit: number,
+  ) {
+    return {
+      data: items,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+        hasNextPage: page < Math.ceil(total / limit),
+        hasPreviousPage: page > 1,
+      },
+    };
+  }
 }
