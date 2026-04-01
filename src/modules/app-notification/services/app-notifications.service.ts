@@ -50,7 +50,7 @@ export class AppNotificationsService {
   private readonly TTL_DAYS = 7;
  
   constructor(
-    @InjectRepository(AppNotification,'local')
+    @InjectRepository(AppNotification, 'local')
     private readonly notificationRepository: Repository<AppNotification>,
   ) {}
  

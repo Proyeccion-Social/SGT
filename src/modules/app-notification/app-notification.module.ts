@@ -9,14 +9,14 @@ import { AppNotificationsController } from './controllers/app-notifications.cont
  
 @Module({
   imports: [
-    TypeOrmModule.forFeature([AppNotification],'local'),
+    TypeOrmModule.forFeature([AppNotification], 'local'),
     
     ScheduleModule.forRoot(),
   ],
   controllers: [AppNotificationsController],
   providers:   [AppNotificationsService],
   // Exportamos el servicio para que NotificationsModule pueda inyectarlo
-  exports:     [AppNotificationsService],
+  exports:     [TypeOrmModule, AppNotificationsService],
 })
 export class AppNotificationsModule {}
  

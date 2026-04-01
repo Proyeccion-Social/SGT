@@ -26,6 +26,8 @@ import { StudentParticipateSession } from '../scheduling/entities/student-partic
 import { Question } from '../session-execution/entities/question.entity';
 import { Answer } from '../session-execution/entities/answer.entity';
 
+// App Notification entities
+import { AppNotification } from '../app-notification/entities/app-notification.entity';
 // AUTH ENTITIES (NUEVAS)
 import { Session as AuthSession } from '../auth/entities/session.entity'; // Renombrado para evitar conflicto con la entidad de sesiones de tutoría
 import { AuditLog } from '../auth/entities/audit-log.entity';
@@ -46,8 +48,11 @@ const entities = [
   ScheduledSession,
   SessionModificationRequest,
   StudentParticipateSession,
+  
   Question,
   Answer,
+
+  AppNotification,
 
 
   //Nuevas entidades de Auth
