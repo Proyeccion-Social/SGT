@@ -32,6 +32,9 @@ export class StudentParticipateSession {
   @Column({ type: 'text', nullable: true })
   comment: string;
 
+  @Column({ name: 'arrival_time', type: 'timestamp', nullable: true })
+  arrivalTime: Date | null;
+
   @ManyToOne(() => Student, (student) => student.studentParticipateSessions)
   @JoinColumn({ name: 'id_student' })
   student: Student;

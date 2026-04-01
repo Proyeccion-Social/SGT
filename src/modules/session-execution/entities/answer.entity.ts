@@ -19,11 +19,20 @@ export class Answer {
   @PrimaryColumn({ name: 'id_session', type: 'uuid' })
   idSession: string;
 
+  @Column({ name: 'evaluation_id', type: 'uuid' })
+  evaluationId: string;
+
   @Column({
     type: 'smallint',
     nullable: true,
   })
   score: number;
+
+  @Column({ name: 'evaluated_at', type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  evaluatedAt: Date;
+
+  @Column({ name: 'questionnaire_version', type: 'varchar', length: 20, default: '1.0' })
+  questionnaireVersion: string;
 
   @ManyToOne(() => Question, (question) => question.answers)
   @JoinColumn({ name: 'id_question' })
