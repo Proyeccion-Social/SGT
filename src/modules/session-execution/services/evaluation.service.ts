@@ -186,6 +186,37 @@ export class EvaluationService {
 		};
 	}
 
+	async hasStudentRatedSession(
+		sessionId: string,
+		studentId: string,
+	): Promise<boolean> {
+		const session = await this.sessionRepository.findOne({
+			where: { idSession: sessionId },
+		});
+
+		if (!session) {
+			throw new NotFoundException({
+				errorCode: 'RESOURCE_02',
+				message: 'Sesion no encontrada',
+			});
+		}
+
+		const participation = await this.participationRepository.findOne({
+			where: { idSession: sessionId, idStudent: studentId },
+		});
+
+		if (!participation) {
+			throw new ForbiddenException({
+				errorCode: 'PERMISSION_01',
+				message: 'El estudiante consultado no participó en esta sesion',
+			});
+		}
+
+		return this.answerRepository.exists({
+			where: { idSession: sessionId, idStudent: studentId },
+		});
+	}
+
 	async getSessionEvaluation(
 		sessionId: string,
 		userId: string,

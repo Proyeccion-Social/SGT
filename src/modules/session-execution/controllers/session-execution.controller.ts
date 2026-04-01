@@ -192,6 +192,44 @@ export class SessionExecutionController {
     );
   }
 
+  @Get('sessions/:sessionId/evaluation-status/:studentId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.STUDENT, UserRole.ADMIN)
+  hasSessionBeenEvaluatedByStudent(
+    @CurrentUser() user: User,
+    @Param(
+      'sessionId',
+      new ParseUUIDPipe({
+        exceptionFactory: () =>
+          new BadRequestException({
+            errorCode: 'VALIDATION_01',
+            message: 'ID de sesion invalido',
+          }),
+      }),
+    )
+    sessionId: string,
+    @Param(
+      'studentId',
+      new ParseUUIDPipe({
+        exceptionFactory: () =>
+          new BadRequestException({
+            errorCode: 'VALIDATION_01',
+            message: 'ID de estudiante inválido',
+          }),
+      }),
+    )
+    studentId: string,
+  ) {
+    if (user.role === UserRole.STUDENT && user.idUser !== studentId) {
+      throw new ForbiddenException({
+        errorCode: 'PERMISSION_01',
+        message: 'Solo puedes consultar tu propio estado de evaluación',
+      });
+    }
+
+    return this.evaluationService.hasStudentRatedSession(sessionId, studentId);
+  }
+
   // ─── Tutor Ratings ────────────────────────────────────────────────────────
 
   @Get('tutors/:tutorId/evaluations')
