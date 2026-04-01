@@ -39,6 +39,28 @@ export class AvailabilityController {
 
 
   //====================================================
+  // GET /api/v1/availability/tutors/me
+  // Visualizar mi disponibilidad como tutor
+  //====================================================
+  @Get('tutors/me')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TUTOR)
+  async getMyAvailability(
+    @CurrentUser() user: User
+
+  ) {
+
+    const tutor = await this.tutorService.findByUserId(user.idUser);
+
+    if (!tutor) {
+    throw new NotFoundException('Tutor profile not found');
+  }
+
+    return await this.availabilityService.getTutorAvailability(tutor.idUser, {});
+  }
+
+
+  //====================================================
   // GET /api/v1/availability/tutors/subject
   // RF-14: Visualizar tutores por materia (Código o Nombre) con su disponibilidad
   //====================================================
