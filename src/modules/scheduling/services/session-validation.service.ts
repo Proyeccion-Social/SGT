@@ -42,7 +42,7 @@ export class SessionValidationService {
    * HU-19.1.3: Validar que modalidad coincida con la franja
    */
   async validateModality(
-    availabilityId: number, 
+    availabilityId: number,
     tutorId: string,
     requestedModality: Modality,
   ): Promise<void> {
@@ -59,13 +59,13 @@ export class SessionValidationService {
    */
   async validateAvailabilitySlot(
     tutorId: string,
-    availabilityId: number, 
+    availabilityId: number,
     scheduledDate: Date,
   ): Promise<void> {
     //  Delega al AvailabilityService
     const isAvailable = await this.availabilityService.isSlotAvailableForDate(
       tutorId,
-      availabilityId, 
+      availabilityId,
       scheduledDate,
     );
 
@@ -79,51 +79,51 @@ export class SessionValidationService {
   /**
    * Validar que no haya conflictos de horario con otras sesiones del tutor
    */
-  
-async validateNoTimeConflict(
-  tutorId: string,
-  scheduledDate: Date,
-  startTime: string,
-  durationHours: number,
-  excludeSessionId?: string,
-): Promise<void> {
-  const endTime = this.calculateEndTime(startTime, durationHours);
 
-  const dateOnly = new Date(scheduledDate);
-  dateOnly.setHours(0, 0, 0, 0);
+  async validateNoTimeConflict(
+    tutorId: string,
+    scheduledDate: Date,
+    startTime: string,
+    durationHours: number,
+    excludeSessionId?: string,
+  ): Promise<void> {
+    const endTime = this.calculateEndTime(startTime, durationHours);
 
-  // CAMBIO: Solo validar contra sesiones SCHEDULED
-  const conflictingSessions = await this.sessionRepository
-    .createQueryBuilder('session')
-    .where('session.idTutor = :tutorId', { tutorId })
-    .andWhere('DATE(session.scheduledDate) = DATE(:scheduledDate)', {
-      scheduledDate: dateOnly,
-    })
-    .andWhere('session.status = :status', {
-      status: SessionStatus.SCHEDULED, // Solo SCHEDULED
-    })
-    .andWhere(
-      excludeSessionId ? 'session.idSession != :excludeSessionId' : '1=1',
-      { excludeSessionId },
-    )
-    .getMany();
+    const dateOnly = new Date(scheduledDate);
+    dateOnly.setHours(0, 0, 0, 0);
 
-  for (const session of conflictingSessions) {
-    const sessionStart = session.startTime;
-    const sessionEnd = session.endTime;
+    // CAMBIO: Solo validar contra sesiones SCHEDULED
+    const conflictingSessions = await this.sessionRepository
+      .createQueryBuilder('session')
+      .where('session.idTutor = :tutorId', { tutorId })
+      .andWhere('DATE(session.scheduledDate) = DATE(:scheduledDate)', {
+        scheduledDate: dateOnly,
+      })
+      .andWhere('session.status = :status', {
+        status: SessionStatus.SCHEDULED, // Solo SCHEDULED
+      })
+      .andWhere(
+        excludeSessionId ? 'session.idSession != :excludeSessionId' : '1=1',
+        { excludeSessionId },
+      )
+      .getMany();
 
-    const hasOverlap =
-      (startTime >= sessionStart && startTime < sessionEnd) ||
-      (endTime > sessionStart && endTime <= sessionEnd) ||
-      (startTime <= sessionStart && endTime >= sessionEnd);
+    for (const session of conflictingSessions) {
+      const sessionStart = session.startTime;
+      const sessionEnd = session.endTime;
 
-    if (hasOverlap) {
-      throw new BadRequestException(
-        `Ya tienes una sesión confirmada de ${sessionStart} a ${sessionEnd} el ${scheduledDate.toISOString().split('T')[0]}`,
-      );
+      const hasOverlap =
+        (startTime >= sessionStart && startTime < sessionEnd) ||
+        (endTime > sessionStart && endTime <= sessionEnd) ||
+        (startTime <= sessionStart && endTime >= sessionEnd);
+
+      if (hasOverlap) {
+        throw new BadRequestException(
+          `Ya tienes una sesión confirmada de ${sessionStart} a ${sessionEnd} el ${scheduledDate.toISOString().split('T')[0]}`,
+        );
+      }
     }
   }
-}
 
   /**
    * HU-19.1.4: Validar límite semanal del tutor
@@ -132,36 +132,35 @@ async validateNoTimeConflict(
     tutorId: string,
     scheduledDate: Date,
     durationHours: number,
-     excludeSessionId?: string, //Nuevo: para excluir la sesión actual en caso de modificación
+    excludeSessionId?: string, //Nuevo: para excluir la sesión actual en caso de modificación
   ): Promise<void> {
     // Calcular inicio y fin de la semana
     const weekStart = startOfWeek(scheduledDate, { weekStartsOn: 1 }); // Lunes
     const weekEnd = endOfWeek(scheduledDate, { weekStartsOn: 1 }); // Domingo
 
-
     // Construir consulta
-  const queryBuilder = this.sessionRepository
-    .createQueryBuilder('session')
-    .where('session.idTutor = :tutorId', { tutorId })
-    .andWhere('session.scheduledDate BETWEEN :weekStart AND :weekEnd', {
-      weekStart,
-      weekEnd,
-    })
-    .andWhere('session.status IN (:...activeStatuses)', {
-      activeStatuses: [
-        SessionStatus.SCHEDULED,
-        SessionStatus.PENDING_MODIFICATION,
-      ],
-    });
+    const queryBuilder = this.sessionRepository
+      .createQueryBuilder('session')
+      .where('session.idTutor = :tutorId', { tutorId })
+      .andWhere('session.scheduledDate BETWEEN :weekStart AND :weekEnd', {
+        weekStart,
+        weekEnd,
+      })
+      .andWhere('session.status IN (:...activeStatuses)', {
+        activeStatuses: [
+          SessionStatus.SCHEDULED,
+          SessionStatus.PENDING_MODIFICATION,
+        ],
+      });
 
-  // Excluir sesión actual (para modificaciones)
-  if (excludeSessionId) {
-    queryBuilder.andWhere('session.idSession != :excludeSessionId', {
-      excludeSessionId,
-    });
-  }
+    // Excluir sesión actual (para modificaciones)
+    if (excludeSessionId) {
+      queryBuilder.andWhere('session.idSession != :excludeSessionId', {
+        excludeSessionId,
+      });
+    }
 
-  const sessions = await queryBuilder.getMany();
+    const sessions = await queryBuilder.getMany();
 
     // Calcular horas totales
     const totalHours = sessions.reduce((sum, session) => {
@@ -174,7 +173,7 @@ async validateNoTimeConflict(
 
     // Obtener límite desde TutorService
     const weeklyLimit = await this.tutorService.getWeeklyHoursLimit(tutorId);
-    
+
     // Validar
     if (totalHours + durationHours > weeklyLimit) {
       throw new BadRequestException(

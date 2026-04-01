@@ -57,7 +57,11 @@ export class Session {
   @Column({ name: 'virtual_link', type: 'varchar', nullable: true })
   virtualLink?: string; // para virtual
 
-  @Column({ type: 'enum', enum: SessionStatus, default: SessionStatus.SCHEDULED })
+  @Column({
+    type: 'enum',
+    enum: SessionStatus,
+    default: SessionStatus.SCHEDULED,
+  })
   status: SessionStatus;
 
   // Campos de cancelación

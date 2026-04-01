@@ -37,7 +37,6 @@ export class AvailabilityController {
     private readonly availabilityService: AvailabilityService,
   ) {}
 
-
   //====================================================
   // GET /api/v1/availability/tutors/me
   // Visualizar mi disponibilidad como tutor
@@ -45,20 +44,18 @@ export class AvailabilityController {
   @Get('tutors/me')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.TUTOR)
-  async getMyAvailability(
-    @CurrentUser() user: User
-
-  ) {
-
+  async getMyAvailability(@CurrentUser() user: User) {
     const tutor = await this.tutorService.findByUserId(user.idUser);
 
     if (!tutor) {
-    throw new NotFoundException('Tutor profile not found');
-  }
+      throw new NotFoundException('Tutor profile not found');
+    }
 
-    return await this.availabilityService.getTutorAvailability(tutor.idUser, {});
+    return await this.availabilityService.getTutorAvailability(
+      tutor.idUser,
+      {},
+    );
   }
-
 
   //====================================================
   // GET /api/v1/availability/tutors/subject
@@ -66,42 +63,50 @@ export class AvailabilityController {
   //====================================================
   @Get('tutors/subject')
   async getTutorsBySubject(@Query() filters: FilterTutorsDto) {
-  if (!filters.subjectId && !filters.subjectName) {
-    throw new BadRequestException('Debe proporcionar subjectId o subjectName');
+    if (!filters.subjectId && !filters.subjectName) {
+      throw new BadRequestException(
+        'Debe proporcionar subjectId o subjectName',
+      );
+    }
+
+    let subject;
+    if (filters.subjectId) {
+      subject = await this.subjectsService.findById(filters.subjectId);
+    } else if (filters.subjectName) {
+      subject = await this.subjectsService.findByName(filters.subjectName);
+    }
+
+    if (!subject) {
+      throw new NotFoundException(
+        `Subject not found with ${filters.subjectId ? 'ID' : 'name'}: ${filters.subjectId || filters.subjectName}`,
+      );
+    }
+
+    const { tutors, total } =
+      await this.availabilityService.getTutorsBySubjectWithAvailability(
+        subject.idSubject,
+        {
+          onlyAvailable: filters.onlyAvailable,
+          modality: filters.modality,
+          page: filters.page,
+          limit: filters.limit,
+        },
+      );
+
+    return {
+      success: true,
+      subject: {
+        id: subject.idSubject,
+        name: subject.name,
+      },
+      ...buildPaginatedResponse(
+        tutors,
+        total,
+        filters.page ?? 1,
+        filters.limit ?? 10,
+      ),
+    };
   }
-
-  let subject;
-  if (filters.subjectId) {
-    subject = await this.subjectsService.findById(filters.subjectId);
-  } else if (filters.subjectName) {
-    subject = await this.subjectsService.findByName(filters.subjectName);
-  }
-
-  if (!subject) {
-    throw new NotFoundException(
-      `Subject not found with ${filters.subjectId ? 'ID' : 'name'}: ${filters.subjectId || filters.subjectName}`,
-    );
-  }
-
-  const { tutors, total } = await this.availabilityService.getTutorsBySubjectWithAvailability(
-    subject.idSubject,
-    {
-      onlyAvailable: filters.onlyAvailable,
-      modality: filters.modality,
-      page: filters.page,
-      limit: filters.limit,
-    },
-  );
-
-  return {
-    success: true,
-    subject: {
-      id: subject.idSubject,
-      name: subject.name,
-    },
-    ...buildPaginatedResponse(tutors, total, filters.page ?? 1, filters.limit ?? 10),
-  };
-}
 
   /**
    * POST /api/v1/availability/tutor/slots
@@ -121,7 +126,12 @@ export class AvailabilityController {
     switch (manageSlotDto.action) {
       case SlotAction.CREATE:
         const createData = manageSlotDto.data as CreateSlotDto;
-        if (!createData || !createData.dayOfWeek || !createData.startTime || !createData.modality) {
+        if (
+          !createData ||
+          !createData.dayOfWeek ||
+          !createData.startTime ||
+          !createData.modality
+        ) {
           throw new BadRequestException(
             'Para CREATE se requieren: dayOfWeek, startTime, modality',
           );
@@ -173,7 +183,7 @@ export class AvailabilityController {
   /**
    * GET /api/availability/tutors/:tutorId
    * RF16:Ver disponibilidad de un tutor específico (público/estudiantes)
-   * 
+   *
    * Query params opcionales:
    * - onlyAvailable: true/false (solo slots sin reserva)
    * - onlyFuture: true/false (solo slots futuros)
@@ -203,6 +213,4 @@ export class AvailabilityController {
       onlyAvailable: query.onlyAvailable,
     });
   }
-
-
 }

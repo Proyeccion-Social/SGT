@@ -27,4 +27,3 @@ import { StudentParticipateSession } from '../scheduling/entities/student-partic
   exports: [TypeOrmModule, EvaluationService],
 })
 export class SessionExecutionModule {}
-

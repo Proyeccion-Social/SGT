@@ -59,7 +59,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     AuditService,
     PasswordResetService,
     EmailVerificationService,
-    JwtStrategy
+    JwtStrategy,
   ],
   exports: [AuthService, TypeOrmModule, JwtModule],
 })

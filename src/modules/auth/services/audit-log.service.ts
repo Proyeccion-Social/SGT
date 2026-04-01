@@ -24,7 +24,7 @@ interface CreateAuditLogDto {
 @Injectable()
 export class AuditService {
   constructor(
-    @InjectRepository(AuditLog,'local')
+    @InjectRepository(AuditLog, 'local')
     private auditLogRepository: Repository<AuditLog>,
   ) {}
 
@@ -73,7 +73,11 @@ export class AuditService {
     });
   }
 
-  async logLogout(userId: string, sessionId: string, ip: string): Promise<void> {
+  async logLogout(
+    userId: string,
+    sessionId: string,
+    ip: string,
+  ): Promise<void> {
     await this.log({
       id_user: userId,
       id_session: sessionId,
@@ -97,7 +101,10 @@ export class AuditService {
     });
   }
 
-  async logPasswordResetRequested(email: string, userId: string): Promise<void> {
+  async logPasswordResetRequested(
+    email: string,
+    userId: string,
+  ): Promise<void> {
     await this.log({
       id_user: userId,
       action: AuditAction.PASSWORD_RESET_REQUESTED,

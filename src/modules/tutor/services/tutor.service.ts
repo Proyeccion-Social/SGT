@@ -25,7 +25,7 @@ export class TutorService {
     private readonly userService: UserService,
     private readonly subjectService: SubjectsService,
     private readonly notificationService: NotificationsService,
-  ) { }
+  ) {}
 
   // =====================================================
   // RF08: CREAR TUTOR (ADMIN)
@@ -52,7 +52,6 @@ export class TutorService {
     const temporaryPassword = this.generateTemporaryPassword();
     // Por ahora, para facilitar pruebas, la contraseña temporal se muestra en consola. En producción, solo se enviaría por email.
     console.log('TEMP PASSWORD:', temporaryPassword);
-
 
     // 5. Crear usuario tutor usando UserService
     const savedUser = await this.userService.createTutorUser({
@@ -146,7 +145,6 @@ export class TutorService {
   // RF10: ACTUALIZAR PERFIL DE TUTOR
   // =====================================================
   async updateProfile(userId: string, dto: CompleteTutorProfileDto) {
-
     // 1. Verificar que sea tutor
     const isTutor = await this.userService.isTutor(userId);
     if (!isTutor) {
@@ -310,14 +308,19 @@ export class TutorService {
   // RF14: Visualizar tutores por materia (Código o nombre parcial)
   // =====================================================
   async findTutorsBySubject(subjectTerm: string) {
-    const query = this.tutorRepository.createQueryBuilder('tutor')
+    const query = this.tutorRepository
+      .createQueryBuilder('tutor')
       .innerJoinAndSelect('tutor.user', 'user')
       .leftJoinAndSelect('tutor.tutorImpartSubjects', 'tutorImpartSubjects')
       .leftJoinAndSelect('tutorImpartSubjects.subject', 'subject')
       .where('tutor.isActive = :isActive', { isActive: true })
-      .andWhere('tutor.profile_completed = :profileCompleted', { profileCompleted: true });
+      .andWhere('tutor.profile_completed = :profileCompleted', {
+        profileCompleted: true,
+      });
 
-    query.andWhere('subject.name ILIKE :subjectName', { subjectName: `%${subjectTerm}%` });
+    query.andWhere('subject.name ILIKE :subjectName', {
+      subjectName: `%${subjectTerm}%`,
+    });
 
     const tutors = await query.getMany();
 
@@ -332,7 +335,6 @@ export class TutorService {
       maxWeeklyHours: tutor.limitDisponibility,
     }));
   }
-
 
   // =====================================================
   // MÉTODOS AUXILIARES PARA AUTH
@@ -375,10 +377,7 @@ export class TutorService {
    * Activar/desactivar tutor
    */
   async setActive(userId: string, isActive: boolean): Promise<void> {
-    await this.tutorRepository.update(
-      { idUser: userId },
-      { isActive },
-    );
+    await this.tutorRepository.update({ idUser: userId }, { isActive });
 
     // Si se desactiva, eliminar asignaciones de materias
     if (!isActive) {
@@ -387,8 +386,8 @@ export class TutorService {
   }
 
   /**
- * Verificar que un tutor existe y está activo
- */
+   * Verificar que un tutor existe y está activo
+   */
   async validateTutorActive(tutorId: string): Promise<void> {
     const tutor = await this.tutorRepository.findOne({
       where: { idUser: tutorId },
@@ -399,7 +398,9 @@ export class TutorService {
     }
 
     if (!tutor.isActive || !tutor.profile_completed) {
-      throw new BadRequestException('Tutor is not active or profile not completed');
+      throw new BadRequestException(
+        'Tutor is not active or profile not completed',
+      );
     }
   }
 
@@ -437,10 +438,9 @@ export class TutorService {
   async getTutorSubjects(tutorId: string) {
     const subjects = await this.subjectService.getSubjectsByTutor(tutorId);
 
-    return subjects.map(s => ({
+    return subjects.map((s) => ({
       id: s.idSubject,
       name: s.name,
-
     }));
   }
 
@@ -465,7 +465,7 @@ export class TutorService {
       relations: ['user', 'tutorHaveAvailabilities'],
     });
 
-    return tutors.map(t => ({
+    return tutors.map((t) => ({
       id: t.idUser,
       name: t.user.name,
       photo: t.urlImage,
@@ -475,8 +475,8 @@ export class TutorService {
   }
 
   /**
- * Obtener el límite semanal de horas de un tutor
- */
+   * Obtener el límite semanal de horas de un tutor
+   */
   async getWeeklyHoursLimit(tutorId: string): Promise<number> {
     const tutor = await this.tutorRepository.findOne({
       where: { idUser: tutorId },

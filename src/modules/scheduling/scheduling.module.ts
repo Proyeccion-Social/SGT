@@ -14,22 +14,26 @@ import { AvailabilityModule } from '../availability/availability.module';
 import { AuthModule } from '../auth/auth.module';
 import { SessionValidationService } from './services/session-validation.service';
 
-
 @Module({
   imports: [
     TypeOrmModule.forFeature(
-      [Session, ScheduledSession, StudentParticipateSession,SessionModificationRequest],
-      'local'),
+      [
+        Session,
+        ScheduledSession,
+        StudentParticipateSession,
+        SessionModificationRequest,
+      ],
+      'local',
+    ),
     AuthModule,
     AvailabilityModule,
     TutorModule,
     UsersModule,
     SubjectsModule,
     NotificationsModule,
-    
   ],
   providers: [SessionService, SessionValidationService],
   controllers: [SessionController],
   exports: [TypeOrmModule, SessionService],
 })
-export class SchedulingModule { }
+export class SchedulingModule {}

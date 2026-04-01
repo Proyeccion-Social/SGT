@@ -12,9 +12,7 @@ import { Tutor } from '../tutor/entities/tutor.entity';
 import { TutorModule } from '../tutor/tutor.module';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([User], 'local'),
-  ],
+  imports: [TypeOrmModule.forFeature([User], 'local')],
   controllers: [UsersController],
   providers: [UserService],
   exports: [TypeOrmModule, UserService],

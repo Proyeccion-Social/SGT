@@ -51,7 +51,10 @@ export class SessionExecutionController {
     sessionId: string,
     @CurrentUser() user: User,
   ) {
-    return this.attendanceService.registerCompletedSession(sessionId, user.idUser);
+    return this.attendanceService.registerCompletedSession(
+      sessionId,
+      user.idUser,
+    );
   }
 
   @Patch('sessions/:sessionId/attendance')
@@ -192,6 +195,44 @@ export class SessionExecutionController {
     );
   }
 
+  @Get('sessions/:sessionId/students/:studentId/has-rated')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.STUDENT, UserRole.ADMIN)
+  hasStudentRatedSession(
+    @CurrentUser() user: User,
+    @Param(
+      'sessionId',
+      new ParseUUIDPipe({
+        exceptionFactory: () =>
+          new BadRequestException({
+            errorCode: 'VALIDATION_01',
+            message: 'ID de sesion invalido',
+          }),
+      }),
+    )
+    sessionId: string,
+    @Param(
+      'studentId',
+      new ParseUUIDPipe({
+        exceptionFactory: () =>
+          new BadRequestException({
+            errorCode: 'VALIDATION_01',
+            message: 'ID de estudiante invalido',
+          }),
+      }),
+    )
+    studentId: string,
+  ) {
+    if (user.role === UserRole.STUDENT && user.idUser !== studentId) {
+      throw new ForbiddenException({
+        errorCode: 'PERMISSION_01',
+        message: 'Solo puedes consultar tu propia calificación',
+      });
+    }
+
+    return this.evaluationService.hasStudentRatedSession(sessionId, studentId);
+  }
+
   // ─── Tutor Ratings ────────────────────────────────────────────────────────
 
   @Get('tutors/:tutorId/evaluations')
@@ -326,5 +367,4 @@ export class SessionExecutionController {
       query.subjectId,
     );
   }
-
 }

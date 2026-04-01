@@ -29,8 +29,6 @@ import { TypeOrmModule } from '@nestjs/typeorm';
     TutorModule,
     SchedulingModule,
     SessionExecutionModule,
-
-
   ],
 })
-export class AppModule { }
+export class AppModule {}

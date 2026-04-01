@@ -106,7 +106,6 @@ export class SessionController {
     @Param('id') sessionId: string,
     @Body() dto: CancelSessionDto,
   ) {
-
     return await this.sessionService.cancelSession(user.idUser, sessionId, dto);
   }
 
@@ -126,7 +125,6 @@ export class SessionController {
     @Param('id') sessionId: string,
     @Body() dto: ProposeModificationDto,
   ) {
-
     return await this.sessionService.proposeModification(
       user.idUser,
       sessionId,
@@ -182,7 +180,7 @@ export class SessionController {
 
   /**
    * PATCH /api/sessions/:id/details
-   * Actualizar título y descripción de la sesión (tutor) 
+   * Actualizar título y descripción de la sesión (tutor)
    * Nuevo cambio: solo el tutor puede hacerlo
    */
   @Patch(':id/details')
@@ -215,26 +213,29 @@ export class SessionController {
   }
 
   /**
- * GET /api/sessions/my-sessions/student?page=1&limit=10&status=SCHEDULED
- */
-@Get('my-sessions/student')
-@Roles(UserRole.STUDENT)
-async getMySessionsAsStudent(
-  @CurrentUser() user: User,
-  @Query() filters: SessionFilterDto,
-) {
-  return await this.sessionService.getMySessionsAsStudent(user.idUser, filters);
-}
+   * GET /api/sessions/my-sessions/student?page=1&limit=10&status=SCHEDULED
+   */
+  @Get('my-sessions/student')
+  @Roles(UserRole.STUDENT)
+  async getMySessionsAsStudent(
+    @CurrentUser() user: User,
+    @Query() filters: SessionFilterDto,
+  ) {
+    return await this.sessionService.getMySessionsAsStudent(
+      user.idUser,
+      filters,
+    );
+  }
 
-/**
- * GET /api/sessions/my-sessions/tutor?page=1&limit=10&status=CANCELLED
- */
-@Get('my-sessions/tutor')
-@Roles(UserRole.TUTOR)
-async getMySessionsAsTutor(
-  @CurrentUser() user: User,
-  @Query() filters: SessionFilterDto,
-) {
-  return await this.sessionService.getMySessionsAsTutor(user.idUser, filters);
-}
+  /**
+   * GET /api/sessions/my-sessions/tutor?page=1&limit=10&status=CANCELLED
+   */
+  @Get('my-sessions/tutor')
+  @Roles(UserRole.TUTOR)
+  async getMySessionsAsTutor(
+    @CurrentUser() user: User,
+    @Query() filters: SessionFilterDto,
+  ) {
+    return await this.sessionService.getMySessionsAsTutor(user.idUser, filters);
+  }
 }

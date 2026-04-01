@@ -9,7 +9,7 @@ import { randomBytes } from 'crypto';
 @Injectable()
 export class EmailVerificationService {
   constructor(
-    @InjectRepository(EmailVerificationToken,'local')
+    @InjectRepository(EmailVerificationToken, 'local')
     private tokenRepository: Repository<EmailVerificationToken>,
   ) {}
 

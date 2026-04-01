@@ -49,7 +49,6 @@ const entities = [
   Question,
   Answer,
 
-
   //Nuevas entidades de Auth
   AuthSession,
   AuditLog,
@@ -99,4 +98,4 @@ const entities = [
       */
   ],
 })
-export class DatabaseModule { }
+export class DatabaseModule {}
