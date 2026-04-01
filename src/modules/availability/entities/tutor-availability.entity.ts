@@ -1,0 +1,31 @@
+import { Entity, PrimaryColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
+import { Tutor } from '../../tutor/entities/tutor.entity';
+import { Availability } from './availability.entity';
+import { Modality } from '../enums/modality.enum';
+
+@Entity('tutor_have_availability')
+export class TutorHaveAvailability {
+  @PrimaryColumn({ name: 'id_tutor', type: 'uuid' })
+  idTutor: string;
+
+  @PrimaryColumn({ name: 'id_availability', type: 'bigint' })
+  idAvailability: number;
+
+  @Column({
+    type: 'varchar',
+    length: 10,
+    nullable: true,
+  })
+  modality: Modality;
+
+  @ManyToOne(() => Tutor, (tutor) => tutor.tutorHaveAvailabilities)
+  @JoinColumn({ name: 'id_tutor' })
+  tutor: Tutor;
+
+  @ManyToOne(
+    () => Availability,
+    (availability) => availability.tutorHaveAvailabilities,
+  )
+  @JoinColumn({ name: 'id_availability' })
+  availability: Availability;
+}

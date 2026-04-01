@@ -19,3 +19,4 @@
 - [ ] Actualicé la documentación correspondiente
 - [ ] Los tests pasan localmente
 - [ ] No hay conflictos con la rama principal
+

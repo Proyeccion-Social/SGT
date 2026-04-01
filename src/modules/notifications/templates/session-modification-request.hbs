@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Propuesta de modificación</title>
+  <style>
+    body { margin: 0; padding: 0; background-color: #f4f4f5; font-family: Arial, sans-serif; }
+    .wrapper { max-width: 600px; margin: 32px auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .header { background-color: #7c3aed; padding: 32px 40px; }
+    .header h1 { margin: 0; color: #ffffff; font-size: 22px; font-weight: 700; }
+    .header p { margin: 6px 0 0; color: #ddd6fe; font-size: 14px; }
+    .body { padding: 32px 40px; }
+    .body p { color: #374151; font-size: 15px; line-height: 1.6; margin: 0 0 16px; }
+    .current-box { background: #f9fafb; border-left: 4px solid #9ca3af; border-radius: 4px; padding: 16px 20px; margin: 16px 0; }
+    .current-box h3 { margin: 0 0 10px; font-size: 13px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; }
+    .proposed-box { background: #faf5ff; border-left: 4px solid #7c3aed; border-radius: 4px; padding: 16px 20px; margin: 16px 0; }
+    .proposed-box h3 { margin: 0 0 10px; font-size: 13px; color: #7c3aed; text-transform: uppercase; letter-spacing: 0.05em; }
+    .detail-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #e5e7eb; font-size: 14px; }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-label { color: #6b7280; font-weight: 600; }
+    .detail-value { color: #111827; text-align: right; }
+    .change-item { padding: 5px 0; font-size: 14px; color: #374151; }
+    .change-item::before { content: "→ "; color: #7c3aed; font-weight: 700; }
+    .expiry { font-size: 13px; color: #9ca3af; margin: 12px 0 20px; }
+    .actions { display: flex; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
+    .btn { display: inline-block; padding: 12px 24px; border-radius: 6px; font-size: 14px; font-weight: 700; text-decoration: none; }
+    .btn-accept { background-color: #16a34a; color: #ffffff; }
+    .btn-reject { background-color: #ffffff; color: #dc2626; border: 2px solid #dc2626; }
+    .footer { background: #f9fafb; padding: 20px 40px; text-align: center; font-size: 12px; color: #9ca3af; border-top: 1px solid #e5e7eb; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      <h1>Propuesta de modificación</h1>
+      <p>Atlas — Sistema de Gestión de Tutorías</p>
+    </div>
+    <div class="body">
+      <p>Hola.</p>
+      <p>El <strong>{{requesterRole}}</strong> ha propuesto modificar los siguientes datos de la sesión de <strong>{{subjectName}}</strong>.</p>
+
+      <div class="current-box">
+        <h3>Datos actuales</h3>
+        <div class="detail-row">
+          <span class="detail-label">Tema</span>
+          <span class="detail-value">{{title}}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Fecha</span>
+          <span class="detail-value">{{currentDate}}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Horario</span>
+          <span class="detail-value">{{currentTime}}</span>
+        </div>
+      </div>
+
+      <div class="proposed-box">
+        <h3>Cambios propuestos</h3>
+        {{#each proposedChanges}}
+          <div class="change-item">{{this}}</div>
+        {{/each}}
+      </div>
+
+      <p class="expiry">Esta propuesta expira el <strong>{{expiresAt}}</strong>. Si no respondes antes, se rechazará automáticamente.</p>
+
+      <div class="actions">
+        <a href="{{acceptUrl}}" class="btn btn-accept">Aceptar cambios</a>
+        <a href="{{rejectUrl}}" class="btn btn-reject">Rechazar</a>
+      </div>
+    </div>
+    <div class="footer">
+      Atlas · Universidad Distrital Francisco José de Caldas<br/>
+      Este mensaje fue generado automáticamente, por favor no respondas a este correo.
+    </div>
+  </div>
+</body>
+</html>

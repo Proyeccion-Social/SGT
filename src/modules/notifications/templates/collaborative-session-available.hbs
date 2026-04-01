@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nueva sesión colaborativa disponible</title>
+  <style>
+    body { margin: 0; padding: 0; background-color: #f4f4f5; font-family: Arial, sans-serif; }
+    .wrapper { max-width: 600px; margin: 32px auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .header { background: linear-gradient(135deg, #0f766e 0%, #0369a1 100%); padding: 32px 40px; }
+    .header h1 { margin: 0; color: #ffffff; font-size: 22px; font-weight: 700; }
+    .header p { margin: 6px 0 0; color: #99f6e4; font-size: 14px; }
+    .badge-wrap { padding: 16px 40px 0; }
+    .badge { display: inline-block; background: #ecfdf5; color: #065f46; border: 1px solid #6ee7b7; border-radius: 20px; padding: 4px 14px; font-size: 13px; font-weight: 700; }
+    .body { padding: 24px 40px 32px; }
+    .body p { color: #374151; font-size: 15px; line-height: 1.6; margin: 0 0 16px; }
+    .detail-box { background: #f0fdfa; border-left: 4px solid #0f766e; border-radius: 4px; padding: 16px 20px; margin: 20px 0; }
+    .detail-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #ccfbf1; font-size: 14px; }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-label { color: #6b7280; font-weight: 600; }
+    .detail-value { color: #111827; text-align: right; }
+    .cta-wrap { text-align: center; margin: 28px 0 8px; }
+    .btn { display: inline-block; padding: 14px 36px; border-radius: 6px; font-size: 16px; font-weight: 700; text-decoration: none; background-color: #0f766e; color: #ffffff; }
+    .note { font-size: 13px; color: #9ca3af; text-align: center; margin-top: 10px; }
+    .footer { background: #f9fafb; padding: 20px 40px; text-align: center; font-size: 12px; color: #9ca3af; border-top: 1px solid #e5e7eb; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      <h1>Nueva sesión colaborativa disponible</h1>
+      <p>Atlas — Sistema de Gestión de Tutorías</p>
+    </div>
+
+    <div class="badge-wrap">
+      <span class="badge">Sesión colaborativa · {{subjectName}}</span>
+    </div>
+
+    <div class="body">
+      <p>El tutor <strong>{{tutorName}}</strong> ha abierto una nueva sesión colaborativa de <strong>{{subjectName}}</strong> a la que puedes unirte.</p>
+
+      <div class="detail-box">
+        <div class="detail-row">
+          <span class="detail-label">Tema</span>
+          <span class="detail-value">{{title}}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Tutor</span>
+          <span class="detail-value">{{tutorName}}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Fecha</span>
+          <span class="detail-value">{{date}}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Horario</span>
+          <span class="detail-value">{{startTime}} – {{endTime}} ({{duration}} h)</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Modalidad</span>
+          <span class="detail-value">{{modality}}</span>
+        </div>
+        {{#if description}}
+        <div class="detail-row">
+          <span class="detail-label">Descripción</span>
+          <span class="detail-value">{{description}}</span>
+        </div>
+        {{/if}}
+      </div>
+
+      <div class="cta-wrap">
+        <a href="{{joinUrl}}" class="btn">Unirme a la sesión</a>
+        <p class="note">Los cupos son limitados. Asegura tu lugar lo antes posible.</p>
+      </div>
+    </div>
+    <div class="footer">
+      Atlas · Universidad Distrital Francisco José de Caldas<br/>
+      Recibiste este mensaje porque tienes <strong>{{subjectName}}</strong> entre tus materias de interés.<br/>
+      Este mensaje fue generado automáticamente, por favor no respondas a este correo.
+    </div>
+  </div>
+</body>
+</html>
