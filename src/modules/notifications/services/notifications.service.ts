@@ -1,11 +1,4 @@
 // src/modules/notifications/services/notifications.service.ts
-//
-// Integración con AppNotificationsService:
-// Cada método de email llama también a this.persist() para guardar la
-// notificación en BD. Email y persistencia son independientes:
-//   - Si el email falla  → la notificación en BD sí se guarda.
-//   - Si la BD falla     → el email sí se envía.
-// El helper persist() absorbe errores de BD para no interrumpir el flujo.
  
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -13,15 +6,29 @@ import { Resend } from 'resend';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as Handlebars from 'handlebars';
+ 
 import { Session } from 'src/modules/scheduling/entities/session.entity';
 import { SessionModificationRequest } from 'src/modules/scheduling/entities/session-modification-request.entity';
 import { UserService } from 'src/modules/users/services/users.service';
-import {
-  AppNotificationsService,
-} from '../../app-notification/services/app-notifications.service';
-import {
-  AppNotificationType,
-} from '../../app-notification/entities/app-notification.entity';
+import { AppNotificationsService } from '../../app-notification/services/app-notifications.service';
+import { AppNotificationType } from '../../app-notification/entities/app-notification.entity';
+ 
+// ─────────────────────────────────────────────────────────────────────────────
+// Tipos internos de ayuda
+// ─────────────────────────────────────────────────────────────────────────────
+ 
+/**
+ * Etiquetas para cada operación dentro de un Promise.allSettled,
+ * usadas exclusivamente en los logs de error para saber exactamente qué falló.
+ */
+type OperationLabel = 'email' | 'persistencia';
+ 
+interface LabeledOperation {
+  label: OperationLabel;
+  /** Contexto adicional para el log (ej. destinatario, tipo). */
+  context: string;
+  promise: Promise<any>;
+}
  
 @Injectable()
 export class NotificationsService {
@@ -36,27 +43,29 @@ export class NotificationsService {
     private readonly appNotifications: AppNotificationsService,
   ) {
     const apiKey = this.configService.get<string>('RESEND_API_KEY');
- 
     if (!apiKey) {
       this.logger.error('RESEND_API_KEY no está definida en las variables de entorno');
       throw new Error('RESEND_API_KEY is required');
     }
  
-    this.resend     = new Resend(apiKey);
-    this.fromEmail  = this.configService.get<string>('RESEND_FROM_EMAIL') || 'noreply@yourdomain.com';
+    this.resend      = new Resend(apiKey);
+    this.fromEmail   = this.configService.get<string>('RESEND_FROM_EMAIL') || 'noreply@yourdomain.com';
     this.frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
  
-    this.logger.log('Resend inicializado correctamente');
+    // Registrar helpers de Handlebars una sola vez en el constructor
+    Handlebars.registerHelper('eq', (a: any, b: any) => a === b);
+ 
+    this.logger.log('NotificationsService inicializado correctamente');
   }
  
   // =====================================================
   // ESTUDIANTES - Registro
-  // (sin notificación persistida: son emails de onboarding, no acciones de sesión)
+  // (sin persistencia en BD: emails de onboarding, no acciones de sesión)
   // =====================================================
  
   async sendEmailConfirmation(email: string, fullName: string, token: string): Promise<void> {
     const confirmationUrl = `${this.frontendUrl}/confirm-email?token=${token}`;
-    const htmlContent = this.renderTemplate('email-confirmation', { fullName, confirmationUrl });
+    const htmlContent     = this.renderTemplate('email-confirmation', { fullName, confirmationUrl });
  
     try {
       const { error } = await this.resend.emails.send({
@@ -64,8 +73,8 @@ export class NotificationsService {
         subject: 'Confirma tu cuenta en Atlas - Sistema de Gestión de Tutorías',
         html: htmlContent,
       });
-      if (error) { this.logger.error(`Error al enviar email de confirmación a ${email}`, error); throw error; }
-      this.logger.log(`Email de confirmación enviado correctamente a ${email}`);
+      if (error) throw error;
+      this.logger.log(`Email de confirmación enviado a ${email}`);
     } catch (error) {
       this.logger.error(`Error al enviar email de confirmación a ${email}`, error);
       throw error;
@@ -73,8 +82,10 @@ export class NotificationsService {
   }
  
   async sendWelcomeEmail(email: string, fullName: string): Promise<void> {
-    const loginUrl    = `${this.frontendUrl}/login`;
-    const htmlContent = this.renderTemplate('welcome-email', { fullName, loginUrl });
+    const htmlContent = this.renderTemplate('welcome-email', {
+      fullName,
+      loginUrl: `${this.frontendUrl}/login`,
+    });
  
     try {
       const { error } = await this.resend.emails.send({
@@ -82,8 +93,8 @@ export class NotificationsService {
         subject: 'Bienvenido a Atlas - Sistema de Gestión de Tutorías',
         html: htmlContent,
       });
-      if (error) { this.logger.error(`Error al enviar email de bienvenida a ${email}`, error); throw error; }
-      this.logger.log(`Email de bienvenida enviado correctamente a ${email}`);
+      if (error) throw error;
+      this.logger.log(`Email de bienvenida enviado a ${email}`);
     } catch (error) {
       this.logger.error(`Error al enviar email de bienvenida a ${email}`, error);
       throw error;
@@ -95,8 +106,10 @@ export class NotificationsService {
   // =====================================================
  
   async sendTutorCredentials(email: string, name: string, temporaryPassword: string): Promise<void> {
-    const loginUrl    = `${this.frontendUrl}/login`;
-    const htmlContent = this.renderTemplate('tutor-credentials', { name, email, temporaryPassword, loginUrl });
+    const htmlContent = this.renderTemplate('tutor-credentials', {
+      name, email, temporaryPassword,
+      loginUrl: `${this.frontendUrl}/login`,
+    });
  
     try {
       const { error } = await this.resend.emails.send({
@@ -104,8 +117,8 @@ export class NotificationsService {
         subject: 'Bienvenido a Atlas - Credenciales de Tutor',
         html: htmlContent,
       });
-      if (error) { this.logger.error(`Error al enviar credenciales de tutor a ${email}`, error); throw error; }
-      this.logger.log(`Credenciales de tutor enviadas correctamente a ${email}`);
+      if (error) throw error;
+      this.logger.log(`Credenciales de tutor enviadas a ${email}`);
     } catch (error) {
       this.logger.error(`Error al enviar credenciales de tutor a ${email}`, error);
       throw error;
@@ -113,8 +126,10 @@ export class NotificationsService {
   }
  
   async sendProfileCompletedNotification(email: string, name: string): Promise<void> {
-    const dashboardUrl = `${this.frontendUrl}/dashboard`;
-    const htmlContent  = this.renderTemplate('tutor-profile-completed', { name, dashboardUrl });
+    const htmlContent = this.renderTemplate('tutor-profile-completed', {
+      name,
+      dashboardUrl: `${this.frontendUrl}/dashboard`,
+    });
  
     try {
       const { error } = await this.resend.emails.send({
@@ -122,7 +137,7 @@ export class NotificationsService {
         subject: 'Perfil de Tutor Completado - Atlas',
         html: htmlContent,
       });
-      if (error) { this.logger.error(`Error al enviar notificación de perfil completado a ${email}`, error); throw error; }
+      if (error) throw error;
       this.logger.log(`Notificación de perfil completado enviada a ${email}`);
     } catch (error) {
       this.logger.error(`Error al enviar notificación de perfil completado a ${email}`, error);
@@ -135,8 +150,10 @@ export class NotificationsService {
   // =====================================================
  
   async sendPasswordResetEmail(email: string, name: string, resetToken: string): Promise<void> {
-    const resetUrl    = `${this.frontendUrl}/reset-password?token=${resetToken}`;
-    const htmlContent = this.renderTemplate('password-reset', { name, resetUrl });
+    const htmlContent = this.renderTemplate('password-reset', {
+      name,
+      resetUrl: `${this.frontendUrl}/reset-password?token=${resetToken}`,
+    });
  
     try {
       const { error } = await this.resend.emails.send({
@@ -144,7 +161,7 @@ export class NotificationsService {
         subject: 'Recupera tu contraseña - Atlas',
         html: htmlContent,
       });
-      if (error) { this.logger.error(`Error al enviar email de recuperación a ${email}`, error); throw error; }
+      if (error) throw error;
       this.logger.log(`Email de recuperación enviado a ${email}`);
     } catch (error) {
       this.logger.error(`Error al enviar email de recuperación a ${email}`, error);
@@ -161,16 +178,20 @@ export class NotificationsService {
         subject: 'Tu contraseña ha sido cambiada - Atlas',
         html: htmlContent,
       });
-      if (error) { this.logger.error(`Error al enviar notificación de cambio de contraseña a ${email}`, error); throw error; }
+      if (error) throw error;
       this.logger.log(`Notificación de cambio de contraseña enviada a ${email}`);
     } catch (error) {
       this.logger.error(`Error al enviar notificación de cambio de contraseña a ${email}`, error);
-      // No lanzar: es solo notificación de seguridad
+      // Intencional: no re-lanzar — es solo notificación de seguridad.
     }
   }
  
   // =====================================================
   // RF-25 / RF-20: AGENDAMIENTO — Solicitud al tutor
+  //
+  // Recibe el DTO mapeado (session: any), donde:
+  //   session.id        → idSession de la entidad
+  //   session.tutor.id  → idUser del tutor (Tutor.idUser)
   // =====================================================
  
   async sendTutorConfirmationRequest(session: any, studentId: string): Promise<void> {
@@ -179,36 +200,47 @@ export class NotificationsService {
       const student     = session.participants.find((p: any) => p.id === studentId);
       const studentName = student?.name ?? 'Estudiante';
  
-      const templateData = {
-        tutorName: session.tutor.name, studentName,
+      const htmlContent = this.renderTemplate('tutor-confirmation-request', {
+        tutorName:   session.tutor.name,
+        studentName,
         subjectName: session.subject.name,
-        date: this.formatDate(session.scheduledDate),
-        startTime: session.startTime, endTime: session.endTime, duration: session.duration,
-        modality: this.translateModality(session.modality),
-        title: session.title, description: session.description,
-        confirmUrl: `${this.frontendUrl}/tutor/sessions/${session.id}/confirm`,
-        rejectUrl:  `${this.frontendUrl}/tutor/sessions/${session.id}/reject`,
-        expiresAt:  this.formatDateTime(new Date(Date.now() + 24 * 60 * 60 * 1000)),
-      };
+        date:        this.formatDate(session.scheduledDate),
+        startTime:   session.startTime,
+        endTime:     session.endTime,
+        duration:    session.duration,
+        modality:    this.translateModality(session.modality),
+        title:       session.title,
+        description: session.description,
+        confirmUrl:  `${this.frontendUrl}/tutor/sessions/${session.id}/confirm`,
+        rejectUrl:   `${this.frontendUrl}/tutor/sessions/${session.id}/reject`,
+        expiresAt:   this.formatDateTime(new Date(Date.now() + 24 * 60 * 60 * 1000)),
+      });
  
-      // Email + persistencia en paralelo e independientes
-      await Promise.allSettled([
-        this.resend.emails.send({
-          from: this.fromEmail, to: tutorEmail,
-          subject: `Nueva solicitud de tutoría: ${session.subject.name}`,
-          html: this.renderTemplate('tutor-confirmation-request', templateData),
-        }),
-        this.persist({
-          userId:  session.tutor.id,
-          type:    AppNotificationType.SESSION_REQUEST_RECEIVED,
-          message: `${studentName} solicitó una sesión de ${session.subject.name}`,
-          payload: { sessionId: session.id },
-        }),
+      await this.settleAll([
+        {
+          label:   'email',
+          context: `tutor=${session.tutor.id} sesión=${session.id}`,
+          promise: this.resend.emails.send({
+            from: this.fromEmail, to: tutorEmail,
+            subject: `Nueva solicitud de tutoría: ${session.subject.name}`,
+            html: htmlContent,
+          }),
+        },
+        {
+          label:   'persistencia',
+          context: `userId=${session.tutor.id} type=SESSION_REQUEST_RECEIVED`,
+          promise: this.appNotifications.create({
+            userId:  session.tutor.id,
+            type:    AppNotificationType.SESSION_REQUEST_RECEIVED,
+            message: `${studentName} solicitó una sesión de ${session.subject.name}`,
+            payload: { sessionId: session.id },
+          }),
+        },
       ]);
  
-      this.logger.log(`Solicitud de confirmación enviada al tutor ${tutorEmail} para sesión ${session.id}`);
+      this.logger.log(`[RF-25] Solicitud de confirmación enviada al tutor ${tutorEmail} — sesión ${session.id}`);
     } catch (error) {
-      this.logger.error(`Error al enviar solicitud de confirmación al tutor: ${error.message}`, error.stack);
+      this.logger.error(`Error en sendTutorConfirmationRequest: ${error.message}`, error.stack);
       throw error;
     }
   }
@@ -223,33 +255,46 @@ export class NotificationsService {
       const student      = session.participants.find((p: any) => p.id === studentId);
       const studentName  = student?.name ?? 'Estudiante';
  
-      const templateData = {
-        studentName, tutorName: session.tutor.name, subjectName: session.subject.name,
-        date: this.formatDate(session.scheduledDate),
-        startTime: session.startTime, endTime: session.endTime, duration: session.duration,
-        modality: this.translateModality(session.modality),
-        title: session.title, description: session.description,
-        status: 'Pendiente de confirmación del tutor',
+      const htmlContent = this.renderTemplate('session-request-ack-student', {
+        studentName,
+        tutorName:         session.tutor.name,
+        subjectName:       session.subject.name,
+        date:              this.formatDate(session.scheduledDate),
+        startTime:         session.startTime,
+        endTime:           session.endTime,
+        duration:          session.duration,
+        modality:          this.translateModality(session.modality),
+        title:             session.title,
+        description:       session.description,
+        status:            'Pendiente de confirmación del tutor',
         sessionDetailsUrl: `${this.frontendUrl}/sessions/${session.id}`,
-      };
+      });
  
-      await Promise.allSettled([
-        this.resend.emails.send({
-          from: this.fromEmail, to: studentEmail,
-          subject: `Solicitud enviada: ${session.subject.name} — pendiente de confirmación`,
-          html: this.renderTemplate('session-request-ack-student', templateData),
-        }),
-        this.persist({
-          userId:  studentId,
-          type:    AppNotificationType.SESSION_REQUEST_ACK,
-          message: `Tu solicitud de sesión de ${session.subject.name} con ${session.tutor.name} fue enviada`,
-          payload: { sessionId: session.id },
-        }),
+      await this.settleAll([
+        {
+          label:   'email',
+          context: `estudiante=${studentId} sesión=${session.id}`,
+          promise: this.resend.emails.send({
+            from: this.fromEmail, to: studentEmail,
+            subject: `Solicitud enviada: ${session.subject.name} — pendiente de confirmación`,
+            html: htmlContent,
+          }),
+        },
+        {
+          label:   'persistencia',
+          context: `userId=${studentId} type=SESSION_REQUEST_ACK`,
+          promise: this.appNotifications.create({
+            userId:  studentId,
+            type:    AppNotificationType.SESSION_REQUEST_ACK,
+            message: `Tu solicitud de sesión de ${session.subject.name} con ${session.tutor.name} fue enviada`,
+            payload: { sessionId: session.id },
+          }),
+        },
       ]);
  
-      this.logger.log(`Acuse de solicitud enviado al estudiante ${studentEmail} para sesión ${session.id}`);
+      this.logger.log(`[RF-25] Acuse enviado al estudiante ${studentEmail} — sesión ${session.id}`);
     } catch (error) {
-      this.logger.error(`Error al enviar acuse al estudiante: ${error.message}`, error.stack);
+      this.logger.error(`Error en sendStudentSessionRequestAck: ${error.message}`, error.stack);
       throw error;
     }
   }
@@ -264,33 +309,47 @@ export class NotificationsService {
       const student      = session.participants.find((p: any) => p.id === studentId);
       const studentName  = student?.name ?? 'Estudiante';
  
-      const templateData = {
-        studentName, tutorName: session.tutor.name, subjectName: session.subject.name,
-        date: this.formatDate(session.scheduledDate),
-        startTime: session.startTime, endTime: session.endTime, duration: session.duration,
-        modality: this.translateModality(session.modality),
-        title: session.title, description: session.description,
+      const htmlContent = this.renderTemplate('session-confirmation-student', {
+        studentName,
+        tutorName:         session.tutor.name,
+        subjectName:       session.subject.name,
+        date:              this.formatDate(session.scheduledDate),
+        startTime:         session.startTime,
+        endTime:           session.endTime,
+        duration:          session.duration,
+        modality:          this.translateModality(session.modality),
+        title:             session.title,
+        description:       session.description,
         sessionDetailsUrl: `${this.frontendUrl}/sessions/${session.id}`,
-        isVirtual: session.modality === 'VIRT', virtualLink: session.virtualLink ?? null,
-      };
+        isVirtual:         session.modality === 'VIRT',
+        virtualLink:       session.virtualLink ?? null,
+      });
  
-      await Promise.allSettled([
-        this.resend.emails.send({
-          from: this.fromEmail, to: studentEmail,
-          subject: `¡Sesión confirmada! ${session.subject.name}`,
-          html: this.renderTemplate('session-confirmation-student', templateData),
-        }),
-        this.persist({
-          userId:  studentId,
-          type:    AppNotificationType.SESSION_CONFIRMED,
-          message: `${session.tutor.name} confirmó tu sesión de ${session.subject.name} para el ${this.formatDate(session.scheduledDate)}`,
-          payload: { sessionId: session.id },
-        }),
+      await this.settleAll([
+        {
+          label:   'email',
+          context: `estudiante=${studentId} sesión=${session.id}`,
+          promise: this.resend.emails.send({
+            from: this.fromEmail, to: studentEmail,
+            subject: `¡Sesión confirmada! ${session.subject.name}`,
+            html: htmlContent,
+          }),
+        },
+        {
+          label:   'persistencia',
+          context: `userId=${studentId} type=SESSION_CONFIRMED`,
+          promise: this.appNotifications.create({
+            userId:  studentId,
+            type:    AppNotificationType.SESSION_CONFIRMED,
+            message: `${session.tutor.name} confirmó tu sesión de ${session.subject.name} para el ${this.formatDate(session.scheduledDate)}`,
+            payload: { sessionId: session.id },
+          }),
+        },
       ]);
  
-      this.logger.log(`Confirmación de sesión enviada al estudiante ${studentEmail} — sesión ${session.id}`);
+      this.logger.log(`[RF-20] Confirmación enviada al estudiante ${studentEmail} — sesión ${session.id}`);
     } catch (error) {
-      this.logger.error(`Error al enviar confirmación al estudiante: ${error.message}`, error.stack);
+      this.logger.error(`Error en sendSessionConfirmationStudent: ${error.message}`, error.stack);
       throw error;
     }
   }
@@ -300,73 +359,112 @@ export class NotificationsService {
       const tutorEmail  = await this.getUserEmail(tutorId);
       const studentName = session.participants[0]?.name ?? 'Estudiante';
  
-      const templateData = {
-        tutorName: session.tutor.name, studentName, subjectName: session.subject.name,
-        date: this.formatDate(session.scheduledDate),
-        startTime: session.startTime, endTime: session.endTime, duration: session.duration,
-        modality: this.translateModality(session.modality),
-        title: session.title, description: session.description,
+      const htmlContent = this.renderTemplate('session-confirmation-tutor', {
+        tutorName:         session.tutor.name,
+        studentName,
+        subjectName:       session.subject.name,
+        date:              this.formatDate(session.scheduledDate),
+        startTime:         session.startTime,
+        endTime:           session.endTime,
+        duration:          session.duration,
+        modality:          this.translateModality(session.modality),
+        title:             session.title,
+        description:       session.description,
         sessionDetailsUrl: `${this.frontendUrl}/tutor/sessions/${session.id}`,
-        isVirtual: session.modality === 'VIRT',
-      };
+        isVirtual:         session.modality === 'VIRT',
+      });
  
-      await Promise.allSettled([
-        this.resend.emails.send({
-          from: this.fromEmail, to: tutorEmail,
-          subject: `Nueva sesión agendada: ${session.subject.name}`,
-          html: this.renderTemplate('session-confirmation-tutor', templateData),
-        }),
-        this.persist({
-          userId:  tutorId,
-          type:    AppNotificationType.SESSION_CONFIRMED,
-          message: `Confirmaste la sesión de ${session.subject.name} con ${studentName} para el ${this.formatDate(session.scheduledDate)}`,
-          payload: { sessionId: session.id },
-        }),
+      await this.settleAll([
+        {
+          label:   'email',
+          context: `tutor=${tutorId} sesión=${session.id}`,
+          promise: this.resend.emails.send({
+            from: this.fromEmail, to: tutorEmail,
+            subject: `Nueva sesión agendada: ${session.subject.name}`,
+            html: htmlContent,
+          }),
+        },
+        {
+          label:   'persistencia',
+          context: `userId=${tutorId} type=SESSION_CONFIRMED`,
+          promise: this.appNotifications.create({
+            userId:  tutorId,
+            type:    AppNotificationType.SESSION_CONFIRMED,
+            message: `Confirmaste la sesión de ${session.subject.name} con ${studentName} para el ${this.formatDate(session.scheduledDate)}`,
+            payload: { sessionId: session.id },
+          }),
+        },
       ]);
  
-      this.logger.log(`Confirmación de sesión enviada al tutor ${tutorEmail} — sesión ${session.id}`);
+      this.logger.log(`[RF-20] Confirmación enviada al tutor ${tutorEmail} — sesión ${session.id}`);
     } catch (error) {
-      this.logger.error(`Error al enviar confirmación al tutor: ${error.message}`, error.stack);
+      this.logger.error(`Error en sendSessionConfirmationTutor: ${error.message}`, error.stack);
       throw error;
     }
   }
  
   // =====================================================
   // RF-20: RECHAZO — Tutor rechaza la sesión
+  //
+  // Recibe la entidad Session. Los campos correctos son:
+  //   session.idSession       (PK)
+  //   session.idTutor         (FK, igual a tutor.idUser)
+  //   session.tutor.user.name (nombre del tutor, via relación)
+  //   participation.student.idUser → NO existe; el PK de Student es idUser
+  //   pero en StudentParticipateSession la FK es idStudent
   // =====================================================
  
   async sendSessionRejection(session: Session, studentId: string): Promise<void> {
     try {
       const studentEmail = await this.getUserEmail(studentId);
-      const studentName  = session.studentParticipateSessions?.[0]?.student?.user?.name ?? 'Estudiante';
  
-      const templateData = {
-        studentName, tutorName: session.tutor?.user?.name ?? 'Tutor',
-        subjectName: session.subject?.name ?? 'Materia',
-        date: this.formatDate(session.scheduledDate),
-        startTime: session.startTime, endTime: session.endTime, title: session.title,
+      // El nombre del estudiante viene de la relación cargada.
+      // Buscamos la participación cuyo idStudent coincide para no asumir [0].
+      const participation = session.studentParticipateSessions?.find(
+        (p) => p.idStudent === studentId,
+      );
+      const studentName = participation?.student?.user?.name ?? 'Estudiante';
+      const tutorName   = session.tutor?.user?.name ?? 'Tutor';
+      const subjectName = session.subject?.name ?? 'Materia';
+ 
+      const htmlContent = this.renderTemplate('session-rejected', {
+        studentName, tutorName, subjectName,
+        date:            this.formatDate(session.scheduledDate),
+        startTime:       session.startTime,
+        endTime:         session.endTime,
+        title:           session.title,
         rejectionReason: session.rejectionReason ?? 'No especificada',
         rescheduleUrl:   `${this.frontendUrl}/sessions/schedule`,
+        // idTutor es el idUser del tutor, sirve para construir el perfil
         tutorProfileUrl: `${this.frontendUrl}/tutors/${session.idTutor}`,
-      };
+      });
  
-      await Promise.allSettled([
-        this.resend.emails.send({
-          from: this.fromEmail, to: studentEmail,
-          subject: `Solicitud no aceptada — ${session.subject?.name}`,
-          html: this.renderTemplate('session-rejected', templateData),
-        }),
-        this.persist({
-          userId:  studentId,
-          type:    AppNotificationType.SESSION_REJECTED,
-          message: `${session.tutor?.user?.name ?? 'El tutor'} no aceptó tu solicitud de sesión de ${session.subject?.name}`,
-          payload: { sessionId: session.idSession },
-        }),
+      await this.settleAll([
+        {
+          label:   'email',
+          context: `estudiante=${studentId} sesión=${session.idSession}`,
+          promise: this.resend.emails.send({
+            from: this.fromEmail, to: studentEmail,
+            subject: `Solicitud no aceptada — ${subjectName}`,
+            html: htmlContent,
+          }),
+        },
+        {
+          label:   'persistencia',
+          context: `userId=${studentId} type=SESSION_REJECTED`,
+          promise: this.appNotifications.create({
+            userId:  studentId,
+            type:    AppNotificationType.SESSION_REJECTED,
+            message: `${tutorName} no aceptó tu solicitud de sesión de ${subjectName}`,
+            // idSession es la PK de la entidad Session
+            payload: { sessionId: session.idSession },
+          }),
+        },
       ]);
  
-      this.logger.log(`Notificación de rechazo enviada a ${studentEmail} — sesión ${session.idSession}`);
+      this.logger.log(`[RF-20] Rechazo enviado a ${studentEmail} — sesión ${session.idSession}`);
     } catch (error) {
-      this.logger.error(`Error al enviar notificación de rechazo: ${error.message}`, error.stack);
+      this.logger.error(`Error en sendSessionRejection: ${error.message}`, error.stack);
       throw error;
     }
   }
@@ -379,70 +477,96 @@ export class NotificationsService {
     try {
       const isCancelledByTutor = session.idTutor === cancelledBy;
       const cancelledByRole    = isCancelledByTutor ? 'tutor' : 'estudiante';
+      const subjectName        = session.subject?.name ?? 'Materia';
+      const tutorName          = session.tutor?.user?.name ?? 'Tutor';
  
       const baseData = {
-        subjectName: session.subject?.name ?? 'Materia',
-        date: this.formatDate(session.scheduledDate),
-        startTime: session.startTime, endTime: session.endTime, title: session.title,
+        subjectName,
+        date:               this.formatDate(session.scheduledDate),
+        startTime:          session.startTime,
+        endTime:            session.endTime,
+        title:              session.title,
         cancellationReason: session.cancellationReason ?? 'No especificada',
-        cancelledBy: cancelledByRole, cancelledWithin24h: session.cancelledWithin24h,
-        rescheduleUrl: `${this.frontendUrl}/sessions/schedule`,
+        cancelledBy:        cancelledByRole,
+        cancelledWithin24h: session.cancelledWithin24h,
+        rescheduleUrl:      `${this.frontendUrl}/sessions/schedule`,
       };
  
-      // Resolver todos los emails en una ronda
-      const studentIds    = (session.studentParticipateSessions ?? []).map((p) => p.idStudent);
+      const studentIds = (session.studentParticipateSessions ?? []).map((p) => p.idStudent);
       const [tutorEmail, studentEmails] = await Promise.all([
         this.getUserEmail(session.idTutor),
         this.getUserEmails(studentIds),
       ]);
  
-      // Preparar todas las operaciones (emails + persistencia) y ejecutar en paralelo
-      const operations: Promise<any>[] = [
-        this.resend.emails.send({
-          from: this.fromEmail, to: tutorEmail,
-          subject: `Sesión cancelada — ${session.subject?.name}`,
-          html: this.renderTemplate('session-cancelled', {
-            ...baseData,
-            recipientName: session.tutor?.user?.name ?? 'Tutor',
-            recipientRole: 'tutor',
+      const operations: LabeledOperation[] = [
+        {
+          label:   'email',
+          context: `tutor=${session.idTutor} sesión=${session.idSession}`,
+          promise: this.resend.emails.send({
+            from: this.fromEmail, to: tutorEmail,
+            subject: `Sesión cancelada — ${subjectName}`,
+            html: this.renderTemplate('session-cancelled', {
+              ...baseData,
+              recipientName: tutorName,
+              recipientRole: 'tutor',
+            }),
           }),
-        }),
-        this.persist({
-          userId:  session.idTutor,
-          type:    AppNotificationType.SESSION_CANCELLED,
-          message: `La sesión de ${session.subject?.name} fue cancelada por ${cancelledByRole === 'tutor' ? 'ti' : 'el estudiante'}`,
-          payload: { sessionId: session.idSession },
-        }),
+        },
+        {
+          label:   'persistencia',
+          context: `userId=${session.idTutor} type=SESSION_CANCELLED`,
+          promise: this.appNotifications.create({
+            userId:  session.idTutor,
+            type:    AppNotificationType.SESSION_CANCELLED,
+            // Si él mismo canceló, decimos "tú", si no, nombramos al estudiante
+            message: isCancelledByTutor
+              ? `Cancelaste la sesión de ${subjectName}`
+              : `La sesión de ${subjectName} fue cancelada por el estudiante`,
+            payload: { sessionId: session.idSession },
+          }),
+        },
       ];
  
       for (const participation of session.studentParticipateSessions ?? []) {
         const studentEmail = studentEmails.get(participation.idStudent);
         if (!studentEmail) continue;
  
+        const studentName = participation.student?.user?.name ?? 'Estudiante';
+ 
         operations.push(
-          this.resend.emails.send({
-            from: this.fromEmail, to: studentEmail,
-            subject: `Sesión cancelada — ${session.subject?.name}`,
-            html: this.renderTemplate('session-cancelled', {
-              ...baseData,
-              recipientName: participation.student?.user?.name ?? 'Estudiante',
-              recipientRole: 'estudiante',
+          {
+            label:   'email',
+            context: `estudiante=${participation.idStudent} sesión=${session.idSession}`,
+            promise: this.resend.emails.send({
+              from: this.fromEmail, to: studentEmail,
+              subject: `Sesión cancelada — ${subjectName}`,
+              html: this.renderTemplate('session-cancelled', {
+                ...baseData,
+                recipientName: studentName,
+                recipientRole: 'estudiante',
+              }),
             }),
-          }),
-          this.persist({
-            userId:  participation.idStudent,
-            type:    AppNotificationType.SESSION_CANCELLED,
-            message: `La sesión de ${session.subject?.name} con ${session.tutor?.user?.name ?? 'el tutor'} fue cancelada por ${cancelledByRole === 'estudiante' ? 'ti' : 'el tutor'}`,
-            payload: { sessionId: session.idSession },
-          }),
+          },
+          {
+            label:   'persistencia',
+            context: `userId=${participation.idStudent} type=SESSION_CANCELLED`,
+            promise: this.appNotifications.create({
+              userId:  participation.idStudent,
+              type:    AppNotificationType.SESSION_CANCELLED,
+              message: isCancelledByTutor
+                ? `${tutorName} canceló tu sesión de ${subjectName}`
+                : `Cancelaste tu sesión de ${subjectName} con ${tutorName}`,
+              payload: { sessionId: session.idSession },
+            }),
+          },
         );
       }
  
-      await Promise.allSettled(operations);
+      await this.settleAll(operations);
  
-      this.logger.log(`Emails de cancelación enviados para la sesión ${session.idSession}`);
+      this.logger.log(`[RF-21] Emails de cancelación enviados — sesión ${session.idSession}`);
     } catch (error) {
-      this.logger.error(`Error al enviar emails de cancelación: ${error.message}`, error.stack);
+      this.logger.error(`Error en sendSessionCancellation: ${error.message}`, error.stack);
       throw error;
     }
   }
@@ -457,54 +581,82 @@ export class NotificationsService {
     request: SessionModificationRequest,
   ): Promise<void> {
     try {
-      const isTutor = session.idTutor === requestedBy;
+      const isTutor     = session.idTutor === requestedBy;
+      const subjectName = session.subject?.name ?? 'Materia';
  
       const changes: string[] = [];
-      if (request.newScheduledDate) changes.push(`Fecha: ${this.formatDate(session.scheduledDate)} → ${this.formatDate(request.newScheduledDate)}`);
-      if (request.newStartTime)     changes.push(`Hora de inicio: ${session.startTime} → ${request.newStartTime}`);
-      if (request.newModality)      changes.push(`Modalidad: ${this.translateModality(session.modality)} → ${this.translateModality(request.newModality)}`);
-      if (request.newDurationHours) changes.push(`Duración: ${this.calculateDurationFromEntity(session)}h → ${request.newDurationHours}h`);
+      if (request.newScheduledDate) {
+        changes.push(`Fecha: ${this.formatDate(session.scheduledDate)} → ${this.formatDate(request.newScheduledDate)}`);
+      }
+      if (request.newStartTime) {
+        changes.push(`Hora de inicio: ${session.startTime} → ${request.newStartTime}`);
+      }
+      if (request.newModality) {
+        changes.push(`Modalidad: ${this.translateModality(session.modality)} → ${this.translateModality(request.newModality)}`);
+      }
+      if (request.newDurationHours) {
+        changes.push(`Duración: ${this.calculateDurationFromEntity(session)}h → ${request.newDurationHours}h`);
+      }
  
-      const templateData = {
-        recipientRole: isTutor ? 'estudiante' : 'tutor',
-        requesterRole: isTutor ? 'tutor' : 'estudiante',
-        subjectName:  session.subject?.name ?? 'Materia',
-        currentDate:  this.formatDate(session.scheduledDate),
-        currentTime:  `${session.startTime} - ${session.endTime}`,
-        title: session.title, proposedChanges: changes,
-        expiresAt:  this.formatDateTime(request.expiresAt),
-        acceptUrl: `${this.frontendUrl}/sessions/${session.idSession}/modifications/${request.idRequest}/accept`,
-        rejectUrl: `${this.frontendUrl}/sessions/${session.idSession}/modifications/${request.idRequest}/reject`,
-      };
- 
+      // El destinatario es la contraparte (quien no propuso)
       const recipientId = isTutor
         ? session.studentParticipateSessions?.[0]?.idStudent
         : session.idTutor;
  
       if (!recipientId) {
-        this.logger.warn(`No se encontró destinatario para la modificación de sesión ${session.idSession}`);
+        this.logger.warn(
+          `No se encontró destinatario para la modificación — sesión ${session.idSession}`,
+        );
         return;
       }
  
       const recipientEmail = await this.getUserEmail(recipientId);
  
-      await Promise.allSettled([
-        this.resend.emails.send({
-          from: this.fromEmail, to: recipientEmail,
-          subject: `Propuesta de modificación — ${session.subject?.name}`,
-          html: this.renderTemplate('session-modification-request', templateData),
-        }),
-        this.persist({
-          userId:  recipientId,
-          type:    AppNotificationType.MODIFICATION_REQUEST,
-          message: `${isTutor ? session.tutor?.user?.name ?? 'El tutor' : session.studentParticipateSessions?.[0]?.student?.user?.name ?? 'El estudiante'} propuso modificar la sesión de ${session.subject?.name}`,
-          payload: { sessionId: session.idSession, requestId: request.idRequest },
-        }),
+      // Nombre de quien propone, para el mensaje de la notificación
+      const requesterName = isTutor
+        ? (session.tutor?.user?.name ?? 'El tutor')
+        : (session.studentParticipateSessions?.[0]?.student?.user?.name ?? 'El estudiante');
+ 
+      const htmlContent = this.renderTemplate('session-modification-request', {
+        recipientRole:   isTutor ? 'estudiante' : 'tutor',
+        requesterRole:   isTutor ? 'tutor' : 'estudiante',
+        subjectName,
+        currentDate:     this.formatDate(session.scheduledDate),
+        currentTime:     `${session.startTime} - ${session.endTime}`,
+        title:           session.title,
+        proposedChanges: changes,
+        expiresAt:       this.formatDateTime(request.expiresAt),
+        // idRequest es la PK de SessionModificationRequest
+        acceptUrl: `${this.frontendUrl}/sessions/${session.idSession}/modifications/${request.idRequest}/accept`,
+        rejectUrl: `${this.frontendUrl}/sessions/${session.idSession}/modifications/${request.idRequest}/reject`,
+      });
+ 
+      await this.settleAll([
+        {
+          label:   'email',
+          context: `destinatario=${recipientId} sesión=${session.idSession}`,
+          promise: this.resend.emails.send({
+            from: this.fromEmail, to: recipientEmail,
+            subject: `Propuesta de modificación — ${subjectName}`,
+            html: htmlContent,
+          }),
+        },
+        {
+          label:   'persistencia',
+          context: `userId=${recipientId} type=MODIFICATION_REQUEST`,
+          promise: this.appNotifications.create({
+            userId:  recipientId,
+            type:    AppNotificationType.MODIFICATION_REQUEST,
+            message: `${requesterName} propuso modificar la sesión de ${subjectName}`,
+            // Incluimos requestId para que el frontend construya el link de aceptar/rechazar
+            payload: { sessionId: session.idSession, requestId: request.idRequest },
+          }),
+        },
       ]);
  
-      this.logger.log(`Propuesta de modificación enviada para sesión ${session.idSession}`);
+      this.logger.log(`[RF-22] Propuesta de modificación enviada — sesión ${session.idSession}`);
     } catch (error) {
-      this.logger.error(`Error al enviar propuesta de modificación: ${error.message}`, error.stack);
+      this.logger.error(`Error en sendModificationRequest: ${error.message}`, error.stack);
       throw error;
     }
   }
@@ -519,80 +671,115 @@ export class NotificationsService {
     accepted: boolean,
   ): Promise<void> {
     try {
+      const subjectName    = session.subject?.name ?? 'Materia';
       const requesterEmail = await this.getUserEmail(request.requestedBy);
  
-      const templateData = {
-        accepted, subjectName: session.subject?.name ?? 'Materia', title: session.title,
+      const htmlContent = this.renderTemplate('session-modification-response', {
+        accepted,
+        subjectName,
+        title:        session.title,
         originalDate: this.formatDate(session.scheduledDate),
         originalTime: `${session.startTime} - ${session.endTime}`,
+        // Solo incluimos los nuevos valores si fue aceptada
         ...(accepted && {
-          newDate: request.newScheduledDate ? this.formatDate(request.newScheduledDate) : this.formatDate(session.scheduledDate),
-          newTime: request.newStartTime ? `${request.newStartTime} - ${this.calculateNewEndTime(request)}` : `${session.startTime} - ${session.endTime}`,
-          newModality: request.newModality ? this.translateModality(request.newModality) : null,
+          newDate: request.newScheduledDate
+            ? this.formatDate(request.newScheduledDate)
+            : this.formatDate(session.scheduledDate),
+          newTime: request.newStartTime
+            ? `${request.newStartTime} - ${this.calculateNewEndTime(request)}`
+            : `${session.startTime} - ${session.endTime}`,
+          newModality: request.newModality
+            ? this.translateModality(request.newModality)
+            : null,
         }),
         sessionDetailsUrl: `${this.frontendUrl}/sessions/${session.idSession}`,
-      };
+      });
  
       const notifType = accepted
         ? AppNotificationType.MODIFICATION_ACCEPTED
         : AppNotificationType.MODIFICATION_REJECTED;
  
-      const notifMessage = accepted
-        ? `Tu propuesta de modificación para la sesión de ${session.subject?.name} fue aceptada`
-        : `Tu propuesta de modificación para la sesión de ${session.subject?.name} fue rechazada`;
- 
-      await Promise.allSettled([
-        this.resend.emails.send({
-          from: this.fromEmail, to: requesterEmail,
-          subject: accepted
-            ? `Modificación aceptada — ${session.subject?.name}`
-            : `Modificación rechazada — ${session.subject?.name}`,
-          html: this.renderTemplate('session-modification-response', templateData),
-        }),
-        this.persist({
-          userId:  request.requestedBy,
-          type:    notifType,
-          message: notifMessage,
-          payload: { sessionId: session.idSession, requestId: request.idRequest },
-        }),
+      await this.settleAll([
+        {
+          label:   'email',
+          context: `solicitante=${request.requestedBy} sesión=${session.idSession}`,
+          promise: this.resend.emails.send({
+            from: this.fromEmail, to: requesterEmail,
+            subject: accepted
+              ? `Modificación aceptada — ${subjectName}`
+              : `Modificación rechazada — ${subjectName}`,
+            html: htmlContent,
+          }),
+        },
+        {
+          label:   'persistencia',
+          context: `userId=${request.requestedBy} type=${notifType}`,
+          promise: this.appNotifications.create({
+            userId:  request.requestedBy,
+            type:    notifType,
+            message: accepted
+              ? `Tu propuesta de modificación para la sesión de ${subjectName} fue aceptada`
+              : `Tu propuesta de modificación para la sesión de ${subjectName} fue rechazada`,
+            payload: { sessionId: session.idSession, requestId: request.idRequest },
+          }),
+        },
       ]);
  
-      this.logger.log(`Respuesta de modificación (${accepted ? 'aceptada' : 'rechazada'}) enviada para sesión ${session.idSession}`);
+      this.logger.log(`[RF-22] Respuesta de modificación (${accepted ? 'aceptada' : 'rechazada'}) enviada — sesión ${session.idSession}`);
     } catch (error) {
-      this.logger.error(`Error al enviar respuesta de modificación: ${error.message}`, error.stack);
+      this.logger.error(`Error en sendModificationResponse: ${error.message}`, error.stack);
       throw error;
     }
   }
  
   // =====================================================
-  // RF-22: ACTUALIZACIÓN DE DETALLES
+  // RF-22: ACTUALIZACIÓN DE DETALLES (sin aprobación)
   // =====================================================
  
   async sendSessionDetailsUpdate(session: Session): Promise<void> {
     try {
-      const templateData = {
-        subjectName: session.subject?.name ?? 'Materia',
-        date: this.formatDate(session.scheduledDate),
-        startTime: session.startTime, endTime: session.endTime,
-        newTitle: session.title, newDescription: session.description,
-        newLocation: session.location ?? null, newVirtualLink: session.virtualLink ?? null,
+      const subjectName = session.subject?.name ?? 'Materia';
+      const htmlContent = this.renderTemplate('session-details-updated', {
+        subjectName,
+        date:              this.formatDate(session.scheduledDate),
+        startTime:         session.startTime,
+        endTime:           session.endTime,
+        newTitle:          session.title,
+        newDescription:    session.description,
+        newLocation:       session.location ?? null,
+        newVirtualLink:    session.virtualLink ?? null,
         sessionDetailsUrl: `${this.frontendUrl}/sessions/${session.idSession}`,
-      };
+      });
  
-      const subject     = `Detalles actualizados — ${session.subject?.name}`;
-      const htmlContent = this.renderTemplate('session-details-updated', templateData);
-      const notifMessage = `Los detalles de tu sesión de ${session.subject?.name} fueron actualizados`;
-      const notifPayload = { sessionId: session.idSession };
+      const emailSubject  = `Detalles actualizados — ${subjectName}`;
+      const notifMessage  = `Los detalles de tu sesión de ${subjectName} fueron actualizados`;
+      const notifPayload  = { sessionId: session.idSession };
  
-      const studentIds    = (session.studentParticipateSessions ?? []).map((p) => p.idStudent);
+      const studentIds = (session.studentParticipateSessions ?? []).map((p) => p.idStudent);
       const [tutorEmail, studentEmails] = await Promise.all([
         this.getUserEmail(session.idTutor),
         this.getUserEmails(studentIds),
       ]);
  
-      const operations: Promise<any>[] = [
-        this.resend.emails.send({ from: this.fromEmail, to: tutorEmail, subject, html: htmlContent }),
-        this.persist({ userId: session.idTutor, type: AppNotificationType.SESSION_DETAILS_UPDATED, message: notifMessage, payload: notifPayload }),
+      const operations: LabeledOperation[] = [
+        {
+          label:   'email',
+          context: `tutor=${session.idTutor} sesión=${session.idSession}`,
+          promise: this.resend.emails.send({
+            from: this.fromEmail, to: tutorEmail,
+            subject: emailSubject, html: htmlContent,
+          }),
+        },
+        {
+          label:   'persistencia',
+          context: `userId=${session.idTutor} type=SESSION_DETAILS_UPDATED`,
+          promise: this.appNotifications.create({
+            userId:  session.idTutor,
+            type:    AppNotificationType.SESSION_DETAILS_UPDATED,
+            message: notifMessage,
+            payload: notifPayload,
+          }),
+        },
       ];
  
       for (const participation of session.studentParticipateSessions ?? []) {
@@ -600,22 +787,43 @@ export class NotificationsService {
         if (!studentEmail) continue;
  
         operations.push(
-          this.resend.emails.send({ from: this.fromEmail, to: studentEmail, subject, html: htmlContent }),
-          this.persist({ userId: participation.idStudent, type: AppNotificationType.SESSION_DETAILS_UPDATED, message: notifMessage, payload: notifPayload }),
+          {
+            label:   'email',
+            context: `estudiante=${participation.idStudent} sesión=${session.idSession}`,
+            promise: this.resend.emails.send({
+              from: this.fromEmail, to: studentEmail,
+              subject: emailSubject, html: htmlContent,
+            }),
+          },
+          {
+            label:   'persistencia',
+            context: `userId=${participation.idStudent} type=SESSION_DETAILS_UPDATED`,
+            promise: this.appNotifications.create({
+              userId:  participation.idStudent,
+              type:    AppNotificationType.SESSION_DETAILS_UPDATED,
+              message: notifMessage,
+              payload: notifPayload,
+            }),
+          },
         );
       }
  
-      await Promise.allSettled(operations);
+      await this.settleAll(operations);
  
-      this.logger.log(`Notificación de actualización de detalles enviada para sesión ${session.idSession}`);
+      this.logger.log(`[RF-22] Actualización de detalles notificada — sesión ${session.idSession}`);
     } catch (error) {
-      this.logger.error(`Error al enviar notificación de actualización de detalles: ${error.message}`, error.stack);
+      this.logger.error(`Error en sendSessionDetailsUpdate: ${error.message}`, error.stack);
       throw error;
     }
   }
  
   // =====================================================
   // RF-26: RECORDATORIOS DE SESIÓN
+  //
+  // Recibe el DTO mapeado (session: any):
+  //   session.id       → idSession
+  //   session.tutor.id → idUser del tutor
+  //   session.participants[i].id → idUser del estudiante
   // =====================================================
  
   async sendSessionReminder(
@@ -623,9 +831,8 @@ export class NotificationsService {
     reminderType: '24_HOURS_BEFORE' | '2_HOURS_BEFORE',
   ): Promise<void> {
     try {
-      const is24Hours        = reminderType === '24_HOURS_BEFORE';
-      const timeUntilSession = is24Hours ? '24 horas' : '2 horas';
-      const notifType        = is24Hours
+      const is24Hours  = reminderType === '24_HOURS_BEFORE';
+      const notifType  = is24Hours
         ? AppNotificationType.SESSION_REMINDER_24H
         : AppNotificationType.SESSION_REMINDER_2H;
       const notifMessage = is24Hours
@@ -633,15 +840,20 @@ export class NotificationsService {
         : `En 2 horas tienes sesión de ${session.subject.name} a las ${session.startTime}`;
  
       const baseData = {
-        subjectName: session.subject.name,
-        date: this.formatDate(session.scheduledDate),
-        startTime: session.startTime, endTime: session.endTime,
-        modality: this.translateModality(session.modality),
-        location: session.location ?? null, virtualLink: session.virtualLink ?? null,
-        title: session.title, description: session.description,
-        timeUntilSession, is24Hours, is2Hours: !is24Hours,
+        subjectName:       session.subject.name,
+        date:              this.formatDate(session.scheduledDate),
+        startTime:         session.startTime,
+        endTime:           session.endTime,
+        modality:          this.translateModality(session.modality),
+        location:          session.location ?? null,
+        virtualLink:       session.virtualLink ?? null,
+        title:             session.title,
+        description:       session.description,
+        timeUntilSession:  is24Hours ? '24 horas' : '2 horas',
+        is24Hours,
+        is2Hours:          !is24Hours,
         sessionDetailsUrl: `${this.frontendUrl}/sessions/${session.id}`,
-        cancelUrl: `${this.frontendUrl}/sessions/${session.id}/cancel`,
+        cancelUrl:         `${this.frontendUrl}/sessions/${session.id}/cancel`,
       };
  
       const reminderSubject = is24Hours
@@ -654,21 +866,30 @@ export class NotificationsService {
         this.getUserEmails(participantIds),
       ]);
  
-      const operations: Promise<any>[] = [
-        this.resend.emails.send({
-          from: this.fromEmail, to: tutorEmail, subject: reminderSubject,
-          html: this.renderTemplate('session-reminder', {
-            ...baseData,
-            recipientName: session.tutor.name, recipientRole: 'tutor',
-            counterpartName: session.participants[0]?.name ?? 'Estudiante',
+      const operations: LabeledOperation[] = [
+        {
+          label:   'email',
+          context: `tutor=${session.tutor.id} tipo=${reminderType}`,
+          promise: this.resend.emails.send({
+            from: this.fromEmail, to: tutorEmail, subject: reminderSubject,
+            html: this.renderTemplate('session-reminder', {
+              ...baseData,
+              recipientName:   session.tutor.name,
+              recipientRole:   'tutor',
+              counterpartName: session.participants[0]?.name ?? 'Estudiante',
+            }),
           }),
-        }),
-        this.persist({
-          userId:  session.tutor.id,
-          type:    notifType,
-          message: notifMessage,
-          payload: { sessionId: session.id },
-        }),
+        },
+        {
+          label:   'persistencia',
+          context: `userId=${session.tutor.id} type=${notifType}`,
+          promise: this.appNotifications.create({
+            userId:  session.tutor.id,
+            type:    notifType,
+            message: notifMessage,
+            payload: { sessionId: session.id },
+          }),
+        },
       ];
  
       for (const participant of session.participants) {
@@ -676,28 +897,37 @@ export class NotificationsService {
         if (!studentEmail) continue;
  
         operations.push(
-          this.resend.emails.send({
-            from: this.fromEmail, to: studentEmail, subject: reminderSubject,
-            html: this.renderTemplate('session-reminder', {
-              ...baseData,
-              recipientName: participant.name, recipientRole: 'estudiante',
-              counterpartName: session.tutor.name,
+          {
+            label:   'email',
+            context: `estudiante=${participant.id} tipo=${reminderType}`,
+            promise: this.resend.emails.send({
+              from: this.fromEmail, to: studentEmail, subject: reminderSubject,
+              html: this.renderTemplate('session-reminder', {
+                ...baseData,
+                recipientName:   participant.name,
+                recipientRole:   'estudiante',
+                counterpartName: session.tutor.name,
+              }),
             }),
-          }),
-          this.persist({
-            userId:  participant.id,
-            type:    notifType,
-            message: notifMessage,
-            payload: { sessionId: session.id },
-          }),
+          },
+          {
+            label:   'persistencia',
+            context: `userId=${participant.id} type=${notifType}`,
+            promise: this.appNotifications.create({
+              userId:  participant.id,
+              type:    notifType,
+              message: notifMessage,
+              payload: { sessionId: session.id },
+            }),
+          },
         );
       }
  
-      await Promise.allSettled(operations);
+      await this.settleAll(operations);
  
-      this.logger.log(`Recordatorio (${reminderType}) enviado para sesión ${session.id}`);
+      this.logger.log(`[RF-26] Recordatorio (${reminderType}) enviado — sesión ${session.id}`);
     } catch (error) {
-      this.logger.error(`Error al enviar recordatorio de sesión: ${error.message}`, error.stack);
+      this.logger.error(`Error en sendSessionReminder: ${error.message}`, error.stack);
       throw error;
     }
   }
@@ -709,12 +939,14 @@ export class NotificationsService {
   async sendEvaluationPendingReminder(
     session: any,
     studentId: string,
-    isReminder: boolean = false,
+    isReminder = false,
   ): Promise<void> {
     try {
       const student = session.participants.find((p: any) => p.id === studentId);
       if (!student) {
-        this.logger.warn(`Estudiante ${studentId} no encontrado en los participantes de la sesión ${session.id}`);
+        this.logger.warn(
+          `Estudiante ${studentId} no encontrado en participantes de la sesión ${session.id}`,
+        );
         return;
       }
  
@@ -722,117 +954,154 @@ export class NotificationsService {
       const notifType    = isReminder
         ? AppNotificationType.EVALUATION_REMINDER
         : AppNotificationType.EVALUATION_PENDING;
-      const notifMessage = isReminder
-        ? `Recordatorio: aún no has calificado tu sesión de ${session.subject.name} con ${session.tutor.name}`
-        : `Califica tu sesión de ${session.subject.name} con ${session.tutor.name}`;
  
-      const templateData = {
-        studentName: student.name, tutorName: session.tutor.name, subjectName: session.subject.name,
-        sessionDate: this.formatDate(session.scheduledDate), sessionTime: session.startTime,
-        title: session.title, isReminder,
-        evaluationUrl: `${this.frontendUrl}/sessions/${session.id}/evaluate`,
-      };
- 
-      await Promise.allSettled([
-        this.resend.emails.send({
-          from: this.fromEmail, to: studentEmail,
-          subject: isReminder
-            ? `Recordatorio: califica tu sesión de ${session.subject.name}`
-            : `Califica tu sesión de tutoría — ${session.subject.name}`,
-          html: this.renderTemplate('evaluation-pending', templateData),
-        }),
-        this.persist({
-          userId:  studentId,
-          type:    notifType,
-          message: notifMessage,
-          payload: { sessionId: session.id },
-        }),
+      await this.settleAll([
+        {
+          label:   'email',
+          context: `estudiante=${studentId} sesión=${session.id} isReminder=${isReminder}`,
+          promise: this.resend.emails.send({
+            from: this.fromEmail, to: studentEmail,
+            subject: isReminder
+              ? `Recordatorio: califica tu sesión de ${session.subject.name}`
+              : `Califica tu sesión de tutoría — ${session.subject.name}`,
+            html: this.renderTemplate('evaluation-pending', {
+              studentName:  student.name,
+              tutorName:    session.tutor.name,
+              subjectName:  session.subject.name,
+              sessionDate:  this.formatDate(session.scheduledDate),
+              sessionTime:  session.startTime,
+              title:        session.title,
+              isReminder,
+              evaluationUrl: `${this.frontendUrl}/sessions/${session.id}/evaluate`,
+            }),
+          }),
+        },
+        {
+          label:   'persistencia',
+          context: `userId=${studentId} type=${notifType}`,
+          promise: this.appNotifications.create({
+            userId:  studentId,
+            type:    notifType,
+            message: isReminder
+              ? `Aún no has calificado tu sesión de ${session.subject.name} con ${session.tutor.name}`
+              : `Califica tu sesión de ${session.subject.name} con ${session.tutor.name}`,
+            payload: { sessionId: session.id },
+          }),
+        },
       ]);
  
-      this.logger.log(`${isReminder ? 'Recordatorio' : 'Notificación'} de evaluación enviado a ${studentEmail} — sesión ${session.id}`);
+      this.logger.log(`[RF-27] ${isReminder ? 'Recordatorio' : 'Notificación'} de evaluación enviado a ${studentEmail} — sesión ${session.id}`);
     } catch (error) {
-      this.logger.error(`Error al enviar notificación de evaluación pendiente: ${error.message}`, error.stack);
+      this.logger.error(`Error en sendEvaluationPendingReminder: ${error.message}`, error.stack);
       throw error;
     }
   }
  
   // =====================================================
   // RF-28: CAMBIO DE DISPONIBILIDAD DEL TUTOR
+  //
+  // Este método recibe studentEmail ya resuelto por el DTO del controller,
+  // por lo que no necesita consultar UserService.
   // =====================================================
  
   async sendAvailabilityChangeNotification(
     tutorId: string,
     tutorName: string,
     affectedSessions: Array<{
-      sessionId: string; studentId: string; studentName: string; studentEmail: string;
-      subjectName: string; scheduledDate: Date; startTime: string; endTime: string;
-      title: string; changeType: 'CANCELLED' | 'MODIFIED' | 'SLOT_DELETED';
+      sessionId: string;
+      studentId: string;
+      studentName: string;
+      studentEmail: string;
+      subjectName: string;
+      scheduledDate: Date;
+      startTime: string;
+      endTime: string;
+      title: string;
+      changeType: 'CANCELLED' | 'MODIFIED' | 'SLOT_DELETED';
     }>,
     changeReason?: string,
   ): Promise<void> {
     try {
-      const operations: Promise<any>[] = [];
+      const subjectMap: Record<string, string> = {
+        CANCELLED:    'Sesión cancelada',
+        MODIFIED:     'Sesión modificada',
+        SLOT_DELETED: 'Cambio en disponibilidad',
+      };
+ 
+      const notifMessageMap = (affected: typeof affectedSessions[0]): string => ({
+        CANCELLED:    `Tu sesión de ${affected.subjectName} con ${tutorName} fue cancelada por cambio de disponibilidad`,
+        MODIFIED:     `Tu sesión de ${affected.subjectName} con ${tutorName} fue modificada por cambio de disponibilidad`,
+        SLOT_DELETED: `La disponibilidad de ${tutorName} para tu sesión de ${affected.subjectName} fue eliminada`,
+      }[affected.changeType]);
+ 
+      const operations: LabeledOperation[] = [];
  
       for (const affected of affectedSessions) {
-        const templateData = {
-          studentName: affected.studentName, tutorName, subjectName: affected.subjectName,
-          originalDate: this.formatDate(affected.scheduledDate),
-          originalTime: `${affected.startTime} - ${affected.endTime}`,
-          title: affected.title, changeType: affected.changeType,
-          isCancelled: affected.changeType === 'CANCELLED',
-          isModified:  affected.changeType === 'MODIFIED',
-          isSlotDeleted: affected.changeType === 'SLOT_DELETED',
-          changeReason: changeReason ?? 'No especificada',
-          rescheduleUrl:   `${this.frontendUrl}/sessions/schedule`,
+        const htmlContent = this.renderTemplate('availability-changed', {
+          studentName:    affected.studentName,
+          tutorName,
+          subjectName:    affected.subjectName,
+          originalDate:   this.formatDate(affected.scheduledDate),
+          originalTime:   `${affected.startTime} - ${affected.endTime}`,
+          title:          affected.title,
+          changeType:     affected.changeType,
+          isCancelled:    affected.changeType === 'CANCELLED',
+          isModified:     affected.changeType === 'MODIFIED',
+          isSlotDeleted:  affected.changeType === 'SLOT_DELETED',
+          changeReason:   changeReason ?? 'No especificada',
+          rescheduleUrl:  `${this.frontendUrl}/sessions/schedule`,
           tutorProfileUrl: `${this.frontendUrl}/tutors/${tutorId}`,
-        };
- 
-        const subjectMap: Record<string, string> = {
-          CANCELLED:    `Sesión cancelada — ${affected.subjectName}`,
-          MODIFIED:     `Sesión modificada — ${affected.subjectName}`,
-          SLOT_DELETED: `Cambio en disponibilidad — ${affected.subjectName}`,
-        };
- 
-        const notifMessageMap: Record<string, string> = {
-          CANCELLED:    `Tu sesión de ${affected.subjectName} con ${tutorName} fue cancelada por cambio de disponibilidad`,
-          MODIFIED:     `Tu sesión de ${affected.subjectName} con ${tutorName} fue modificada por cambio de disponibilidad`,
-          SLOT_DELETED: `La disponibilidad de ${tutorName} para tu sesión de ${affected.subjectName} fue eliminada`,
-        };
+        });
  
         operations.push(
-          this.resend.emails.send({
-            from: this.fromEmail, to: affected.studentEmail,
-            subject: subjectMap[affected.changeType],
-            html: this.renderTemplate('availability-changed', templateData),
-          }),
-          this.persist({
-            userId:  affected.studentId,
-            type:    AppNotificationType.AVAILABILITY_CHANGED,
-            message: notifMessageMap[affected.changeType],
-            payload: { sessionId: affected.sessionId },
-          }),
+          {
+            label:   'email',
+            context: `estudiante=${affected.studentId} sesión=${affected.sessionId} changeType=${affected.changeType}`,
+            promise: this.resend.emails.send({
+              from: this.fromEmail, to: affected.studentEmail,
+              subject: `${subjectMap[affected.changeType]} — ${affected.subjectName}`,
+              html: htmlContent,
+            }),
+          },
+          {
+            label:   'persistencia',
+            context: `userId=${affected.studentId} type=AVAILABILITY_CHANGED`,
+            promise: this.appNotifications.create({
+              userId:  affected.studentId,
+              type:    AppNotificationType.AVAILABILITY_CHANGED,
+              message: notifMessageMap(affected),
+              payload: { sessionId: affected.sessionId },
+            }),
+          },
         );
       }
  
-      await Promise.allSettled(operations);
+      await this.settleAll(operations);
  
-      this.logger.log(`Notificaciones de cambio de disponibilidad enviadas para ${affectedSessions.length} sesiones`);
+      this.logger.log(`[RF-28] Notificaciones de cambio de disponibilidad enviadas — ${affectedSessions.length} sesiones afectadas`);
     } catch (error) {
-      this.logger.error(`Error al enviar notificaciones de cambio de disponibilidad: ${error.message}`, error.stack);
+      this.logger.error(`Error en sendAvailabilityChangeNotification: ${error.message}`, error.stack);
       throw error;
     }
   }
  
   // =====================================================
   // RF-29: ALERTA DE LÍMITE DE HORAS
+  //
+  // tutorEmail viene resuelto desde el DTO — no necesita UserService.
   // =====================================================
  
   async sendHourLimitAlert(
-    tutorId: string, tutorName: string, tutorEmail: string,
-    weeklyHourLimit: number, hoursUsed: number, usagePercentage: number,
+    tutorId: string,
+    tutorName: string,
+    tutorEmail: string,
+    weeklyHourLimit: number,
+    hoursUsed: number,
+    usagePercentage: number,
   ): Promise<void> {
     try {
       const hoursRemaining = weeklyHourLimit - hoursUsed;
+ 
       let alertLevel: '80_PERCENT' | '95_PERCENT' | '100_PERCENT';
       let urgencyLevel: 'warning' | 'urgent' | 'critical';
  
@@ -840,19 +1109,20 @@ export class NotificationsService {
       else if (usagePercentage >= 95) { alertLevel = '95_PERCENT';  urgencyLevel = 'urgent'; }
       else                            { alertLevel = '80_PERCENT';  urgencyLevel = 'warning'; }
  
-      const templateData = {
-        tutorName, weeklyHourLimit,
+      const htmlContent = this.renderTemplate('hour-limit-alert', {
+        tutorName,
+        weeklyHourLimit,
         hoursUsed:       hoursUsed.toFixed(1),
         hoursRemaining:  hoursRemaining.toFixed(1),
         usagePercentage: usagePercentage.toFixed(0),
         alertLevel, urgencyLevel,
-        is80Percent:  alertLevel === '80_PERCENT',
-        is95Percent:  alertLevel === '95_PERCENT',
-        is100Percent: alertLevel === '100_PERCENT',
+        is80Percent:   alertLevel === '80_PERCENT',
+        is95Percent:   alertLevel === '95_PERCENT',
+        is100Percent:  alertLevel === '100_PERCENT',
         canAcceptMore: usagePercentage < 100,
-        sessionsUrl: `${this.frontendUrl}/tutor/sessions`,
-        settingsUrl: `${this.frontendUrl}/tutor/settings`,
-      };
+        sessionsUrl:   `${this.frontendUrl}/tutor/sessions`,
+        settingsUrl:   `${this.frontendUrl}/tutor/settings`,
+      });
  
       const subjectMap: Record<string, string> = {
         '100_PERCENT': 'Límite semanal alcanzado — no puedes aceptar más sesiones',
@@ -866,29 +1136,38 @@ export class NotificationsService {
         '80_PERCENT':  `Usaste el 80% de tu límite semanal (${hoursUsed.toFixed(1)}/${weeklyHourLimit}h)`,
       };
  
-      await Promise.allSettled([
-        this.resend.emails.send({
-          from: this.fromEmail, to: tutorEmail,
-          subject: subjectMap[alertLevel],
-          html: this.renderTemplate('hour-limit-alert', templateData),
-        }),
-        this.persist({
-          userId:  tutorId,
-          type:    AppNotificationType.HOUR_LIMIT_ALERT,
-          message: notifMessageMap[alertLevel],
-          payload: { alertLevel },
-        }),
+      await this.settleAll([
+        {
+          label:   'email',
+          context: `tutor=${tutorId} alertLevel=${alertLevel}`,
+          promise: this.resend.emails.send({
+            from: this.fromEmail, to: tutorEmail,
+            subject: subjectMap[alertLevel],
+            html: htmlContent,
+          }),
+        },
+        {
+          label:   'persistencia',
+          context: `userId=${tutorId} type=HOUR_LIMIT_ALERT alertLevel=${alertLevel}`,
+          promise: this.appNotifications.create({
+            userId:  tutorId,
+            type:    AppNotificationType.HOUR_LIMIT_ALERT,
+            message: notifMessageMap[alertLevel],
+            payload: { alertLevel },
+          }),
+        },
       ]);
  
-      this.logger.log(`Alerta de límite de horas (${alertLevel}) enviada al tutor ${tutorEmail}`);
+      this.logger.log(`[RF-29] Alerta de límite de horas (${alertLevel}) enviada al tutor ${tutorEmail}`);
     } catch (error) {
-      this.logger.error(`Error al enviar alerta de límite de horas: ${error.message}`, error.stack);
+      this.logger.error(`Error en sendHourLimitAlert: ${error.message}`, error.stack);
       throw error;
     }
   }
  
   // =====================================================
   // RF-25: SESIÓN COLABORATIVA — Difusión a interesados
+  // (sin persistencia individual: no tenemos userId, solo email)
   // =====================================================
  
   async sendCollaborativeSessionAnnouncement(
@@ -900,17 +1179,20 @@ export class NotificationsService {
       return;
     }
  
-    const templateData = {
-      tutorName: session.tutor.name, subjectName: session.subject.name,
-      date: this.formatDate(session.scheduledDate),
-      startTime: session.startTime, endTime: session.endTime, duration: session.duration,
-      modality: this.translateModality(session.modality),
-      title: session.title, description: session.description,
-      joinUrl: `${this.frontendUrl}/sessions/${session.id}/join`,
-    };
+    const htmlContent = this.renderTemplate('collaborative-session-available', {
+      tutorName:   session.tutor.name,
+      subjectName: session.subject.name,
+      date:        this.formatDate(session.scheduledDate),
+      startTime:   session.startTime,
+      endTime:     session.endTime,
+      duration:    session.duration,
+      modality:    this.translateModality(session.modality),
+      title:       session.title,
+      description: session.description,
+      joinUrl:     `${this.frontendUrl}/sessions/${session.id}/join`,
+    });
  
-    const htmlContent = this.renderTemplate('collaborative-session-available', templateData);
- 
+    // Difusión: un fallo individual no aborta al resto
     for (const email of interestedStudentEmails) {
       try {
         await this.resend.emails.send({
@@ -918,14 +1200,14 @@ export class NotificationsService {
           subject: `Nueva sesión colaborativa disponible: ${session.subject.name}`,
           html: htmlContent,
         });
-        // Nota: para la persistencia de anuncios colaborativos necesitaríamos el userId
-        // de cada estudiante, no solo el email. Pendiente cuando se implemente el módulo colaborativo.
       } catch (err) {
         this.logger.error(`Error enviando anuncio colaborativo a ${email}: ${err.message}`);
       }
     }
  
-    this.logger.log(`Anuncio colaborativo ${session.id} enviado a ${interestedStudentEmails.length} estudiantes`);
+    this.logger.log(
+      `[RF-25] Anuncio colaborativo ${session.id} enviado a ${interestedStudentEmails.length} estudiantes`,
+    );
   }
  
   // =====================================================
@@ -933,34 +1215,72 @@ export class NotificationsService {
   // =====================================================
  
   /**
-   * Persiste una notificación en BD de forma silenciosa.
-   * Un fallo aquí se registra en el log pero nunca interrumpe el flujo.
+   * Ejecuta un conjunto de operaciones etiquetadas con Promise.allSettled
+   * e inspecciona cada resultado para loggear con contexto exacto qué falló.
+   *
+   * Diseño intencional:
+   *   - Email y persistencia son INDEPENDIENTES: si uno falla, el otro no se cancela.
+   *   - Un fallo de persistencia NUNCA relanza el error (es secundario al email).
+   *   - Un fallo de email SÍ relanza el error (es la operación principal).
+   *
+   * Así el llamante puede hacer try/catch sobre el método público sabiendo que
+   * si llega al catch, fue el email lo que falló, no la BD.
    */
-  private async persist(input: Parameters<AppNotificationsService['create']>[0]): Promise<void> {
-    try {
-      await this.appNotifications.create(input);
-    } catch (error) {
-      this.logger.error(
-        `Error al persistir notificación (tipo=${input.type} userId=${input.userId}): ${error.message}`,
-      );
-      // Intencional: no re-lanzar. El email ya se envió; la persistencia es secundaria.
+  private async settleAll(operations: LabeledOperation[]): Promise<void> {
+    const results = await Promise.allSettled(operations.map((op) => op.promise));
+ 
+    let emailFailed        = false;
+    let emailFailedReason: any;
+ 
+    results.forEach((result, index) => {
+      const op = operations[index];
+ 
+      if (result.status === 'rejected') {
+        this.logger.error(
+          `Fallo en operación [${op.label}] | contexto: ${op.context} | razón: ${result.reason?.message ?? result.reason}`,
+          result.reason?.stack,
+        );
+ 
+        if (op.label === 'email') {
+          emailFailed       = true;
+          emailFailedReason = result.reason;
+        }
+        // Si es 'persistencia', solo loggeamos — no propagamos.
+      }
+    });
+ 
+    // Solo relanzamos si fue el email el que falló
+    if (emailFailed) {
+      throw emailFailedReason;
     }
   }
  
   private async getUserEmail(userId: string): Promise<string> {
     const user = await this.usersService.findById(userId);
-    if (!user) throw new NotFoundException(`Usuario con ID ${userId} no encontrado`);
+    if (!user) {
+      throw new NotFoundException(
+        `Usuario con ID ${userId} no encontrado — no se puede determinar el email`,
+      );
+    }
     return user.email;
   }
  
   private async getUserEmails(userIds: string[]): Promise<Map<string, string>> {
     if (!userIds.length) return new Map();
+ 
     const users    = await this.usersService.findByIds(userIds);
     const emailMap = new Map<string, string>();
-    for (const user of users) emailMap.set(user.idUser, user.email);
-    for (const id of userIds) {
-      if (!emailMap.has(id)) this.logger.warn(`Usuario con ID ${id} no encontrado al resolver emails en batch`);
+ 
+    for (const user of users) {
+      emailMap.set(user.idUser, user.email);
     }
+ 
+    for (const id of userIds) {
+      if (!emailMap.has(id)) {
+        this.logger.warn(`Usuario con ID ${id} no encontrado al resolver emails en batch`);
+      }
+    }
+ 
     return emailMap;
   }
  
@@ -970,9 +1290,7 @@ export class NotificationsService {
         process.cwd(), 'src', 'modules', 'notifications', 'templates', `${templateName}.hbs`,
       );
       const templateContent = fs.readFileSync(templatePath, 'utf-8');
-      Handlebars.registerHelper('eq', (a: any, b: any) => a === b);
-      const template = Handlebars.compile(templateContent);
-      return template(data);
+      return Handlebars.compile(templateContent)(data);
     } catch (error) {
       this.logger.error(`Error al renderizar template "${templateName}": ${error.message}`);
       return this.generatePlainTextFallback(templateName, data);
@@ -987,7 +1305,8 @@ export class NotificationsService {
  
   private formatDateTime(date: Date | string): string {
     return new Intl.DateTimeFormat('es-CO', {
-      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit',
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+      hour: '2-digit', minute: '2-digit',
     }).format(new Date(date));
   }
  
@@ -996,15 +1315,15 @@ export class NotificationsService {
   }
  
   private calculateDurationFromEntity(session: Session): number {
-    const toMinutes = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
-    return (toMinutes(session.endTime) - toMinutes(session.startTime)) / 60;
+    const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+    return (toMin(session.endTime) - toMin(session.startTime)) / 60;
   }
  
   private calculateNewEndTime(request: SessionModificationRequest): string {
     if (!request.newStartTime || !request.newDurationHours) return '';
-    const [h, m]       = request.newStartTime.split(':').map(Number);
-    const totalMinutes = h * 60 + m + request.newDurationHours * 60;
-    return `${String(Math.floor(totalMinutes / 60)).padStart(2, '0')}:${String(totalMinutes % 60).padStart(2, '0')}`;
+    const [h, m]   = request.newStartTime.split(':').map(Number);
+    const total    = h * 60 + m + request.newDurationHours * 60;
+    return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
   }
  
   private generatePlainTextFallback(templateName: string, data: any): string {
