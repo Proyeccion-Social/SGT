@@ -1,22 +1,30 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { EvaluationController } from './controllers/evaluation.controller';
-import { TutorRatingsController } from './controllers/tutor-ratings.controller';
+import { AuthModule } from '../auth/auth.module';
+import { SessionExecutionController } from './controllers/session-execution.controller';
+import { AttendanceService } from './services/attendance.service';
 import { EvaluationService } from './services/evaluation.service';
-import { RatingQueryService } from './services/rating-query.service';
+import { QuestionCatalogBootstrapService } from './services/question-catalog-bootstrap.service';
 import { Question } from './entities/question.entity';
 import { Answer } from './entities/answer.entity';
+import { Session } from '../scheduling/entities/session.entity';
+import { StudentParticipateSession } from '../scheduling/entities/student-participate-session.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Question, Answer], 'local'),
+    TypeOrmModule.forFeature(
+      [Question, Answer, Session, StudentParticipateSession],
+      'local',
+    ),
+    AuthModule,
   ],
-  controllers: [
-    EvaluationController,
-    TutorRatingsController,
+  controllers: [SessionExecutionController],
+  providers: [
+    AttendanceService,
+    EvaluationService,
+    QuestionCatalogBootstrapService,
   ],
-  providers: [EvaluationService, RatingQueryService],
   exports: [TypeOrmModule, EvaluationService],
 })
-export class EvaluationModule {}
+export class SessionExecutionModule {}
 

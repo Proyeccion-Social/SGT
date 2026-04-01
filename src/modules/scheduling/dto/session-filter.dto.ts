@@ -5,6 +5,7 @@ export enum SessionStatusFilter {
   SCHEDULED = 'SCHEDULED',
   COMPLETED = 'COMPLETED',
   CANCELLED = 'CANCELLED',
+  NO_SHOW = 'NO_SHOW', //sessiones COMPLETED donde el estado del estudiante fue ABSENT
 }
 
 export class SessionFilterDto extends PaginationDto {
