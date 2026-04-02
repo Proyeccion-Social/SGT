@@ -1,0 +1,26 @@
+
+> atlas-sgt@0.0.1 seed C:\Users\crisc\Development\UD\SGT\backend\backend2\SGT
+> ts-node src/seeders/index.ts
+
+[dotenv@17.3.1] injecting env (13) from .env -- tip: 🛡️ auth for agents: https://vestauth.com
+C:\Users\crisc\Development\UD\SGT\backend\backend2\SGT\node_modules\.pnpm\ts-node@10.9.2_@types+node@22.19.15_typescript@5.9.3\node_modules\ts-node\src\index.ts:859
+    return new TSError(diagnosticText, diagnosticCodes, diagnostics);
+           ^
+TSError: ⨯ Unable to compile TypeScript:
+src/seeders/auth.seeder.ts(40,81): error TS2322: Type '{ user: { id_session: string; }; }' is not assignable to type 'FindOptionsWhere<Session> | FindOptionsWhere<Session>[] | undefined'.
+  Types of property 'user' are incompatible.
+    Object literal may only specify known properties, and 'id_session' does not exist in type 'User | FindOptionsWhere<User> | FindOperator<any> | FindOptionsWhere<User>[] | EqualOperator<User>'.
+
+    at createTSError (C:\Users\crisc\Development\UD\SGT\backend\backend2\SGT\node_modules\.pnpm\ts-node@10.9.2_@types+node@22.19.15_typescript@5.9.3\node_modules\ts-node\src\index.ts:859:12)
+    at reportTSError (C:\Users\crisc\Development\UD\SGT\backend\backend2\SGT\node_modules\.pnpm\ts-node@10.9.2_@types+node@22.19.15_typescript@5.9.3\node_modules\ts-node\src\index.ts:863:19)
+    at getOutput (C:\Users\crisc\Development\UD\SGT\backend\backend2\SGT\node_modules\.pnpm\ts-node@10.9.2_@types+node@22.19.15_typescript@5.9.3\node_modules\ts-node\src\index.ts:1077:36)
+    at Object.compile (C:\Users\crisc\Development\UD\SGT\backend\backend2\SGT\node_modules\.pnpm\ts-node@10.9.2_@types+node@22.19.15_typescript@5.9.3\node_modules\ts-node\src\index.ts:1433:41)
+    at Module.m._compile (C:\Users\crisc\Development\UD\SGT\backend\backend2\SGT\node_modules\.pnpm\ts-node@10.9.2_@types+node@22.19.15_typescript@5.9.3\node_modules\ts-node\src\index.ts:1617:30)
+    at node:internal/modules/cjs/loader:1895:10
+    at Object.require.extensions.<computed> [as .ts] (C:\Users\crisc\Development\UD\SGT\backend\backend2\SGT\node_modules\.pnpm\ts-node@10.9.2_@types+node@22.19.15_typescript@5.9.3\node_modules\ts-node\src\index.ts:1621:12)
+    at Module.load (node:internal/modules/cjs/loader:1465:32)
+    at Function._load (node:internal/modules/cjs/loader:1282:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14) {
+  diagnosticCodes: [ 2322 ]
+}
+ ELIFECYCLE  Command failed with exit code 1.

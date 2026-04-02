@@ -1,5 +1,6 @@
-/*import { DataSource } from 'typeorm';
+import { DataSource } from 'typeorm';
 import * as dotenv from 'dotenv';
+import { join } from 'path';
 
 dotenv.config();
 
@@ -11,9 +12,9 @@ export const AppDataSource = new DataSource({
     password: process.env.LOCAL_DB_PASSWORD,
     database: process.env.LOCAL_DB_NAME,
 
-    synchronize: false,
+    synchronize: true,
     logging: process.env.NODE_ENV === 'development',
 
-    //entities: ['src/**///entities/*.entity.{ts,js}'],*/
-    //migrations: ['src/migrations/*.ts'],
-//});
+    entities: [join(__dirname, '../modules/**/entities/*.entity{.ts,.js}')],
+    migrations: [join(__dirname, '../migrations/*.ts')],
+});
