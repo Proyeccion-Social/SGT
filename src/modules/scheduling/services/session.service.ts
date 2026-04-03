@@ -830,30 +830,39 @@ export class SessionService {
 }
 
   async getMySessionsAsTutor(tutorId: string, filters: SessionFilterDto) {
-    const { page = 1, limit = 10, status } = filters;
-    const offset = (page - 1) * limit;
-    const statuses = this.resolveStatusFilter(status);
+  const { page = 1, limit = 10, status } = filters;
+  const offset = (page - 1) * limit;
+  
+  // CORRECCIÓN: Extrae las propiedades como en el método del Student
+  const { statuses, isNoShow } = this.resolveStatusFilter(status);
 
-    const qb = this.sessionRepository
-      .createQueryBuilder('session')
-      .innerJoinAndSelect('session.tutor', 'tutor')
-      .innerJoinAndSelect('tutor.user', 'tutorUser')
-      .innerJoinAndSelect('session.subject', 'subject')
-      .leftJoinAndSelect('session.studentParticipateSessions', 'participation')
-      .leftJoinAndSelect('participation.student', 'student')
-      .leftJoinAndSelect('student.user', 'studentUser')
-      .where('session.idTutor = :tutorId', { tutorId })
-      .orderBy('session.scheduledDate', 'DESC')
-      .addOrderBy('session.startTime', 'DESC');
 
-    if (statuses) {
-      qb.andWhere('session.status IN (:...statuses)', { statuses });
-    }
+  const qb = this.sessionRepository
+    .createQueryBuilder('session')
+    .innerJoinAndSelect('session.tutor', 'tutor')
+    .innerJoinAndSelect('tutor.user', 'tutorUser')
+    .innerJoinAndSelect('session.subject', 'subject')
+    .leftJoinAndSelect('session.studentParticipateSessions', 'participation')
+    .leftJoinAndSelect('participation.student', 'student')
+    .leftJoinAndSelect('student.user', 'studentUser')
+    .where('session.idTutor = :tutorId', { tutorId })
+    .orderBy('session.scheduledDate', 'DESC')
+    .addOrderBy('session.startTime', 'DESC');
 
-    const [sessions, total] = await qb.skip(offset).take(limit).getManyAndCount();
-    const items = sessions.map((s) => this.mapToListDto(s));
-    return this.buildPaginatedResponse(items, total, page, limit);
+  //  Ahora statuses es un array, no un objeto
+  if (statuses && statuses.length > 0) {
+    qb.andWhere('session.status IN (:...statuses)', { statuses });
   }
+
+  // Si se necesita manejar el caso NO_SHOW para tutor
+  //if (isNoShow) {
+    
+  //}
+
+  const [sessions, total] = await qb.skip(offset).take(limit).getManyAndCount();
+  const items = sessions.map((s) => this.mapToListDto(s));
+  return this.buildPaginatedResponse(items, total, page, limit);
+}
 
   // ========================================
   // HELPERS PRIVADOS — NOTIFICACIONES

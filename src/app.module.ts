@@ -11,6 +11,9 @@ import { SchedulingModule } from './modules/scheduling/scheduling.module';
 import { SessionExecutionModule } from './modules/session-execution/session-execution';
 import { envValidationSchema } from './config/env.config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AppNotificationsModule } from './modules/app-notification/app-notification.module';
+import { AppNotificationsService } from './modules/app-notification/services/app-notifications.service';
+import { AppNotificationsController } from './modules/app-notification/controllers/app-notifications.controller';
 
 @Module({
   imports: [
@@ -29,8 +32,11 @@ import { TypeOrmModule } from '@nestjs/typeorm';
     TutorModule,
     SchedulingModule,
     SessionExecutionModule,
+    AppNotificationsModule,
 
 
   ],
+  providers: [AppNotificationsService],
+  controllers: [AppNotificationsController],
 })
 export class AppModule { }
