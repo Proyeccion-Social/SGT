@@ -176,13 +176,13 @@ export class DashboardService {
           .innerJoin('tutor.user', 'tutorUser')
           .innerJoin('session.subject', 'subject')
           .where('participation.idStudent = :userId', { userId })
-          .andWhere('session.status IN (:...statuses)', {
-            statuses: [
+          .andWhere('session.status = :status', {
+            status: 
               SessionStatus.COMPLETED,
-              SessionStatus.CANCELLED_BY_STUDENT,
-              SessionStatus.CANCELLED_BY_TUTOR,
-              SessionStatus.REJECTED_BY_TUTOR,
-            ],
+              //SessionStatus.CANCELLED_BY_STUDENT, //Considerar sólo sesiones completadas en el historial
+              //SessionStatus.CANCELLED_BY_TUTOR,
+              //SessionStatus.REJECTED_BY_TUTOR,
+            
           })
           .select([
             'session',
@@ -235,13 +235,12 @@ export class DashboardService {
           .leftJoin('student.user', 'studentUser')
           .innerJoin('session.subject', 'subject')
           .where('session.idTutor = :userId', { userId })
-          .andWhere('session.status IN (:...statuses)', {
-            statuses: [
+          .andWhere('session.status = :status', {
+            status: 
               SessionStatus.COMPLETED,
-              SessionStatus.CANCELLED_BY_TUTOR,
-              SessionStatus.CANCELLED_BY_STUDENT,
-              SessionStatus.REJECTED_BY_TUTOR,
-            ],
+              //SessionStatus.CANCELLED_BY_TUTOR,
+              //SessionStatus.CANCELLED_BY_STUDENT,
+              //SessionStatus.REJECTED_BY_TUTOR,
           })
           .select([
             'session',
