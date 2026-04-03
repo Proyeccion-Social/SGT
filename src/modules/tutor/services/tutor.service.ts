@@ -16,6 +16,7 @@ import { AssignSubjectsDto } from '../../subjects/dto/assign-subjects.dto';
 import { UserService } from '../../users/services/users.service';
 import { SubjectsService } from '../../subjects/services/subjects.service';
 import { NotificationsService } from '../../notifications/services/notifications.service';
+import { UpdateTutorProfileDto } from '../dto/update-tutor-profile.dto';
 
 @Injectable()
 export class TutorService {
@@ -87,7 +88,7 @@ export class TutorService {
       // Log pero NO romper el flujo
       console.error(
         'Error sending tutor credentials email:',
-        error?.message || error,
+        error instanceof Error ? error.message : error,
       );
     }
 
@@ -145,7 +146,7 @@ export class TutorService {
   // =====================================================
   // RF10: ACTUALIZAR PERFIL DE TUTOR
   // =====================================================
-  async updateProfile(userId: string, dto: CompleteTutorProfileDto) {
+  async updateProfile(userId: string, dto: UpdateTutorProfileDto) {
 
     // 1. Verificar que sea tutor
     const isTutor = await this.userService.isTutor(userId);
@@ -162,14 +163,25 @@ export class TutorService {
     }
 
     // 3. Actualizar datos del tutor
-    tutor.phone = dto.phone;
-    tutor.urlImage = dto.url_image;
-    tutor.limitDisponibility = dto.max_weekly_hours;
+    if (dto.phone !== undefined) {
+      tutor.phone = dto.phone;
+    }
+    if (dto.url_image !== undefined) {
+      tutor.urlImage = dto.url_image;
+    }
+    if (dto.max_weekly_hours !== undefined) {
+      tutor.limitDisponibility = dto.max_weekly_hours;
+    }
+    if (dto.subject_ids !== undefined) {
+      // 4.  Delegar la asignación de materias al SubjectService
+      await this.subjectService.assignSubjectsToTutor(userId, dto.subject_ids);
+    }
+
 
     await this.tutorRepository.save(tutor);
 
     // 4.  Delegar la asignación de materias al SubjectService
-    await this.subjectService.assignSubjectsToTutor(userId, dto.subject_ids);
+    //await this.subjectService.assignSubjectsToTutor(userId, dto.subject_ids);
 
     return { message: 'Profile updated successfully' };
   }

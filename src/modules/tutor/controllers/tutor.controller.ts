@@ -19,6 +19,7 @@ import { Roles } from '../../auth/decorators/roles.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { Public } from '../../auth/decorators/public.decorator';
 import { User, UserRole } from '../../users/entities/user.entity';
+import { UpdateTutorProfileDto } from '../dto/update-tutor-profile.dto';
 
 @Controller('tutors')
 export class TutorsController {
@@ -67,7 +68,7 @@ export class TutorsController {
   @HttpCode(HttpStatus.OK)
   async updateProfile(
     @CurrentUser() user: User,
-    @Body() dto: CompleteTutorProfileDto,
+    @Body() dto: UpdateTutorProfileDto,
   ) {
     return this.tutorService.updateProfile(user.idUser, dto);
   }
