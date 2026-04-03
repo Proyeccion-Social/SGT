@@ -13,6 +13,8 @@ import { TutorModule } from '../tutor/tutor.module';
 import { AvailabilityModule } from '../availability/availability.module';
 import { AuthModule } from '../auth/auth.module';
 import { SessionValidationService } from './services/session-validation.service';
+import { DashboardController } from './controllers/dashboard.controller';
+import { DashboardService } from './services/dashboard.service';
 
 
 @Module({
@@ -28,8 +30,8 @@ import { SessionValidationService } from './services/session-validation.service'
     NotificationsModule,
     
   ],
-  providers: [SessionService, SessionValidationService],
-  controllers: [SessionController],
-  exports: [TypeOrmModule, SessionService],
+  providers: [SessionService, SessionValidationService, DashboardService],
+  controllers: [SessionController,DashboardController],
+  exports: [TypeOrmModule, SessionService, DashboardService],
 })
 export class SchedulingModule { }

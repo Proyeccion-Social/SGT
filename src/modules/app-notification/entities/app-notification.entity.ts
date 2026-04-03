@@ -57,7 +57,7 @@ export class AppNotification {
    * No es una FK con relación para evitar joins en consultas frecuentes
    * y porque las notificaciones se eliminan sin afectar al usuario.
    */
-  @Column({ type: 'uuid' })
+  @Column({ name: 'user_id', type: 'uuid' })
   userId: string;
  
   @Column({
@@ -93,7 +93,7 @@ export class AppNotification {
   @Column({ type: 'boolean', default: false })
   read: boolean;
  
-  @CreateDateColumn()
+  @CreateDateColumn({name:"created_at"})
   createdAt: Date;
 }
  
