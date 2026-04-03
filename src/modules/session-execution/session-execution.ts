@@ -9,6 +9,7 @@ import { Question } from './entities/question.entity';
 import { Answer } from './entities/answer.entity';
 import { Session } from '../scheduling/entities/session.entity';
 import { StudentParticipateSession } from '../scheduling/entities/student-participate-session.entity';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -16,7 +17,7 @@ import { StudentParticipateSession } from '../scheduling/entities/student-partic
       [Question, Answer, Session, StudentParticipateSession],
       'local',
     ),
-    AuthModule,
+    AuthModule,NotificationsModule
   ],
   controllers: [SessionExecutionController],
   providers: [
