@@ -8,6 +8,9 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  ParseUUIDPipe,
+  BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { TutorService } from '../services/tutor.service';
 import { UserService } from '../../users/services/users.service';
@@ -123,6 +126,37 @@ export class TutorsController {
   @Roles(UserRole.TUTOR)
   async getMyProfile(@CurrentUser() user: User) {
     return this.tutorService.getOwnProfile(user.idUser);
+  }
+
+  // =====================================================
+  // GET /api/v1/tutors/:id/hours-status
+  // Estado de horas semanales del tutor (TUTOR propio o ADMIN)
+  // =====================================================
+  @Get(':id/hours-status')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TUTOR, UserRole.ADMIN)
+  async getTutorHoursStatus(
+    @CurrentUser() user: User,
+    @Param(
+      'id',
+      new ParseUUIDPipe({
+        exceptionFactory: () =>
+          new BadRequestException({
+            errorCode: 'VALIDATION_01',
+            message: 'ID de tutor inválido',
+          }),
+      }),
+    )
+    tutorId: string,
+  ) {
+    if (user.role === UserRole.TUTOR && user.idUser !== tutorId) {
+      throw new ForbiddenException({
+        errorCode: 'PERMISSION_01',
+        message: 'Solo puedes consultar tus propias horas',
+      });
+    }
+
+    return this.tutorService.getTutorHoursStatus(tutorId);
   }
 
   // =====================================================

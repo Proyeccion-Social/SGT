@@ -6,7 +6,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, Between } from 'typeorm';
 import { randomBytes } from 'crypto';
 import { Tutor } from '../entities/tutor.entity';
 import { CreateTutorDto } from '../dto/create-tutor.dto';
@@ -17,12 +17,17 @@ import { UserService } from '../../users/services/users.service';
 import { SubjectsService } from '../../subjects/services/subjects.service';
 import { NotificationsService } from '../../notifications/services/notifications.service';
 import { UpdateTutorProfileDto } from '../dto/update-tutor-profile.dto';
+import { Session } from '../../scheduling/entities/session.entity';
+import { SessionStatus } from '../../scheduling/enums/session-status.enum';
+import { startOfWeek, endOfWeek } from 'date-fns';
 
 @Injectable()
 export class TutorService {
   constructor(
     @InjectRepository(Tutor, 'local')
     private readonly tutorRepository: Repository<Tutor>,
+    @InjectRepository(Session, 'local')
+    private readonly sessionRepository: Repository<Session>,
     private readonly userService: UserService,
     private readonly subjectService: SubjectsService,
     private readonly notificationService: NotificationsService,
@@ -499,6 +504,76 @@ export class TutorService {
     }
 
     return tutor.limitDisponibility ?? 8;
+  }
+
+  async getTutorHoursStatus(tutorId: string) {
+    const tutor = await this.tutorRepository.findOne({
+      where: { idUser: tutorId },
+    });
+
+    if (!tutor) {
+      throw new NotFoundException({
+        errorCode: 'RESOURCE_02',
+        message: 'Tutor no encontrado',
+      });
+    }
+
+    const weeklyHoursLimit = tutor.limitDisponibility ?? 8;
+    const { weeklyHoursUsed, weeklyHoursRemaining } =
+      await this.calculateWeeklyHoursStatus(tutorId, weeklyHoursLimit);
+
+    const usedPercentage =
+      weeklyHoursLimit > 0
+        ? Number(((weeklyHoursUsed / weeklyHoursLimit) * 100).toFixed(2))
+        : 0;
+
+    const remainingPercentage =
+      weeklyHoursLimit > 0
+        ? Number(((weeklyHoursRemaining / weeklyHoursLimit) * 100).toFixed(2))
+        : 0;
+
+    return {
+      tutorId,
+      weeklyHoursUsed,
+      weeklyHoursRemaining,
+      usedPercentage,
+      remainingPercentage,
+      consultedAt: new Date().toISOString(),
+    };
+  }
+
+  private async calculateWeeklyHoursStatus(
+    tutorId: string,
+    weeklyHoursLimit: number,
+  ): Promise<{ weeklyHoursUsed: number; weeklyHoursRemaining: number }> {
+    const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+    const weekEnd = endOfWeek(new Date(), { weekStartsOn: 1 });
+
+    const weekSessions = await this.sessionRepository.find({
+      where: {
+        idTutor: tutorId,
+        scheduledDate: Between(weekStart, weekEnd),
+        status: In([
+          SessionStatus.SCHEDULED,
+          SessionStatus.PENDING_MODIFICATION,
+        ]),
+      },
+    });
+
+    const weeklyHoursUsed = weekSessions.reduce((sum, session) => {
+      const [startHour, startMin] = session.startTime.split(':').map(Number);
+      const [endHour, endMin] = session.endTime.split(':').map(Number);
+      const duration =
+        (endHour * 60 + endMin - (startHour * 60 + startMin)) / 60;
+      return sum + duration;
+    }, 0);
+
+    const weeklyHoursRemaining = Math.max(0, weeklyHoursLimit - weeklyHoursUsed);
+
+    return {
+      weeklyHoursUsed: Number(weeklyHoursUsed.toFixed(1)),
+      weeklyHoursRemaining: Number(weeklyHoursRemaining.toFixed(1)),
+    };
   }
 
   // =====================================================
