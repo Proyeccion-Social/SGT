@@ -49,31 +49,31 @@ export enum AppNotificationType {
 export class AppNotification {
  
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
  
   @Column({ type: 'uuid' })
-  userId: string;
+  userId!: string;
  
   @Column({ type: 'enum', enum: AppNotificationType })
-  type: AppNotificationType;
+  type!: AppNotificationType;
  
   /**
    * Texto legible listo para mostrar en el panel.
    * Máximo 300 caracteres.
    */
   @Column({ type: 'varchar', length: 300 })
-  message: string;
+  message!: string;
  
   /**
    * Datos mínimos para que el frontend construya el deep link.
    * Siempre incluye sessionId cuando aplica.
    */
   @Column({ type: 'jsonb', nullable: true })
-  payload: Record<string, string> | null;
+  payload?: Record<string, string> | null;
  
   @Column({ type: 'boolean', default: false })
-  read: boolean;
+  read!: boolean;
  
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt!: Date;
 }

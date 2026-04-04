@@ -184,7 +184,7 @@ export class SessionService {
     } catch (error) {
       await queryRunner.rollbackTransaction();
 
-      if (error.code === '23505') {
+      if ((error as { code?: string }).code === '23505') {
         throw new BadRequestException(
           'Esta franja ya está ocupada. Por favor elige otro horario.',
         );
@@ -767,6 +767,24 @@ export class SessionService {
   // ========================================
   // CONSULTAS
   // ========================================
+
+  async getModificationRequestById(requestId: string) {
+    const request = await this.modificationRequestRepository.findOne({
+      where: { idRequest: requestId },
+    });
+    if (!request) throw new NotFoundException('Modification request not found');
+    return request;
+  }
+
+  async getModificationRequestBySessionId(sessionId:string){
+    const request = await this.modificationRequestRepository.findOne({
+      where: { idSession: sessionId },
+    });
+    if (!request) throw new NotFoundException('Modification request not found');
+    return request;
+  }
+
+
 
   async getSessionById(sessionId: string) {
     const session = await this.sessionRepository.findOne({

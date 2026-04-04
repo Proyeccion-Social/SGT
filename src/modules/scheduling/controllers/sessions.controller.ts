@@ -214,7 +214,7 @@ export class SessionController {
     return await this.sessionService.getSessionById(sessionId);
   }
 
-  /**
+/**
  * GET /api/sessions/my-sessions/student?page=1&limit=10&status=SCHEDULED
  */
 @Get('my-sessions/student')
@@ -237,4 +237,30 @@ async getMySessionsAsTutor(
 ) {
   return await this.sessionService.getMySessionsAsTutor(user.idUser, filters);
 }
+
+
+
+
+
+//Consultas para obtener detalles de propuestas de modificación
+
+/**
+   * GET /api/sessions/:id/modification-request
+   * Obtener detalles de una propuesta de modificación usando el ID de la sesión (participantes o admin)
+   */
+  @Get(':id/modification-request')
+  @Roles(UserRole.STUDENT, UserRole.TUTOR, UserRole.ADMIN)
+  async getModificationRequestBySessionId(@Param('id') sessionId: string) {
+    return await this.sessionService.getModificationRequestBySessionId(sessionId);
+  }
+
+  /**
+   * GET /api/sessions/:id/modification-request
+   * Obtener detalles de una propuesta de modificación usando el ID de la request (participantes o admin)
+   */
+  @Get('modification-requests/:requestId')
+  @Roles(UserRole.STUDENT, UserRole.TUTOR, UserRole.ADMIN)
+  async getModificationRequestById(@Param('requestId') requestId: string) {
+    return await this.sessionService.getModificationRequestById(requestId);
+  }
 }

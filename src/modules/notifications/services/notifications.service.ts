@@ -239,7 +239,7 @@ export class NotificationsService {
       ]);
 
       this.logger.log(`[RF-25] Solicitud de confirmación enviada al tutor ${tutorEmail} — sesión ${session.id}`);
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Error en sendTutorConfirmationRequest: ${error.message}`, error.stack);
       throw error;
     }
@@ -294,7 +294,9 @@ export class NotificationsService {
 
       this.logger.log(`[RF-25] Acuse enviado al estudiante ${studentEmail} — sesión ${session.id}`);
     } catch (error) {
-      this.logger.error(`Error en sendStudentSessionRequestAck: ${error.message}`, error.stack);
+      const message = error instanceof Error ? error.message : String(error);
+      const stack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(`Error en sendStudentSessionRequestAck: ${message}`, stack);
       throw error;
     }
   }
@@ -349,7 +351,8 @@ export class NotificationsService {
 
       this.logger.log(`[RF-20] Confirmación enviada al estudiante ${studentEmail} — sesión ${session.id}`);
     } catch (error) {
-      this.logger.error(`Error en sendSessionConfirmationStudent: ${error.message}`, error.stack);
+      const err = error instanceof Error ? error : new Error(String(error));
+      this.logger.error(`Error en sendSessionConfirmationStudent: ${err.message}`, err.stack);
       throw error;
     }
   }
@@ -398,7 +401,7 @@ export class NotificationsService {
 
       this.logger.log(`[RF-20] Confirmación enviada al tutor ${tutorEmail} — sesión ${session.id}`);
     } catch (error) {
-      this.logger.error(`Error en sendSessionConfirmationTutor: ${error.message}`, error.stack);
+      this.logger.error(`Error en sendSessionConfirmationTutor: ${(error as Error).message}`, (error as Error).stack);
       throw error;
     }
   }
@@ -464,7 +467,7 @@ export class NotificationsService {
 
       this.logger.log(`[RF-20] Rechazo enviado a ${studentEmail} — sesión ${session.idSession}`);
     } catch (error) {
-      this.logger.error(`Error en sendSessionRejection: ${error.message}`, error.stack);
+      this.logger.error(`Error en sendSessionRejection: ${error instanceof Error ? error.message : String(error)}`, error instanceof Error ? error.stack : undefined);
       throw error;
     }
   }
@@ -566,7 +569,7 @@ export class NotificationsService {
 
       this.logger.log(`[RF-21] Emails de cancelación enviados — sesión ${session.idSession}`);
     } catch (error) {
-      this.logger.error(`Error en sendSessionCancellation: ${error.message}`, error.stack);
+      this.logger.error(`Error en sendSessionCancellation: ${(error as Error).message}`, (error as Error).stack);
       throw error;
     }
   }
@@ -656,7 +659,7 @@ export class NotificationsService {
 
       this.logger.log(`[RF-22] Propuesta de modificación enviada — sesión ${session.idSession}`);
     } catch (error) {
-      this.logger.error(`Error en sendModificationRequest: ${error.message}`, error.stack);
+      this.logger.error(`Error en sendModificationRequest: ${(error as Error).message}`, (error as Error).stack);
       throw error;
     }
   }
@@ -727,7 +730,8 @@ export class NotificationsService {
 
       this.logger.log(`[RF-22] Respuesta de modificación (${accepted ? 'aceptada' : 'rechazada'}) enviada — sesión ${session.idSession}`);
     } catch (error) {
-      this.logger.error(`Error en sendModificationResponse: ${error.message}`, error.stack);
+      const err = error instanceof Error ? error : new Error(String(error));
+      this.logger.error(`Error en sendModificationResponse: ${err.message}`, err.stack);
       throw error;
     }
   }
@@ -812,7 +816,8 @@ export class NotificationsService {
 
       this.logger.log(`[RF-22] Actualización de detalles notificada — sesión ${session.idSession}`);
     } catch (error) {
-      this.logger.error(`Error en sendSessionDetailsUpdate: ${error.message}`, error.stack);
+      const err = error instanceof Error ? error : new Error(String(error));
+      this.logger.error(`Error en sendSessionDetailsUpdate: ${err.message}`, err.stack);
       throw error;
     }
   }
@@ -927,7 +932,7 @@ export class NotificationsService {
 
       this.logger.log(`[RF-26] Recordatorio (${reminderType}) enviado — sesión ${session.id}`);
     } catch (error) {
-      this.logger.error(`Error en sendSessionReminder: ${error.message}`, error.stack);
+      this.logger.error(`Error en sendSessionReminder: ${error instanceof Error ? error.message : String(error)}`, error instanceof Error ? error.stack : undefined);
       throw error;
     }
   }
@@ -992,7 +997,8 @@ export class NotificationsService {
 
       this.logger.log(`[RF-27] ${isReminder ? 'Recordatorio' : 'Notificación'} de evaluación enviado a ${studentEmail} — sesión ${session.id}`);
     } catch (error) {
-      this.logger.error(`Error en sendEvaluationPendingReminder: ${error.message}`, error.stack);
+      const err = error as Error;
+      this.logger.error(`Error en sendEvaluationPendingReminder: ${err.message}`, err.stack);
       throw error;
     }
   }
@@ -1057,9 +1063,10 @@ export class NotificationsService {
         `[Attendance] Notificación de inasistencia enviada a ${studentEmail} — sesión ${sessionId}`,
       );
     } catch (error) {
+      const normalizedError = error instanceof Error ? error : new Error(String(error));
       this.logger.error(
-        `Error en sendSessionAbsentNotification: ${error.message}`,
-        error.stack,
+        `Error en sendSessionAbsentNotification: ${normalizedError.message}`,
+        normalizedError.stack,
       );
       throw error;
     }
@@ -1148,7 +1155,7 @@ export class NotificationsService {
 
       this.logger.log(`[RF-28] Notificaciones de cambio de disponibilidad enviadas — ${affectedSessions.length} sesiones afectadas`);
     } catch (error) {
-      this.logger.error(`Error en sendAvailabilityChangeNotification: ${error.message}`, error.stack);
+      this.logger.error(`Error en sendAvailabilityChangeNotification: ${error instanceof Error ? error.message : String(error)}`, error instanceof Error ? error.stack : undefined);
       throw error;
     }
   }
@@ -1228,7 +1235,8 @@ export class NotificationsService {
 
       this.logger.log(`[RF-29] Alerta de límite de horas (${alertLevel}) enviada al tutor ${tutorEmail}`);
     } catch (error) {
-      this.logger.error(`Error en sendHourLimitAlert: ${error.message}`, error.stack);
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Error en sendHourLimitAlert: ${message}`, error instanceof Error ? error.stack : undefined);
       throw error;
     }
   }
@@ -1269,7 +1277,7 @@ export class NotificationsService {
           html: htmlContent,
         });
       } catch (err) {
-        this.logger.error(`Error enviando anuncio colaborativo a ${email}: ${err.message}`);
+        this.logger.error(`Error enviando anuncio colaborativo a ${email}: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
 
@@ -1360,7 +1368,8 @@ export class NotificationsService {
       const templateContent = fs.readFileSync(templatePath, 'utf-8');
       return Handlebars.compile(templateContent)(data);
     } catch (error) {
-      this.logger.error(`Error al renderizar template "${templateName}": ${error.message}`);
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Error al renderizar template "${templateName}": ${message}`);
       return this.generatePlainTextFallback(templateName, data);
     }
   }
