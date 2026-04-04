@@ -245,20 +245,20 @@ async getMySessionsAsTutor(
 //Consultas para obtener detalles de propuestas de modificación
 
 /**
-   * GET /api/sessions/:id/modification-request
-   * Obtener detalles de una propuesta de modificación usando el ID de la sesión (participantes o admin)
+   * GET /api/sessions/:id/modification-requests
+   * Obtener detalles de las propuestas de modificación usando el ID de la sesión (participantes o admin)
    */
-  @Get(':id/modification-request')
+  @Get(':id/modification-requests')
   @Roles(UserRole.STUDENT, UserRole.TUTOR, UserRole.ADMIN)
   async getModificationRequestBySessionId(@Param('id') sessionId: string) {
-    return await this.sessionService.getModificationRequestBySessionId(sessionId);
+    return await this.sessionService.getModificationsRequestBySessionId(sessionId);
   }
 
   /**
    * GET /api/sessions/:id/modification-request
    * Obtener detalles de una propuesta de modificación usando el ID de la request (participantes o admin)
    */
-  @Get('modification-requests/:requestId')
+  @Get(':id/modification-request')
   @Roles(UserRole.STUDENT, UserRole.TUTOR, UserRole.ADMIN)
   async getModificationRequestById(@Param('requestId') requestId: string) {
     return await this.sessionService.getModificationRequestById(requestId);

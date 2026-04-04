@@ -776,12 +776,13 @@ export class SessionService {
     return request;
   }
 
-  async getModificationRequestBySessionId(sessionId:string){
-    const request = await this.modificationRequestRepository.findOne({
+  //Obtener todas las solicitudes de modificación de una sesión específica (para mostrar el historial de modificaciones en la vista de detalles de la sesión)
+  async getModificationsRequestBySessionId(sessionId:string){
+    const requests = await this.modificationRequestRepository.find({
       where: { idSession: sessionId },
+      order: { requestedAt: 'DESC' },
     });
-    if (!request) throw new NotFoundException('Modification request not found');
-    return request;
+    return requests;
   }
 
 
