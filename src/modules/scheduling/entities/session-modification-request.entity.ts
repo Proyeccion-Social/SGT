@@ -16,13 +16,13 @@ import { Modality } from 'src/modules/availability/enums/modality.enum';
 @Entity('session_modification_requests')
 export class SessionModificationRequest {
   @PrimaryGeneratedColumn('uuid', { name: 'id_request' })
-  idRequest: string;
+  idRequest!: string;
 
   @Column({ name: 'id_session', type: 'uuid' })
-  idSession: string;
+  idSession!: string;
 
   @Column({ name: 'requested_by', type: 'uuid' })
-  requestedBy: string;
+  requestedBy!: string;
 
   // Cambios propuestos
   @Column({ name: 'new_scheduled_date', type: 'date', nullable: true })
@@ -50,10 +50,10 @@ export class SessionModificationRequest {
     enum: ModificationStatus,
     default: ModificationStatus.PENDING,
   })
-  status: ModificationStatus;
+  status!: ModificationStatus;
 
   @CreateDateColumn({ name: 'requested_at', type: 'timestamp' })
-  requestedAt: Date;
+  requestedAt!: Date;
 
   @Column({ name: 'responded_at', type: 'timestamp', nullable: true })
   respondedAt?: Date;
@@ -62,18 +62,18 @@ export class SessionModificationRequest {
   respondedBy?: string;
 
   @Column({ name: 'expires_at', type: 'timestamp' })
-  expiresAt: Date; // 24h después de requestedAt
+  expiresAt!: Date; // 24h después de requestedAt
 
   // Relaciones
   @ManyToOne(() => Session, (session) => session.modificationRequests)
   @JoinColumn({ name: 'id_session' })
-  session: Session;
+  session!: Session;
 
   @ManyToOne(() => User)
   @JoinColumn({ name: 'requested_by' })
-  requester: User;
+  requester!: User;
 
   @ManyToOne(() => User)
   @JoinColumn({ name: 'responded_by' })
-  responder: User;
+  responder?: User;
 }

@@ -184,7 +184,7 @@ export class SessionService {
     } catch (error) {
       await queryRunner.rollbackTransaction();
 
-      if (error.code === '23505') {
+      if ((error as { code?: string }).code === '23505') {
         throw new BadRequestException(
           'Esta franja ya está ocupada. Por favor elige otro horario.',
         );
@@ -767,6 +767,25 @@ export class SessionService {
   // ========================================
   // CONSULTAS
   // ========================================
+
+  async getModificationRequestById(requestId: string) {
+    const request = await this.modificationRequestRepository.findOne({
+      where: { idRequest: requestId },
+    });
+    if (!request) throw new NotFoundException('Modification request not found');
+    return request;
+  }
+
+  //Obtener todas las solicitudes de modificación de una sesión específica (para mostrar el historial de modificaciones en la vista de detalles de la sesión)
+  async getModificationsRequestBySessionId(sessionId:string){
+    const requests = await this.modificationRequestRepository.find({
+      where: { idSession: sessionId },
+      order: { requestedAt: 'DESC' },
+    });
+    return requests;
+  }
+
+
 
   async getSessionById(sessionId: string) {
     const session = await this.sessionRepository.findOne({
