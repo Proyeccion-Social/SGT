@@ -74,6 +74,6 @@ export class AppNotification {
   @Column({ type: 'boolean', default: false })
   read!: boolean;
  
-  @CreateDateColumn()
+  @CreateDateColumn({name:'created_at'})
   createdAt!: Date;
 }

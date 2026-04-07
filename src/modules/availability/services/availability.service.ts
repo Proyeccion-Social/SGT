@@ -547,7 +547,7 @@ export class AvailabilityService {
   async isSlotAvailableForDate(
     tutorId: string,
     availabilityId: number,
-    scheduledDate: Date,
+    scheduledDate: string,
   ): Promise<boolean> {
     const existing = await this.scheduledSessionRepository.findOne({
       where: { idTutor: tutorId, idAvailability: availabilityId, scheduledDate },
@@ -580,7 +580,7 @@ export class AvailabilityService {
   async isSlotAvailableForDateWithDuration(
   tutorId: string,
   availabilityId: number,
-  scheduledDate: Date,
+  scheduledDate: string,
   durationHours: number,
   excludeSessionId?: string, // ← NUEVO
 ): Promise<{ available: boolean; reason?: string }> {
@@ -637,7 +637,7 @@ export class AvailabilityService {
       ],
     });
 
-  // 🔥 CLAVE: excluir la sesión actual si aplica
+  //  CLAVE: excluir la sesión actual si aplica
   if (excludeSessionId) {
     qb.andWhere('ss.idSession != :excludeSessionId', { excludeSessionId });
   }

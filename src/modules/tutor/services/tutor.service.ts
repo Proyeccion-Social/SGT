@@ -20,6 +20,7 @@ import { UpdateTutorProfileDto } from '../dto/update-tutor-profile.dto';
 import { Session } from '../../scheduling/entities/session.entity';
 import { SessionStatus } from '../../scheduling/enums/session-status.enum';
 import { startOfWeek, endOfWeek } from 'date-fns';
+import { format } from 'date-fns';
 
 @Injectable()
 export class TutorService {
@@ -546,8 +547,11 @@ export class TutorService {
     tutorId: string,
     weeklyHoursLimit: number,
   ): Promise<{ weeklyHoursUsed: number; weeklyHoursRemaining: number }> {
-    const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
-    const weekEnd = endOfWeek(new Date(), { weekStartsOn: 1 });
+
+    const today = new Date();
+
+    const weekStart = format(startOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+    const weekEnd = format(endOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd');
 
     const weekSessions = await this.sessionRepository.find({
       where: {

@@ -26,7 +26,7 @@ export class SessionModificationRequest {
 
   // Cambios propuestos
   @Column({ name: 'new_scheduled_date', type: 'date', nullable: true })
-  newScheduledDate?: Date;
+  newScheduledDate?: string;
 
   @Column({ name: 'new_start_time', type: 'time', nullable: true })
   newStartTime?: string;
