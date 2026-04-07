@@ -51,7 +51,7 @@ export class AppNotification {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
  
-  @Column({ type: 'uuid' })
+  @Column({ type: 'uuid', name: "user_id" })
   userId!: string;
  
   @Column({ type: 'enum', enum: AppNotificationType })
