@@ -659,7 +659,8 @@ export class SessionService {
     try {
       const session = await queryRunner.manager.findOne(Session, {
         where: { idSession: sessionId },
-        relations:['subject'] // Necesitamos la materia para el email de notificación
+        // Necesitamos la materia para el email de notificación
+        relations: ['subject'],
       });
       if (!session) throw new NotFoundException('Session not found');
 
@@ -818,10 +819,16 @@ export class SessionService {
       throw new BadRequestException('No puedes modificar una sesión que ya ha iniciado');
     }
 
-    if (dto.title !== undefined) session.title = dto.title;
-    if (dto.description !== undefined) session.description = dto.description;
-    if (dto.location !== undefined) session.location = dto.location;
-    if (dto.virtualLink !== undefined) session.virtualLink = dto.virtualLink;
+    if (dto.title !== undefined) {
+      if (dto.title == null) throw new BadRequestException('El título no puede ser nulo');
+      session.title = dto.title;
+    }
+    if (dto.description !== undefined) {
+      if (dto.description == null) throw new BadRequestException('La descripción no puede ser nula');
+      session.description = dto.description;
+    }
+    if (dto.location !== undefined) session.location = dto.location ?? null;
+    if (dto.virtualLink !== undefined) session.virtualLink = dto.virtualLink ?? null;
 
     const changes = [
       dto.title !== undefined && dto.title !== previousDetails.title
