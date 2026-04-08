@@ -659,6 +659,7 @@ export class SessionService {
     try {
       const session = await queryRunner.manager.findOne(Session, {
         where: { idSession: sessionId },
+        relations:['subject'] // Necesitamos la materia para el email de notificación
       });
       if (!session) throw new NotFoundException('Session not found');
 
