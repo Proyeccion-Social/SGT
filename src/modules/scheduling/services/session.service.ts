@@ -794,6 +794,13 @@ export class SessionService {
     });
     if (!session) throw new NotFoundException('Session not found');
 
+    const previousDetails = {
+      title: session.title,
+      description: session.description,
+      location: session.location ?? null,
+      virtualLink: session.virtualLink ?? null,
+    };
+
     const isParticipant = session.studentParticipateSessions.some(
       (p) => p.idStudent === userId,
     );
@@ -811,15 +818,51 @@ export class SessionService {
       throw new BadRequestException('No puedes modificar una sesión que ya ha iniciado');
     }
 
-    if (dto.title) session.title = dto.title;
-    if (dto.description) session.description = dto.description;
-    if (dto.location) session.location = dto.location;
-    if (dto.virtualLink) session.virtualLink = dto.virtualLink;
+    if (dto.title !== undefined) session.title = dto.title;
+    if (dto.description !== undefined) session.description = dto.description;
+    if (dto.location !== undefined) session.location = dto.location;
+    if (dto.virtualLink !== undefined) session.virtualLink = dto.virtualLink;
+
+    const changes = [
+      dto.title !== undefined && dto.title !== previousDetails.title
+        ? {
+            label: 'Título',
+            previous: previousDetails.title,
+            current: session.title,
+          }
+        : null,
+      dto.description !== undefined && dto.description !== previousDetails.description
+        ? {
+            label: 'Descripción',
+            previous: previousDetails.description,
+            current: session.description,
+          }
+        : null,
+      dto.location !== undefined && dto.location !== previousDetails.location
+        ? {
+            label: 'Ubicación',
+            previous: previousDetails.location,
+            current: session.location ?? null,
+          }
+        : null,
+      dto.virtualLink !== undefined && dto.virtualLink !== previousDetails.virtualLink
+        ? {
+            label: 'Enlace virtual',
+            previous: previousDetails.virtualLink,
+            current: session.virtualLink ?? null,
+          }
+        : null,
+    ].filter(
+      (
+        change,
+      ): change is { label: string; previous: string | null; current: string | null } =>
+        change !== null,
+    );
 
     await this.sessionRepository.save(session);
 
     await this.fireAndLogNotifications([
-      this.notificationsService.sendSessionDetailsUpdate(session),
+      this.notificationsService.sendSessionDetailsUpdate(session, changes),
     ]);
 
     return { success: true, message: 'Detalles de la sesión actualizados exitosamente' };
