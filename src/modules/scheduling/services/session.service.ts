@@ -426,12 +426,12 @@ export class SessionService {
       );
     }
 
-    const isWithin24Hours = this.validationService.validateCancellationTime(
+    const canCancelWithAtLeast24Hours = this.validationService.validateCancellationTime(
       session.scheduledDate,
       session.startTime,
     );
 
-    if (!isWithin24Hours && !isAdmin) {
+    if (!canCancelWithAtLeast24Hours && !isAdmin) {
       throw new BadRequestException(
         'Solo puedes cancelar con al menos 24 horas de anticipación',
       );
@@ -444,7 +444,7 @@ export class SessionService {
         : SessionStatus.CANCELLED_BY_ADMIN;
     session.cancellationReason = dto.reason;
     session.cancelledAt = new Date();
-    session.cancelledWithin24h = isWithin24Hours;
+    session.cancelledWithin24h = !canCancelWithAtLeast24Hours;
     session.cancelledBy = userId;
     await this.sessionRepository.save(session);
 
