@@ -14,6 +14,7 @@ import {
   TutorDashboardResponseDto,
   SessionCardDto,
 } from '../dto/dashboard-response.dto';
+import { format } from 'date-fns';
 
 @Injectable()
 export class DashboardService {
@@ -25,7 +26,7 @@ export class DashboardService {
     private readonly participationRepository: Repository<StudentParticipateSession>,
 
     private readonly tutorService: TutorService,
-  ) {}
+  ) { }
 
   // ========================================
   // STUDENT DASHBOARD
@@ -98,8 +99,11 @@ export class DashboardService {
     tutorId: string,
     weeklyHoursLimit: number,
   ): Promise<{ weeklyHoursUsed: number; weeklyHoursRemaining: number }> {
-    const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
-    const weekEnd = endOfWeek(new Date(), { weekStartsOn: 1 });
+
+    const today = new Date();
+
+    const weekStart = format(startOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+    const weekEnd = format(endOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd');
 
     const weekSessions = await this.sessionRepository.find({
       where: {
@@ -133,9 +137,9 @@ export class DashboardService {
     role: 'student' | 'tutor',
   ): Promise<SessionCardDto[]> {
     const now = new Date();
-     
 
-  
+
+
     let sessions: Session[] = [];
 
     if (role === 'student') {
@@ -177,12 +181,12 @@ export class DashboardService {
           .innerJoin('session.subject', 'subject')
           .where('participation.idStudent = :userId', { userId })
           .andWhere('session.status = :status', {
-            status: 
+            status:
               SessionStatus.COMPLETED,
-              //SessionStatus.CANCELLED_BY_STUDENT, //Considerar sólo sesiones completadas en el historial
-              //SessionStatus.CANCELLED_BY_TUTOR,
-              //SessionStatus.REJECTED_BY_TUTOR,
-            
+            //SessionStatus.CANCELLED_BY_STUDENT, //Considerar sólo sesiones completadas en el historial
+            //SessionStatus.CANCELLED_BY_TUTOR,
+            //SessionStatus.REJECTED_BY_TUTOR,
+
           })
           .select([
             'session',
@@ -225,7 +229,7 @@ export class DashboardService {
         .take(5)
         .getMany();
 
-        
+
 
       if (sessions.length === 0) {
         sessions = await this.sessionRepository
@@ -236,11 +240,11 @@ export class DashboardService {
           .innerJoin('session.subject', 'subject')
           .where('session.idTutor = :userId', { userId })
           .andWhere('session.status = :status', {
-            status: 
+            status:
               SessionStatus.COMPLETED,
-              //SessionStatus.CANCELLED_BY_TUTOR,
-              //SessionStatus.CANCELLED_BY_STUDENT,
-              //SessionStatus.REJECTED_BY_TUTOR,
+            //SessionStatus.CANCELLED_BY_TUTOR,
+            //SessionStatus.CANCELLED_BY_STUDENT,
+            //SessionStatus.REJECTED_BY_TUTOR,
           })
           .select([
             'session',
@@ -275,22 +279,6 @@ export class DashboardService {
     otherPersonImage = '/default-avatar.png';
   }
 
-  // Conversión segura de la fecha
-  let scheduledDate: string;
-  try {
-    if (session.scheduledDate instanceof Date) {
-      scheduledDate = session.scheduledDate.toISOString().split('T')[0];
-    } else if (typeof session.scheduledDate === 'string') {
-      // Si es string, tomar los primeros 10 caracteres (YYYY-MM-DD)
-    scheduledDate = (session.scheduledDate as string).substring(0, 10);
-    } else {
-      scheduledDate = '';
-    }
-  } catch (error) {
-    console.error('Error formateando fecha:', error);
-    scheduledDate = '';
-  }
-
   return {
     id: session.idSession,
     title: session.title,
@@ -300,7 +288,7 @@ export class DashboardService {
     subjectName: session.subject?.name || 'Materia',
     sessionType: session.type,
     modality: session.modality,
-    scheduledDate,
+    scheduledDate: session.scheduledDate ?? '', // refactor
     startTime: session.startTime,
     endTime: session.endTime,
     status: session.status,

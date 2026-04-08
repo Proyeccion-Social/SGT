@@ -1,3 +1,5 @@
+// src/modules/scheduling/services/session-validation.service.ts
+ 
 import {
   Injectable,
   BadRequestException,
@@ -9,253 +11,279 @@ import { Session } from '../entities/session.entity';
 import { SessionStatus } from '../enums/session-status.enum';
 import { AvailabilityService } from '../../availability/services/availability.service';
 import { TutorService } from '../../tutor/services/tutor.service';
-import { startOfWeek, endOfWeek, differenceInHours, addHours } from 'date-fns';
+import { startOfWeek, endOfWeek, differenceInHours, addHours, parseISO } from 'date-fns';
 import { Modality } from 'src/modules/availability/enums/modality.enum';
-
+ 
+// Mapa de dayOfWeek numérico (guardado en Availability) al índice JS de día.
+// Availability usa: 0=Lunes, 1=Martes, ..., 5=Sábado  (sin domingo)
+// Date.getUTCDay() usa: 0=Domingo, 1=Lunes, ..., 6=Sábado
+// No usamos getDay() porque depende de la zona horaria del proceso.
+const AVAILABILITY_DAY_TO_UTC_DAY: Record<number, number> = {
+  0: 1, // Lunes
+  1: 2, // Martes
+  2: 3, // Miércoles
+  3: 4, // Jueves
+  4: 5, // Viernes
+  5: 6, // Sábado
+};
+ 
 @Injectable()
 export class SessionValidationService {
   constructor(
-    //  Solo repositorios del dominio Scheduling
     @InjectRepository(Session, 'local')
     private readonly sessionRepository: Repository<Session>,
-
-    //  Servicios de otros módulos
     private readonly availabilityService: AvailabilityService,
     private readonly tutorService: TutorService,
   ) {}
-
-  /**
-   * HU-19.1.1: Validar que estudiante ≠ tutor
-   */
-  async validateStudentNotTutor(
-    studentId: string,
-    tutorId: string,
-  ): Promise<void> {
+ 
+  // ─────────────────────────────────────────────────────────────────────────
+  // HU-19.1.1 — Estudiante ≠ Tutor
+  // ─────────────────────────────────────────────────────────────────────────
+ 
+  async validateStudentNotTutor(studentId: string, tutorId: string): Promise<void> {
     if (studentId === tutorId) {
-      throw new BadRequestException(
-        'No puedes agendar una tutoría contigo mismo',
-      );
+      throw new BadRequestException('No puedes agendar una tutoría contigo mismo');
     }
   }
-
-  /**
-   * HU-19.1.3: Validar que modalidad coincida con la franja
-   */
+ 
+  // ─────────────────────────────────────────────────────────────────────────
+  // HU-19.1.3 — Modalidad coincide con la franja
+  // ─────────────────────────────────────────────────────────────────────────
+ 
   async validateModality(
-    availabilityId: number, 
+    availabilityId: number,
     tutorId: string,
     requestedModality: Modality,
   ): Promise<void> {
-    // Delega al AvailabilityService
     await this.availabilityService.validateModalityForSlot(
       availabilityId,
       tutorId,
       requestedModality,
     );
   }
-
-  /**
-   * HU-19.1.1: Validar que la franja esté disponible en esa fecha
-   */
+ 
+  // ─────────────────────────────────────────────────────────────────────────
+  // NUEVO — El día de semana de scheduledDate coincide con el dayOfWeek
+  //         registrado en el slot de disponibilidad seleccionado.
+  //
+  // Se llama en createIndividualSession y proposeModification (cuando cambia
+  // availabilityId o scheduledDate).
+  //
+  // Por qué parseamos el string directamente en lugar de usar new Date():
+  //   new Date('2025-04-07') crea medianoche UTC. En servidores Colombia
+  //   (UTC-5) getDay() devuelve el día anterior. Parsear año/mes/día del
+  //   string y usar getUTCDay() es zona-horaria-seguro.
+  // ─────────────────────────────────────────────────────────────────────────
+ 
+  async validateScheduledDateMatchesSlotDay(
+    availabilityId: number,
+    scheduledDate: string, // 'YYYY-MM-DD'
+  ): Promise<void> {
+    const availability = await this.availabilityService.getAvailabilityById(availabilityId);
+ 
+    // Parsear YYYY-MM-DD sin convertir zonas horarias
+    const [year, month, day] = scheduledDate.split('-').map(Number);
+    // Usamos Date.UTC para construir la fecha en UTC puro y getUTCDay() para leer el día
+    const utcDay = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+ 
+    const expectedUtcDay = AVAILABILITY_DAY_TO_UTC_DAY[availability.dayOfWeek];
+ 
+    if (expectedUtcDay === undefined) {
+      throw new BadRequestException(
+        `El slot tiene un dayOfWeek (${availability.dayOfWeek}) fuera del rango esperado (0–5)`,
+      );
+    }
+ 
+    if (utcDay !== expectedUtcDay) {
+      const DAY_NAMES = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+      throw new BadRequestException(
+        `La fecha ${scheduledDate} corresponde a un ${DAY_NAMES[utcDay]}, ` +
+        `pero el slot seleccionado solo está disponible los ${DAY_NAMES[expectedUtcDay]}.`,
+      );
+    }
+  }
+ 
+  // ─────────────────────────────────────────────────────────────────────────
+  // HU-19.1.1 — Franja disponible para esa fecha + duración completa
+  //
+  // scheduledDate se recibe como string 'YYYY-MM-DD' y se pasa así al
+  // AvailabilityService, que lo compara directamente en la query de BD
+  // (columna tipo date). No construimos Date para evitar desfases.
+  // ─────────────────────────────────────────────────────────────────────────
+ 
+  async validateAvailabilitySlotWithDuration(
+    tutorId: string,
+    availabilityId: number,
+    scheduledDate: string, // 'YYYY-MM-DD'
+    durationHours: number,
+    excludeSessionId?: string,
+  ): Promise<void> {
+    const result = await this.availabilityService.isSlotAvailableForDateWithDuration(
+      tutorId,
+      availabilityId,
+      scheduledDate,
+      durationHours,
+      excludeSessionId,
+    );
+ 
+    if (!result.available) {
+      throw new ConflictException(
+        result.reason ?? 'El horario seleccionado no está disponible para esa duración',
+      );
+    }
+  }
+ 
+  /** @deprecated Usar validateAvailabilitySlotWithDuration */
   async validateAvailabilitySlot(
     tutorId: string,
-    availabilityId: number, 
-    scheduledDate: Date,
+    availabilityId: number,
+    scheduledDate: string,
   ): Promise<void> {
-    //  Delega al AvailabilityService
     const isAvailable = await this.availabilityService.isSlotAvailableForDate(
       tutorId,
-      availabilityId, 
+      availabilityId,
       scheduledDate,
     );
-
     if (!isAvailable) {
-      throw new ConflictException(
-        'Esta franja ya está reservada para esa fecha',
-      );
+      throw new ConflictException('Esta franja ya está reservada para esa fecha');
     }
   }
-
-  /**
-   * Validar que no haya conflictos de horario con otras sesiones del tutor
-   */
-  
-async validateNoTimeConflict(
-  tutorId: string,
-  scheduledDate: Date,
-  startTime: string,
-  durationHours: number,
-  excludeSessionId?: string,
-): Promise<void> {
-  const endTime = this.calculateEndTime(startTime, durationHours);
-
-  const dateOnly = new Date(scheduledDate);
-  dateOnly.setHours(0, 0, 0, 0);
-
-  // CAMBIO: Solo validar contra sesiones SCHEDULED
-  const conflictingSessions = await this.sessionRepository
-    .createQueryBuilder('session')
-    .where('session.idTutor = :tutorId', { tutorId })
-    .andWhere('DATE(session.scheduledDate) = DATE(:scheduledDate)', {
-      scheduledDate: dateOnly,
-    })
-    .andWhere('session.status = :status', {
-      status: SessionStatus.SCHEDULED, // Solo SCHEDULED
-    })
-    .andWhere(
-      excludeSessionId ? 'session.idSession != :excludeSessionId' : '1=1',
-      { excludeSessionId },
-    )
-    .getMany();
-
-  for (const session of conflictingSessions) {
-    const sessionStart = session.startTime;
-    const sessionEnd = session.endTime;
-
-    const hasOverlap =
-      (startTime >= sessionStart && startTime < sessionEnd) ||
-      (endTime > sessionStart && endTime <= sessionEnd) ||
-      (startTime <= sessionStart && endTime >= sessionEnd);
-
-    if (hasOverlap) {
-      throw new BadRequestException(
-        `Ya tienes una sesión confirmada de ${sessionStart} a ${sessionEnd} el ${scheduledDate.toISOString().split('T')[0]}`,
-      );
+ 
+  // ─────────────────────────────────────────────────────────────────────────
+  // Conflicto de horario con otras sesiones del tutor
+  //
+  // scheduledDate es string 'YYYY-MM-DD'. La comparación DATE(session.scheduledDate)
+  // funciona igual con strings en Postgres, sin conversión de zona horaria.
+  // ─────────────────────────────────────────────────────────────────────────
+ 
+  async validateNoTimeConflict(
+    tutorId: string,
+    scheduledDate: string, // 'YYYY-MM-DD'
+    startTime: string,
+    durationHours: number,
+    excludeSessionId?: string,
+  ): Promise<void> {
+    const endTime = this.calculateEndTime(startTime, durationHours);
+ 
+    const qb = this.sessionRepository
+      .createQueryBuilder('session')
+      .where('session.idTutor = :tutorId', { tutorId })
+      .andWhere("DATE(session.scheduledDate) = :scheduledDate", { scheduledDate })
+      .andWhere('session.status IN (:...activeStatuses)', {
+        activeStatuses: [
+          SessionStatus.SCHEDULED,
+          SessionStatus.PENDING_MODIFICATION,
+        ],
+      });
+ 
+    if (excludeSessionId) {
+      qb.andWhere('session.idSession != :excludeSessionId', { excludeSessionId });
+    }
+ 
+    const conflictingSessions = await qb.getMany();
+ 
+    for (const session of conflictingSessions) {
+      const overlaps = startTime < session.endTime && endTime > session.startTime;
+      if (overlaps) {
+        throw new BadRequestException(
+          `Ya tienes una sesión de ${session.startTime} a ${session.endTime} el ${scheduledDate}. ` +
+          `El horario propuesto (${startTime}–${endTime}) se solapa.`,
+        );
+      }
     }
   }
-}
-
-  /**
-   * HU-19.1.4: Validar límite semanal del tutor
-   */
+ 
+  // ─────────────────────────────────────────────────────────────────────────
+  // HU-19.1.4 — Límite semanal del tutor
+  //
+  // Usamos parseISO (date-fns) para construir el Date de referencia desde
+  // el string, que internamente usa UTC y luego startOfWeek/endOfWeek lo
+  // ajusta correctamente.
+  // ─────────────────────────────────────────────────────────────────────────
+ 
   async validateWeeklyHoursLimit(
     tutorId: string,
-    scheduledDate: Date,
+    scheduledDate: string, // 'YYYY-MM-DD'
     durationHours: number,
-     excludeSessionId?: string, //Nuevo: para excluir la sesión actual en caso de modificación
+    excludeSessionId?: string,
   ): Promise<void> {
-    // Calcular inicio y fin de la semana
-    const weekStart = startOfWeek(scheduledDate, { weekStartsOn: 1 }); // Lunes
-    const weekEnd = endOfWeek(scheduledDate, { weekStartsOn: 1 }); // Domingo
-
-
-    // Construir consulta
-  const queryBuilder = this.sessionRepository
-    .createQueryBuilder('session')
-    .where('session.idTutor = :tutorId', { tutorId })
-    .andWhere('session.scheduledDate BETWEEN :weekStart AND :weekEnd', {
-      weekStart,
-      weekEnd,
-    })
-    .andWhere('session.status IN (:...activeStatuses)', {
-      activeStatuses: [
-        SessionStatus.SCHEDULED,
-        SessionStatus.PENDING_MODIFICATION,
-      ],
-    });
-
-  // Excluir sesión actual (para modificaciones)
-  if (excludeSessionId) {
-    queryBuilder.andWhere('session.idSession != :excludeSessionId', {
-      excludeSessionId,
-    });
-  }
-
-  const sessions = await queryBuilder.getMany();
-
-    // Calcular horas totales
-    const totalHours = sessions.reduce((sum, session) => {
-      const duration = this.calculateDurationFromTimes(
-        session.startTime,
-        session.endTime,
-      );
-      return sum + duration;
-    }, 0);
-
-    // Obtener límite desde TutorService
+    // parseISO('2025-04-07') → Date en UTC, sin ambigüedad de zona horaria
+    const refDate   = parseISO(scheduledDate);
+    const weekStart = startOfWeek(refDate, { weekStartsOn: 1 }); // Lunes
+    const weekEnd   = endOfWeek(refDate,   { weekStartsOn: 1 }); // Domingo
+ 
+    const qb = this.sessionRepository
+      .createQueryBuilder('session')
+      .where('session.idTutor = :tutorId', { tutorId })
+      .andWhere('session.scheduledDate BETWEEN :weekStart AND :weekEnd', {
+        weekStart: weekStart.toISOString().split('T')[0],
+        weekEnd:   weekEnd.toISOString().split('T')[0],
+      })
+      .andWhere('session.status IN (:...activeStatuses)', {
+        activeStatuses: [
+          SessionStatus.SCHEDULED,
+          SessionStatus.PENDING_MODIFICATION,
+        ],
+      });
+ 
+    if (excludeSessionId) {
+      qb.andWhere('session.idSession != :excludeSessionId', { excludeSessionId });
+    }
+ 
+    const sessions = await qb.getMany();
+ 
+    const hoursThisWeek = sessions.reduce(
+      (sum, s) => sum + this.calcDurationFromTimes(s.startTime, s.endTime),
+      0,
+    );
+ 
     const weeklyLimit = await this.tutorService.getWeeklyHoursLimit(tutorId);
-    
-    // Validar
-    if (totalHours + durationHours > weeklyLimit) {
+ 
+    if (hoursThisWeek + durationHours > weeklyLimit) {
       throw new BadRequestException(
-        'El tutor ha alcanzado su límite de horas esta semana',
+        `El tutor ha alcanzado su límite semanal de ${weeklyLimit}h ` +
+        `(${hoursThisWeek}h usadas + ${durationHours}h solicitadas = ` +
+        `${hoursThisWeek + durationHours}h).`,
       );
     }
   }
-
-  /**
-   * HU-21.1.1: Validar cancelación con 24h de anticipación
-   * @returns true si es >= 24h, false si es < 24h
-   */
-  validateCancellationTime(
-    sessionDate: Date,
-    sessionStartTime: string,
-  ): boolean {
-    const now = new Date();
-
-    // Combinar fecha y hora de la sesión
-    const sessionDateTime = this.combineDateAndTime(
-      sessionDate,
-      sessionStartTime,
-    );
-
-    // Calcular diferencia en horas
-    const hoursUntilSession = differenceInHours(sessionDateTime, now);
-
-    return hoursUntilSession >= 24;
+ 
+  // ─────────────────────────────────────────────────────────────────────────
+  // HU-21.1.1 — Cancelación con ≥ 24h de anticipación
+  // ─────────────────────────────────────────────────────────────────────────
+ 
+  validateCancellationTime(sessionDate: string, sessionStartTime: string): boolean {
+    // Parsear 'YYYY-MM-DD' y 'HH:mm' sin ambigüedad de zona horaria
+    const [year, month, day] = sessionDate.split('-').map(Number);
+    const [hours, minutes]   = sessionStartTime.split(':').map(Number);
+    const sessionDateTime    = new Date(Date.UTC(year, month - 1, day, hours, minutes));
+    return differenceInHours(sessionDateTime, new Date()) >= 24;
   }
-
-  // ========================================
-  // HELPERS PÚBLICOS (usados por SessionService)
-  // ========================================
-
-  /**
-   * Calcula endTime sumando duration a startTime
-   */
+ 
+  // ─────────────────────────────────────────────────────────────────────────
+  // HELPERS PÚBLICOS
+  // ─────────────────────────────────────────────────────────────────────────
+ 
   calculateEndTime(startTime: string, durationHours: number): string {
-    const [hours, minutes] = startTime.split(':').map(Number);
-    const startDate = new Date();
-    startDate.setHours(hours, minutes, 0, 0);
-
-    const endDate = addHours(startDate, durationHours);
-
-    return `${endDate.getHours().toString().padStart(2, '0')}:${endDate
-      .getMinutes()
-      .toString()
-      .padStart(2, '0')}`;
+    const [h, m] = startTime.split(':').map(Number);
+    const start  = new Date();
+    start.setHours(h, m, 0, 0);
+    const end = addHours(start, durationHours);
+    return (
+      `${String(end.getHours()).padStart(2, '0')}:` +
+      `${String(end.getMinutes()).padStart(2, '0')}`
+    );
   }
-
-  // ========================================
+ 
+  // ─────────────────────────────────────────────────────────────────────────
   // HELPERS PRIVADOS
-  // ========================================
-
-  /**
-   * Convierte HH:mm a minutos totales
-   */
-  private timeToMinutes(time: string): number {
-    const [hours, minutes] = time.split(':').map(Number);
-    return hours * 60 + minutes;
-  }
-
-  /**
-   * Calcula duración en horas entre startTime y endTime
-   */
-  private calculateDurationFromTimes(
-    startTime: string,
-    endTime: string,
-  ): number {
-    const startMinutes = this.timeToMinutes(startTime);
-    const endMinutes = this.timeToMinutes(endTime);
-    return (endMinutes - startMinutes) / 60; // Retorna en horas
-  }
-
-  /**
-   * Combina fecha y hora en un solo Date object
-   */
-  private combineDateAndTime(date: Date, time: string): Date {
-    const [hours, minutes] = time.split(':').map(Number);
-    const combined = new Date(date);
-    combined.setHours(hours, minutes, 0, 0);
-    return combined;
+  // ─────────────────────────────────────────────────────────────────────────
+ 
+  private calcDurationFromTimes(startTime: string, endTime: string): number {
+    const toMin = (t: string) => {
+      const [h, m] = t.split(':').map(Number);
+      return h * 60 + m;
+    };
+    return (toMin(endTime) - toMin(startTime)) / 60;
   }
 }

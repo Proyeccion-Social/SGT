@@ -121,11 +121,16 @@ export class EvaluationService {
 			throw new ConflictException(conflictPayload);
 		}
 
+		/*
 		const sessionDate = new Date(session.scheduledDate);
 		sessionDate.setHours(23, 59, 59, 999);
 		const deadline = new Date(sessionDate);
 		deadline.setDate(deadline.getDate() + 7);
 
+		*/
+
+		const [year, month, day] = session.scheduledDate.split('-').map(Number);
+        const deadline = new Date(Date.UTC(year, month - 1, day + 7, 23, 59, 59, 999));
 		if (new Date() > deadline) {
 			throw new ConflictException(conflictPayload);
 		}

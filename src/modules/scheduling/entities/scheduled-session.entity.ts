@@ -24,7 +24,7 @@ export class ScheduledSession {
   idSession: string;
 
   @Column({ name: 'scheduled_date', type: 'date' }) //nuevo campo para almacenar la fecha programada, necesario para validaciones de disponibilidad
-  scheduledDate: Date;
+  scheduledDate: string;
 
   @ManyToOne(() => Tutor)
   @JoinColumn({ name: 'id_tutor' })

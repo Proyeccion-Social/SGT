@@ -65,10 +65,10 @@ export class AttendanceService {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
  
-    const scheduledDate = new Date(session.scheduledDate);
-    scheduledDate.setHours(0, 0, 0, 0);
+    const todayStr = today.toISOString().split('T')[0]; // 'YYYY-MM-DD'
+    //scheduledDate.setHours(0, 0, 0, 0);
  
-    if (scheduledDate.getTime() > today.getTime()) {
+    if (session.scheduledDate > todayStr) { // Refactor: comparación directa de strings 'YYYY-MM-DD'
       throw new ConflictException({
         errorCode: 'BUSINESS_09',
         message: 'Conflicto de asistencia',

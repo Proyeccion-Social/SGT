@@ -1020,7 +1020,7 @@ export class NotificationsService {
     studentName: string,
     tutorName: string,
     subjectName: string,
-    sessionDate: Date,
+    sessionDate: string,
     startTime: string,
   ): Promise<void> {
     try {

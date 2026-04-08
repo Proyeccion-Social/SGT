@@ -30,7 +30,7 @@ export class Session {
   idSubject: string;
 
   @Column({ name: 'scheduled_date', type: 'date' })
-  scheduledDate: Date;
+  scheduledDate: string; // se mantiene como string para facilitar comparaciones y validaciones, de aquí surgía el error de desplazamiento de un día al convertirlo a Date
 
   @Column({ name: 'start_time', type: 'time' })
   startTime: string;
