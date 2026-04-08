@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Solicitud no aceptada</title>
+  <style>
+    body { margin: 0; padding: 0; background-color: #f4f4f5; font-family: Arial, sans-serif; }
+    .wrapper { max-width: 600px; margin: 32px auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .header { background-color: #b91c1c; padding: 32px 40px; }
+    .header h1 { margin: 0; color: #ffffff; font-size: 22px; font-weight: 700; }
+    .header p { margin: 6px 0 0; color: #fecaca; font-size: 14px; }
+    .body { padding: 32px 40px; }
+    .body p { color: #374151; font-size: 15px; line-height: 1.6; margin: 0 0 16px; }
+    .detail-box { background: #fef2f2; border-left: 4px solid #b91c1c; border-radius: 4px; padding: 16px 20px; margin: 24px 0; }
+    .detail-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #fecaca; font-size: 14px; }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-label { color: #6b7280; font-weight: 600; }
+    .detail-value { color: #111827; text-align: right; }
+    .reason-box { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 6px; padding: 14px 18px; margin: 16px 0; font-size: 14px; color: #9a3412; }
+    .reason-box strong { display: block; margin-bottom: 4px; }
+    .actions { margin-top: 24px; display: flex; gap: 12px; flex-wrap: wrap; }
+    .btn { display: inline-block; padding: 12px 24px; border-radius: 6px; font-size: 14px; font-weight: 700; text-decoration: none; }
+    .btn-primary { background-color: #1d4ed8; color: #ffffff; }
+    .btn-secondary { background-color: #ffffff; color: #374151; border: 1px solid #d1d5db; }
+    .footer { background: #f9fafb; padding: 20px 40px; text-align: center; font-size: 12px; color: #9ca3af; border-top: 1px solid #e5e7eb; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      <h1>Tu solicitud no fue aceptada</h1>
+      <p>Atlas — Sistema de Gestión de Tutorías</p>
+    </div>
+    <div class="body">
+      <p>Hola, <strong>{{studentName}}</strong>.</p>
+      <p>Lamentamos informarte que <strong>{{tutorName}}</strong> no pudo aceptar tu solicitud de tutoría en este momento.</p>
+
+      <div class="detail-box">
+        <div class="detail-row">
+          <span class="detail-label">Materia</span>
+          <span class="detail-value">{{subjectName}}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Tema</span>
+          <span class="detail-value">{{title}}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Fecha solicitada</span>
+          <span class="detail-value">{{date}}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Horario solicitado</span>
+          <span class="detail-value">{{startTime}} – {{endTime}}</span>
+        </div>
+      </div>
+
+      <div class="reason-box">
+        <strong>Motivo del rechazo:</strong>
+        {{rejectionReason}}
+      </div>
+
+      <p>Puedes agendar una nueva sesión con este u otro tutor disponible.</p>
+
+      <div class="actions">
+        <a href="{{rescheduleUrl}}"  class="btn btn-primary">Agendar nueva sesión</a>
+        <a href="{{tutorProfileUrl}}" class="btn btn-secondary">Ver perfil del tutor</a>
+      </div>
+    </div>
+    <div class="footer">
+      Atlas · Universidad Distrital Francisco José de Caldas<br/>
+      Este mensaje fue generado automáticamente, por favor no respondas a este correo.
+    </div>
+  </div>
+</body>
+</html>
