@@ -36,6 +36,7 @@ import { SubjectsService } from '../../subjects/services/subjects.service';
 import { NotificationsService } from '../../notifications/services/notifications.service';
 import { buildPaginatedResponse } from 'src/modules/common/helpers/pagination.helper';
 
+
 @Injectable()
 export class SessionService {
   constructor(
@@ -460,135 +461,191 @@ export class SessionService {
   // RF-22: PROPONER MODIFICACIÓN
   // ═══════════════════════════════════════════════════════════════════════════
 
-  async proposeModification(userId: string, sessionId: string, dto: ProposeModificationDto) {
-    const session = await this.sessionRepository.findOne({
-      where: { idSession: sessionId },
-      relations: ['studentParticipateSessions', 'subject'],
-    });
-    if (!session) throw new NotFoundException('Session not found');
+  async proposeModification(
+  userId: string,
+  sessionId: string,
+  dto: ProposeModificationDto,
+) {
+  const session = await this.sessionRepository.findOne({
+    where: { idSession: sessionId },
+    relations: ['studentParticipateSessions', 'subject'],
+  });
 
-    const isParticipant = session.studentParticipateSessions.some(
-      (p) => p.idStudent === userId,
+  if (!session) {
+    throw new NotFoundException('Session not found');
+  }
+
+  const isParticipant = session.studentParticipateSessions.some(
+    (p) => p.idStudent === userId,
+  );
+  const isTutor = session.idTutor === userId;
+
+  if (!isParticipant && !isTutor) {
+    throw new ForbiddenException(
+      'No tienes permiso para modificar esta sesión',
     );
-    const isTutor = session.idTutor === userId;
+  }
 
-    if (!isParticipant && !isTutor) {
-      throw new ForbiddenException('No tienes permiso para modificar esta sesión');
-    }
-    if (session.status !== SessionStatus.SCHEDULED) {
-      throw new BadRequestException('Solo puedes modificar sesiones en estado SCHEDULED');
-    }
-    if (!dto.newScheduledDate && !dto.newAvailabilityId && !dto.newModality && !dto.newDurationHours) {
-      throw new BadRequestException('Debes proponer al menos un cambio');
-    }
+  if (session.status !== SessionStatus.SCHEDULED) {
+    throw new BadRequestException(
+      'Solo puedes modificar sesiones en estado SCHEDULED',
+    );
+  }
 
-    // Validar cambios de horario/slot solo si realmente cambia algo temporal
-    if (dto.newScheduledDate || dto.newAvailabilityId || dto.newDurationHours) {
-      const newDate = dto.newScheduledDate ?? session.scheduledDate; //refactor
-      const newDuration = dto.newDurationHours ?? this.calcDuration(session);
+  if (
+    !dto.newScheduledDate &&
+    !dto.newAvailabilityId &&
+    !dto.newModality &&
+    !dto.newDurationHours
+  ) {
+    throw new BadRequestException('Debes proponer al menos un cambio');
+  }
 
-      let newAvailabilityId = dto.newAvailabilityId;
+  // ========================================
+  // VALIDACIONES DE CAMBIO TEMPORAL
+  // ========================================
+  if (
+    dto.newScheduledDate ||
+    dto.newAvailabilityId ||
+    dto.newDurationHours
+  ) {
+    const newDate: string = dto.newScheduledDate ?? session.scheduledDate;
 
-      if (newAvailabilityId) {
-        const newAvailability = await this.availabilityService.getAvailabilityById(newAvailabilityId);
+    const newDuration =
+      dto.newDurationHours ?? this.calcDuration(session);
 
-        // ========================================
-        //  NUEVA VALIDACIÓN CRÍTICA (dayOfWeek vs fecha)
-        // ========================================
-        let effectiveAvailabilityId = session.scheduledDate === newDate ? session.scheduledSession?.idAvailability : newAvailabilityId;
-        await this.validationService.validateScheduledDateMatchesSlotDay(
-          effectiveAvailabilityId,
-          newDate,
-        );
-        
+    let effectiveAvailabilityId: number;
 
-        // Slot disponible para la nueva fecha + duración completa,
-        // excluyendo la sesión actual para que no se bloquee a sí misma.
-        await this.validationService.validateAvailabilitySlotWithDuration(
-          session.idTutor,
-          newAvailabilityId,
-          newDate,
-          newDuration,
-          session.idSession,
-        );
-
-        const newModality = dto.newModality ?? session.modality;
-        await this.validationService.validateModality(
-          newAvailabilityId,
-          session.idTutor,
-          newModality,
-        );
-
-        const newStartTime = newAvailability.startTime;
-        await this.validationService.validateNoTimeConflict(
-          session.idTutor,
-          newDate,
-          newStartTime,
-          newDuration,
-          session.idSession,
-        );
-      } else {
-        // No cambia el slot, pero puede cambiar fecha o duración.
-        // Re-validamos con el slot original en la nueva fecha.
-        const currentScheduledSession = await this.scheduledSessionRepository.findOne({
+    if (dto.newAvailabilityId) {
+      effectiveAvailabilityId = dto.newAvailabilityId;
+    } else {
+      const currentScheduledSession =
+        await this.scheduledSessionRepository.findOne({
           where: { idSession: sessionId },
         });
 
-        if (currentScheduledSession) {
-          await this.validationService.validateAvailabilitySlotWithDuration(
-            session.idTutor,
-            currentScheduledSession.idAvailability,
-            newDate,
-            newDuration,
-            session.idSession,
-          );
-        }
-
-        await this.validationService.validateNoTimeConflict(
-          session.idTutor,
-          newDate,
-          session.startTime,
-          newDuration,
-          session.idSession,
+      if (!currentScheduledSession) {
+        throw new NotFoundException(
+          'ScheduledSession not found for this session',
         );
       }
 
-      await this.validationService.validateWeeklyHoursLimit(
+      effectiveAvailabilityId = currentScheduledSession.idAvailability;
+    }
+
+    // ========================================
+    // ✅ NUEVA VALIDACIÓN CRÍTICA (dayOfWeek vs fecha)
+    // ========================================
+    await this.validationService.validateScheduledDateMatchesSlotDay(
+      effectiveAvailabilityId,
+      newDate,
+    );
+
+    // ========================================
+    // VALIDACIÓN DE DISPONIBILIDAD + DURACIÓN
+    // ========================================
+    await this.validationService.validateAvailabilitySlotWithDuration(
+      session.idTutor,
+      effectiveAvailabilityId,
+      newDate,
+      newDuration,
+      session.idSession,
+    );
+
+    // ========================================
+    // VALIDACIÓN DE MODALIDAD (solo si cambia slot)
+    // ========================================
+    if (dto.newAvailabilityId) {
+      const newModality = dto.newModality ?? session.modality;
+
+      await this.validationService.validateModality(
+        effectiveAvailabilityId,
         session.idTutor,
-        newDate,
-        newDuration,
-        session.idSession,
+        newModality,
       );
     }
 
-    const expiresAt = addDays(new Date(), 1);
+    // ========================================
+    // VALIDACIÓN DE CONFLICTO DE HORARIO
+    // ========================================
+    let newStartTime = session.startTime;
 
-    const modificationRequest = new SessionModificationRequest();
-    modificationRequest.idSession = sessionId;
-    modificationRequest.requestedBy = userId;
-    modificationRequest.newScheduledDate = dto.newScheduledDate ?? undefined;
-    modificationRequest.newAvailabilityId = dto.newAvailabilityId ?? undefined;
-    modificationRequest.newModality = dto.newModality ?? undefined;
-    modificationRequest.newDurationHours = dto.newDurationHours ?? undefined;
-    modificationRequest.status = ModificationStatus.PENDING;
-    modificationRequest.expiresAt = expiresAt;
+    if (dto.newAvailabilityId) {
+      const newAvailability =
+        await this.availabilityService.getAvailabilityById(
+          dto.newAvailabilityId,
+        );
 
-    const savedRequest = await this.modificationRequestRepository.save(modificationRequest);
+      newStartTime = newAvailability.startTime;
+    }
 
-    session.status = SessionStatus.PENDING_MODIFICATION;
-    await this.sessionRepository.save(session);
+    await this.validationService.validateNoTimeConflict(
+      session.idTutor,
+      newDate,
+      newStartTime,
+      newDuration,
+      session.idSession,
+    );
 
-    await this.fireAndLogNotifications([
-      this.notificationsService.sendModificationRequest(session, userId, savedRequest),
-    ]);
-
-    return {
-      success: true,
-      message: 'Modificación propuesta exitosamente',
-      requestId: savedRequest.idRequest,
-      expiresAt,
-    };
+    // ========================================
+    // VALIDACIÓN DE LÍMITE SEMANAL
+    // ========================================
+    await this.validationService.validateWeeklyHoursLimit(
+      session.idTutor,
+      newDate,
+      newDuration,
+      session.idSession,
+    );
   }
+
+  // ========================================
+  // CREACIÓN DE SOLICITUD
+  // ========================================
+  const expiresAt = addDays(new Date(), 1);
+
+  const modificationRequest = new SessionModificationRequest();
+  modificationRequest.idSession = sessionId;
+  modificationRequest.requestedBy = userId;
+  modificationRequest.newScheduledDate =
+    dto.newScheduledDate ?? undefined;
+  modificationRequest.newAvailabilityId =
+    dto.newAvailabilityId ?? undefined;
+  modificationRequest.newModality =
+    dto.newModality ?? undefined;
+  modificationRequest.newDurationHours =
+    dto.newDurationHours ?? undefined;
+  modificationRequest.status = ModificationStatus.PENDING;
+  modificationRequest.expiresAt = expiresAt;
+
+  const savedRequest =
+    await this.modificationRequestRepository.save(
+      modificationRequest,
+    );
+
+  // ========================================
+  // ACTUALIZAR ESTADO DE SESIÓN
+  // ========================================
+  session.status = SessionStatus.PENDING_MODIFICATION;
+  await this.sessionRepository.save(session);
+
+  // ========================================
+  // NOTIFICACIONES
+  // ========================================
+  await this.fireAndLogNotifications([
+    this.notificationsService.sendModificationRequest(
+      session,
+      userId,
+      savedRequest,
+    ),
+  ]);
+
+  return {
+    success: true,
+    message: 'Modificación propuesta exitosamente',
+    requestId: savedRequest.idRequest,
+    expiresAt,
+  };
+}
 
   // ═══════════════════════════════════════════════════════════════════════════
   // RF-22: RESPONDER A PROPUESTA DE MODIFICACIÓN
