@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bienvenido a SGT</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+  <table role="presentation" style="width: 100%; border-collapse: collapse;">
+    <tr>
+      <td align="center" style="padding: 40px 0;">
+        <table role="presentation" style="width: 600px; border-collapse: collapse; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <tr>
+            <td style="padding: 40px 40px 20px 40px; text-align: center;">
+              <h1 style="margin: 0; color: #28a745; font-size: 28px; font-weight: bold;">
+                ¡Bienvenido a SGT!
+              </h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 0 40px 40px 40px; color: #666666; font-size: 16px; line-height: 1.6;">
+              <p style="margin: 0 0 20px 0;">Hola <strong style="color: #333333;">${fullName}</strong>,</p>
+              <p style="margin: 0 0 20px 0;">
+                Tu cuenta ha sido confirmada exitosamente. Ya puedes acceder al Sistema de Gestión de Tutorías.
+              </p>
+              <div style="margin: 30px 0; padding: 20px; background-color: #e7f3ff; border-left: 4px solid #007bff; border-radius: 4px;">
+                <h3 style="margin: 0 0 15px 0; color: #333333; font-size: 18px;">¿Qué puedes hacer ahora?</h3>
+                <ul style="margin: 0; padding-left: 20px;">
+                  <li style="margin-bottom: 10px;">Buscar tutores por materia</li>
+                  <li style="margin-bottom: 10px;">Agendar sesiones individuales</li>
+                  <li style="margin-bottom: 10px;">Unirte a sesiones colaborativas</li>
+                  <li>Calificar tus tutorías</li>
+                </ul>
+              </div>
+              <table role="presentation" style="margin: 30px auto 0 auto;">
+                <tr>
+                  <td style="border-radius: 5px; background-color: #28a745;">
+                    <a href="${loginUrl}" 
+                       target="_blank" 
+                       style="display: inline-block; padding: 16px 36px; font-size: 16px; color: #ffffff; text-decoration: none; font-weight: bold;">
+                      Iniciar Sesión
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin: 30px 0 0 0; font-size: 14px; color: #999999; text-align: center;">
+                Si tienes alguna pregunta, no dudes en contactarnos.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 30px 40px; background-color: #f8f9fa; border-radius: 0 0 8px 8px; text-align: center;">
+              <p style="margin: 0; font-size: 14px; color: #666666; line-height: 1.5;">
+                Saludos,<br>
+                <strong>Equipo de Proyección Social</strong><br>
+                Universidad Distrital Francisco José de Caldas
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

@@ -1,0 +1,222 @@
+// src/subjects/services/subject.service.ts
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, In } from 'typeorm';
+import { Subject } from '../entities/subjects.entity';
+import { TutorImpartSubject } from '../entities/tutor-subject.entity';
+import { buildPaginatedResponse } from 'src/modules/common/helpers/pagination.helper';
+
+@Injectable()
+export class SubjectsService {
+
+  constructor(
+    @InjectRepository(Subject, 'local')
+    private readonly subjectRepository: Repository<Subject>,
+    @InjectRepository(TutorImpartSubject, 'local')
+    private readonly tutorImpartSubjectRepository: Repository<TutorImpartSubject>,
+  ) { }
+
+  // =====================================================
+  // CRUD BÁSICO DE SUBJECTS
+  // =====================================================
+
+  /**
+   * Obtener una materia por ID
+   */
+  async findById(id: string): Promise<Subject | null> {
+    return await this.subjectRepository.findOne({
+      where: { idSubject: id },
+    });
+  }
+
+  /**
+   * Obtener una materia por nombre
+   */
+  async findByName(name: string) {
+    return await this.subjectRepository.findOne({
+      where: { name: name },
+    });
+  }
+  /**
+   * Obtener múltiples materias por IDs
+   */
+  async findByIds(ids: string[]): Promise<Subject[]> {
+    return await this.subjectRepository.find({
+      where: { idSubject: In(ids) },
+    });
+  }
+
+  /**
+   * Validar que todas las materias existan
+   */
+  async validateSubjectsExist(ids: string[]): Promise<boolean> {
+    const subjects = await this.findByIds(ids);
+    return subjects.length === ids.length;
+  }
+
+  /**
+   * Obtener todas las materias activas
+   */
+  async findAll(page: number = 1, limit: number = 10) {
+  const [subjects, total] = await this.subjectRepository.findAndCount({
+    order: { name: 'ASC' },
+    skip: (page - 1) * limit,
+    take: limit,
+  });
+
+  return buildPaginatedResponse(
+    subjects.map((s) => ({ id: s.idSubject, name: s.name })),
+    total,
+    page,
+    limit,
+  );
+}
+
+  /**
+   * Verificar si una materia existe
+   */
+  async exists(id: string): Promise<boolean> {
+    const count = await this.subjectRepository.count({
+      where: { idSubject: id },
+    });
+    return count > 0;
+  }
+
+  // =====================================================
+  // GESTIÓN DE RELACIÓN TUTOR-SUBJECT
+  // =====================================================
+
+  /**
+   * Asignar materias a un tutor (reemplaza las existentes)
+   */
+  async assignSubjectsToTutor(
+    tutorId: string,
+    subjectIds: string[],
+  ): Promise<void> {
+    //Validación de límite de materias 
+    if (subjectIds.length < 1) {
+      throw new BadRequestException('Debe asignar al menos una materia');
+    }
+
+    if (subjectIds.length > 3) {
+      throw new BadRequestException('No puede asignar más de 3 materias');
+    }
+
+    //Validación de existencia de materias
+    const exists = await this.validateSubjectsExist(subjectIds);
+    if (!exists) {
+      throw new NotFoundException('Algunas materias no existen');
+    }
+
+    // Eliminar asignaciones anteriores
+    await this.tutorImpartSubjectRepository.delete({
+      idTutor: tutorId,
+    });
+
+    // Crear nuevas asignaciones
+    const relations = subjectIds.map((subjectId) =>
+      this.tutorImpartSubjectRepository.create({
+        idTutor: tutorId,
+        idSubject: subjectId,
+      }),
+    );
+
+    await this.tutorImpartSubjectRepository.save(relations);
+  }
+
+  /**
+   * Agregar una materia a un tutor (sin eliminar las existentes)
+   */
+  async addSubjectToTutor(tutorId: string, subjectId: string): Promise<void> {
+    // 1. Validar que la materia exista
+    const subject = await this.findById(subjectId);
+    if (!subject) {
+      throw new NotFoundException(`Subject with id ${subjectId} not found`);
+    }
+
+    // 2. Verificar si ya existe la relación
+    const existing = await this.tutorImpartSubjectRepository.findOne({
+      where: { idTutor: tutorId, idSubject: subjectId },
+    });
+
+    if (existing) {
+      return; // Ya existe, no hacer nada
+    }
+
+    // 3. Crear la relación
+    const relation = this.tutorImpartSubjectRepository.create({
+      idTutor: tutorId,
+      idSubject: subjectId,
+    });
+
+    await this.tutorImpartSubjectRepository.save(relation);
+  }
+
+  /**
+   * Remover una materia de un tutor
+   */
+  async removeSubjectFromTutor(
+    tutorId: string,
+    subjectId: string,
+  ): Promise<void> {
+    await this.tutorImpartSubjectRepository.delete({
+      idTutor: tutorId,
+      idSubject: subjectId,
+    });
+  }
+
+  /**
+   * Obtener todas las materias que imparte un tutor
+   */
+  async getSubjectsByTutor(tutorId: string): Promise<Subject[]> {
+    const relations = await this.tutorImpartSubjectRepository.find({
+      where: { idTutor: tutorId },
+      relations: ['subject'],
+    });
+
+    return relations.map((r) => r.subject);
+  }
+
+  /**
+   * Obtener todos los tutores que imparten una materia
+   */
+  async getTutorsBySubject(subjectId: string): Promise<string[]> {
+    const relations = await this.tutorImpartSubjectRepository.find({
+      where: { idSubject: subjectId },
+    });
+
+    return relations.map((r) => r.idTutor);
+  }
+
+  /**
+   * Verificar si un tutor imparte una materia específica
+   */
+  async tutorTeachesSubject(
+    tutorId: string,
+    subjectId: string,
+  ): Promise<boolean> {
+    const count = await this.tutorImpartSubjectRepository.count({
+      where: { idTutor: tutorId, idSubject: subjectId },
+    });
+
+    return count > 0;
+  }
+
+  /**
+   * Obtener cantidad de materias que imparte un tutor
+   */
+  async countSubjectsByTutor(tutorId: string): Promise<number> {
+    return await this.tutorImpartSubjectRepository.count({
+      where: { idTutor: tutorId },
+    });
+  }
+
+  /**
+   * Eliminar todas las asignaciones de un tutor (cuando se elimina/desactiva)
+   */
+  async removeAllSubjectsFromTutor(tutorId: string): Promise<void> {
+    await this.tutorImpartSubjectRepository.delete({
+      idTutor: tutorId,
+    });
+  }
+}

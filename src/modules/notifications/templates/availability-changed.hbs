@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cambio en disponibilidad del tutor</title>
+  <style>
+    body { margin: 0; padding: 0; background-color: #f4f4f5; font-family: Arial, sans-serif; }
+    .wrapper { max-width: 600px; margin: 32px auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .header-cancelled  { background-color: #b91c1c; padding: 32px 40px; }
+    .header-modified   { background-color: #b45309; padding: 32px 40px; }
+    .header-slot       { background-color: #6b7280; padding: 32px 40px; }
+    .header-cancelled h1, .header-modified h1, .header-slot h1 { margin: 0; color: #ffffff; font-size: 22px; font-weight: 700; }
+    .header-cancelled p { margin: 6px 0 0; color: #fecaca; font-size: 14px; }
+    .header-modified  p { margin: 6px 0 0; color: #fde68a; font-size: 14px; }
+    .header-slot      p { margin: 6px 0 0; color: #e5e7eb; font-size: 14px; }
+    .body { padding: 32px 40px; }
+    .body p { color: #374151; font-size: 15px; line-height: 1.6; margin: 0 0 16px; }
+    .detail-box { background: #f9fafb; border-left: 4px solid #9ca3af; border-radius: 4px; padding: 16px 20px; margin: 20px 0; }
+    .detail-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #e5e7eb; font-size: 14px; }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-label { color: #6b7280; font-weight: 600; }
+    .detail-value { color: #111827; text-align: right; }
+    .reason-box { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 6px; padding: 14px 18px; margin: 16px 0; font-size: 14px; color: #9a3412; }
+    .reason-box strong { display: block; margin-bottom: 4px; }
+    .actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
+    .btn { display: inline-block; padding: 12px 24px; border-radius: 6px; font-size: 14px; font-weight: 700; text-decoration: none; }
+    .btn-primary   { background-color: #1d4ed8; color: #ffffff; }
+    .btn-secondary { background-color: #ffffff; color: #374151; border: 1px solid #d1d5db; }
+    .footer { background: #f9fafb; padding: 20px 40px; text-align: center; font-size: 12px; color: #9ca3af; border-top: 1px solid #e5e7eb; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    {{#if isCancelled}}
+    <div class="header-cancelled">
+      <h1>Tu sesión ha sido cancelada</h1>
+      <p>Atlas — Sistema de Gestión de Tutorías</p>
+    </div>
+    {{else if isModified}}
+    <div class="header-modified">
+      <h1>Tu sesión ha sido modificada</h1>
+      <p>Atlas — Sistema de Gestión de Tutorías</p>
+    </div>
+    {{else}}
+    <div class="header-slot">
+      <h1>Cambio en disponibilidad del tutor</h1>
+      <p>Atlas — Sistema de Gestión de Tutorías</p>
+    </div>
+    {{/if}}
+
+    <div class="body">
+      <p>Hola, <strong>{{studentName}}</strong>.</p>
+
+      {{#if isCancelled}}
+        <p>El tutor <strong>{{tutorName}}</strong> ha realizado un cambio en su disponibilidad que ha ocasionado la <strong>cancelación</strong> de tu sesión de <strong>{{subjectName}}</strong>.</p>
+      {{else if isModified}}
+        <p>El tutor <strong>{{tutorName}}</strong> ha realizado un cambio en su disponibilidad que afecta tu sesión de <strong>{{subjectName}}</strong>.</p>
+      {{else}}
+        <p>El tutor <strong>{{tutorName}}</strong> ha modificado su disponibilidad. Esto puede afectar tu sesión agendada de <strong>{{subjectName}}</strong>.</p>
+      {{/if}}
+
+      <div class="detail-box">
+        <div class="detail-row">
+          <span class="detail-label">Materia</span>
+          <span class="detail-value">{{subjectName}}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Tema</span>
+          <span class="detail-value">{{title}}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Fecha original</span>
+          <span class="detail-value">{{originalDate}}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Horario original</span>
+          <span class="detail-value">{{originalTime}}</span>
+        </div>
+      </div>
+
+      <div class="reason-box">
+        <strong>Motivo del cambio:</strong>
+        {{changeReason}}
+      </div>
+
+      <div class="actions">
+        <a href="{{rescheduleUrl}}"   class="btn btn-primary">Agendar nueva sesión</a>
+        <a href="{{tutorProfileUrl}}" class="btn btn-secondary">Ver perfil del tutor</a>
+      </div>
+    </div>
+    <div class="footer">
+      Atlas · Universidad Distrital Francisco José de Caldas<br/>
+      Este mensaje fue generado automáticamente, por favor no respondas a este correo.
+    </div>
+  </div>
+</body>
+</html>
