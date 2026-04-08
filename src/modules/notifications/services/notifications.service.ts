@@ -489,6 +489,13 @@ export class NotificationsService {
       const subjectName = session.subject?.name ?? 'Materia';
       const tutorName = session.tutor?.user?.name ?? 'Tutor';
 
+      const cancellingStudentParticipation = isCancelledByTutor
+        ? null
+        : (session.studentParticipateSessions ?? []).find((p) => p.idStudent === cancelledBy);
+      const cancelledByName = isCancelledByTutor
+        ? tutorName
+        : (cancellingStudentParticipation?.student?.user?.name ?? 'Estudiante');
+
       const baseData = {
         subjectName,
         date: this.formatDate(session.scheduledDate),
@@ -497,6 +504,7 @@ export class NotificationsService {
         title: session.title,
         cancellationReason: session.cancellationReason ?? 'No especificada',
         cancelledBy: cancelledByRole,
+        cancelledByName,
         cancelledWithin24h: session.cancelledWithin24h,
         rescheduleUrl: `${this.frontendUrl}/sessions/schedule`,
       };
@@ -530,7 +538,7 @@ export class NotificationsService {
             // Si él mismo canceló, decimos "tú", si no, nombramos al estudiante
             message: isCancelledByTutor
               ? `Cancelaste la sesión de ${subjectName}`
-              : `La sesión de ${subjectName} fue cancelada por el estudiante`,
+              : `La sesión de ${subjectName} fue cancelada por ${cancelledByName}`,
             payload: { sessionId: session.idSession },
           }),
         },
