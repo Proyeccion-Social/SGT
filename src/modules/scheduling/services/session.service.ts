@@ -534,7 +534,7 @@ export class SessionService {
     }
 
     // ========================================
-    // ✅ NUEVA VALIDACIÓN CRÍTICA (dayOfWeek vs fecha)
+    // NUEVA VALIDACIÓN CRÍTICA (dayOfWeek vs fecha)
     // ========================================
     await this.validationService.validateScheduledDateMatchesSlotDay(
       effectiveAvailabilityId,
