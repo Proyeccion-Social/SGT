@@ -820,11 +820,11 @@ export class SessionService {
     }
 
     if (dto.title !== undefined) {
-      if (dto.title == null) throw new BadRequestException('El título no puede ser nulo');
+      if (dto.title === null) throw new BadRequestException('El título no puede ser nulo');
       session.title = dto.title;
     }
     if (dto.description !== undefined) {
-      if (dto.description == null) throw new BadRequestException('La descripción no puede ser nula');
+      if (dto.description === null) throw new BadRequestException('La descripción no puede ser nula');
       session.description = dto.description;
     }
     if (dto.location !== undefined) session.location = dto.location ?? null;
