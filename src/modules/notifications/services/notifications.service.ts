@@ -30,6 +30,12 @@ interface LabeledOperation {
   promise: Promise<any>;
 }
 
+interface SessionDetailsChange {
+  label: string;
+  previous: string | null;
+  current: string | null;
+}
+
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
@@ -740,7 +746,10 @@ export class NotificationsService {
   // RF-22: ACTUALIZACIÓN DE DETALLES (sin aprobación)
   // =====================================================
 
-  async sendSessionDetailsUpdate(session: Session): Promise<void> {
+  async sendSessionDetailsUpdate(
+    session: Session,
+    changes: SessionDetailsChange[] = [],
+  ): Promise<void> {
     try {
       const subjectName = session.subject?.name ?? 'Materia';
       const htmlContent = this.renderTemplate('session-details-updated', {
@@ -753,6 +762,8 @@ export class NotificationsService {
         newLocation: session.location ?? null,
         newVirtualLink: session.virtualLink ?? null,
         sessionDetailsUrl: `${this.frontendUrl}/sessions/${session.idSession}`,
+        changes,
+        hasChanges: changes.length > 0,
       });
 
       const emailSubject = `Detalles actualizados — ${subjectName}`;

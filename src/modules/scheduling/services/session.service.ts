@@ -426,12 +426,12 @@ export class SessionService {
       );
     }
 
-    const isWithin24Hours = this.validationService.validateCancellationTime(
+    const canCancelWithAtLeast24Hours = this.validationService.validateCancellationTime(
       session.scheduledDate,
       session.startTime,
     );
 
-    if (!isWithin24Hours && !isAdmin) {
+    if (!canCancelWithAtLeast24Hours && !isAdmin) {
       throw new BadRequestException(
         'Solo puedes cancelar con al menos 24 horas de anticipación',
       );
@@ -444,7 +444,7 @@ export class SessionService {
         : SessionStatus.CANCELLED_BY_ADMIN;
     session.cancellationReason = dto.reason;
     session.cancelledAt = new Date();
-    session.cancelledWithin24h = isWithin24Hours;
+    session.cancelledWithin24h = !canCancelWithAtLeast24Hours;
     session.cancelledBy = userId;
     await this.sessionRepository.save(session);
 
@@ -659,6 +659,8 @@ export class SessionService {
     try {
       const session = await queryRunner.manager.findOne(Session, {
         where: { idSession: sessionId },
+        // Necesitamos la materia para el email de notificación
+        relations: ['subject'],
       });
       if (!session) throw new NotFoundException('Session not found');
 
@@ -793,6 +795,13 @@ export class SessionService {
     });
     if (!session) throw new NotFoundException('Session not found');
 
+    const previousDetails = {
+      title: session.title,
+      description: session.description,
+      location: session.location ?? null,
+      virtualLink: session.virtualLink ?? null,
+    };
+
     const isParticipant = session.studentParticipateSessions.some(
       (p) => p.idStudent === userId,
     );
@@ -810,15 +819,57 @@ export class SessionService {
       throw new BadRequestException('No puedes modificar una sesión que ya ha iniciado');
     }
 
-    if (dto.title) session.title = dto.title;
-    if (dto.description) session.description = dto.description;
-    if (dto.location) session.location = dto.location;
-    if (dto.virtualLink) session.virtualLink = dto.virtualLink;
+    if (dto.title !== undefined) {
+      if (dto.title === null) throw new BadRequestException('El título no puede ser nulo');
+      session.title = dto.title;
+    }
+    if (dto.description !== undefined) {
+      if (dto.description === null) throw new BadRequestException('La descripción no puede ser nula');
+      session.description = dto.description;
+    }
+    if (dto.location !== undefined) session.location = dto.location ?? null;
+    if (dto.virtualLink !== undefined) session.virtualLink = dto.virtualLink ?? null;
+
+    const changes = [
+      dto.title !== undefined && dto.title !== previousDetails.title
+        ? {
+            label: 'Título',
+            previous: previousDetails.title,
+            current: session.title,
+          }
+        : null,
+      dto.description !== undefined && dto.description !== previousDetails.description
+        ? {
+            label: 'Descripción',
+            previous: previousDetails.description,
+            current: session.description,
+          }
+        : null,
+      dto.location !== undefined && dto.location !== previousDetails.location
+        ? {
+            label: 'Ubicación',
+            previous: previousDetails.location,
+            current: session.location ?? null,
+          }
+        : null,
+      dto.virtualLink !== undefined && dto.virtualLink !== previousDetails.virtualLink
+        ? {
+            label: 'Enlace virtual',
+            previous: previousDetails.virtualLink,
+            current: session.virtualLink ?? null,
+          }
+        : null,
+    ].filter(
+      (
+        change,
+      ): change is { label: string; previous: string | null; current: string | null } =>
+        change !== null,
+    );
 
     await this.sessionRepository.save(session);
 
     await this.fireAndLogNotifications([
-      this.notificationsService.sendSessionDetailsUpdate(session),
+      this.notificationsService.sendSessionDetailsUpdate(session, changes),
     ]);
 
     return { success: true, message: 'Detalles de la sesión actualizados exitosamente' };

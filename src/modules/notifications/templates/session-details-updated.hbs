@@ -18,6 +18,8 @@
     .detail-row:last-child { border-bottom: none; }
     .detail-label { color: #6b7280; font-weight: 600; }
     .detail-value { color: #111827; text-align: right; max-width: 60%; }
+    .change-old { color: #6b7280; text-decoration: line-through; }
+    .change-arrow { color: #0369a1; font-weight: 700; padding: 0 6px; }
     .link-box { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 12px 16px; font-size: 14px; color: #1d4ed8; margin: 12px 0; }
     .link-box a { color: #1d4ed8; font-weight: 700; word-break: break-all; }
     .btn { display: inline-block; padding: 12px 28px; border-radius: 6px; font-size: 15px; font-weight: 700; text-decoration: none; background-color: #0369a1; color: #ffffff; margin-top: 8px; }
@@ -32,6 +34,23 @@
     </div>
     <div class="body">
       <p>Los detalles de tu próxima sesión de <strong>{{subjectName}}</strong> han sido actualizados.</p>
+
+      {{#if hasChanges}}
+      <div class="detail-box">
+        <h3>Cambios aplicados</h3>
+        {{#each changes}}
+        <div class="detail-row">
+          <span class="detail-label">{{label}}</span>
+          <span class="detail-value">
+            {{#if previous}}
+              <span class="change-old">{{previous}}</span><span class="change-arrow">&rarr;</span>
+            {{/if}}
+            {{#if current}}{{current}}{{else}}Sin valor{{/if}}
+          </span>
+        </div>
+        {{/each}}
+      </div>
+      {{/if}}
 
       <div class="detail-box">
         <h3>Datos de la sesión</h3>
@@ -61,6 +80,12 @@
         <div class="detail-row">
           <span class="detail-label">Ubicación</span>
           <span class="detail-value">{{newLocation}}</span>
+        </div>
+        {{/if}}
+        {{#if newVirtualLink}}
+        <div class="detail-row">
+          <span class="detail-label">Enlace virtual</span>
+          <span class="detail-value">Actualizado</span>
         </div>
         {{/if}}
       </div>
