@@ -2,6 +2,8 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
+  Delete,
   UseGuards,
   Param,
   Query,
@@ -20,6 +22,7 @@ import { NotFoundException } from '@nestjs/common';
 import { FilterTutorsDto } from '../dto/filter-tutors.dto';
 import { ManageSlotDto } from '../dto/manage-slot.dto';
 import { CreateSlotDto } from '../dto/create-slot.dto';
+import { CreateSlotRangeDto } from '../dto/create-slot-range.dto';
 import { UpdateSlotDto } from '../dto/update-slot.dto';
 import { DeleteSlotDto } from '../dto/delete-slot.dto';
 import { SlotAction } from '../enums/slot-action.enum';
@@ -168,6 +171,69 @@ export class AvailabilityController {
       default:
         throw new BadRequestException('Acción no válida');
     }
+  }
+
+  /**
+   * POST /api/v1/availability/tutor/slots/range
+   * Crea múltiples slots de 30 minutos en un rango horario para el tutor autenticado.
+   */
+  @Post('tutor/slots/range')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TUTOR)
+  @HttpCode(HttpStatus.CREATED)
+  async createSlotsInRange(
+    @CurrentUser() user: User,
+    @Body() dto: CreateSlotRangeDto,
+  ) {
+    const slots = await this.availabilityService.createSlotsInRange(user.idUser, dto);
+
+    return {
+      statusCode: HttpStatus.CREATED,
+      message: 'Franjas de disponibilidad creadas exitosamente',
+      slots,
+    };
+  }
+
+  /**
+   * PATCH /api/v1/availability/tutor/slots/range
+   * Actualiza la modalidad de las franjas dentro de un rango para el tutor autenticado.
+   */
+  @Patch('tutor/slots/range')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TUTOR)
+  @HttpCode(HttpStatus.OK)
+  async updateSlotsInRange(
+    @CurrentUser() user: User,
+    @Body() dto: CreateSlotRangeDto,
+  ) {
+    const slots = await this.availabilityService.updateSlotsInRange(user.idUser, dto);
+
+    return {
+      statusCode: HttpStatus.OK,
+      message: 'Franjas de disponibilidad actualizadas exitosamente',
+      slots,
+    };
+  }
+
+  /**
+   * DELETE /api/v1/availability/tutor/slots/range
+   * Elimina las franjas dentro de un rango para el tutor autenticado.
+   */
+  @Delete('tutor/slots/range')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TUTOR)
+  @HttpCode(HttpStatus.OK)
+  async deleteSlotsInRange(
+    @CurrentUser() user: User,
+    @Body() dto: CreateSlotRangeDto,
+  ) {
+    const result = await this.availabilityService.deleteSlotsInRange(user.idUser, dto);
+
+    return {
+      statusCode: HttpStatus.OK,
+      message: 'Franjas de disponibilidad eliminadas exitosamente',
+      ...result,
+    };
   }
 
   /**
