@@ -1385,18 +1385,48 @@ export class NotificationsService {
     }
   }
 
+  //Refactor: Se cambia el método formatDate para que siempre trate la fecha como UTC, evitando problemas de zona horaria al formatear
   private formatDate(date: Date | string): string {
-    return new Intl.DateTimeFormat('es-CO', {
-      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-    }).format(new Date(date));
-  }
+  const dateStr =
+    typeof date === 'string'
+      ? date
+      : date.toISOString().split('T')[0];
+
+  const [year, month, day] = dateStr.split('-').map(Number);
+
+  return new Intl.DateTimeFormat('es-CO', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    timeZone: 'UTC', // CLAVE
+  }).format(new Date(Date.UTC(year, month - 1, day)));
+}
 
   private formatDateTime(date: Date | string): string {
-    return new Intl.DateTimeFormat('es-CO', {
-      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-      hour: '2-digit', minute: '2-digit',
-    }).format(new Date(date));
+  let dateObj: Date;
+
+  if (typeof date === 'string') {
+    dateObj = new Date(date);
+  } else {
+    dateObj = date;
   }
+
+  const isoStr = dateObj.toISOString();
+  const [datePart, timePart] = isoStr.split('T');
+  const [year, month, day] = datePart.split('-').map(Number);
+  const [hour, minute] = timePart.split(':').map(Number);
+
+  return new Intl.DateTimeFormat('es-CO', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'UTC',
+  }).format(new Date(Date.UTC(year, month - 1, day, hour, minute)));
+}
 
   private translateModality(modality: string): string {
     return modality === 'PRES' ? 'Presencial' : 'Virtual';
