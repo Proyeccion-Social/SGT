@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   UseGuards,
   Param,
   Query,
@@ -10,6 +11,7 @@ import {
   HttpStatus,
   BadRequestException,
   ParseUUIDPipe,
+  ValidationPipe,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -20,6 +22,7 @@ import { NotFoundException } from '@nestjs/common';
 import { FilterTutorsDto } from '../dto/filter-tutors.dto';
 import { ManageSlotDto } from '../dto/manage-slot.dto';
 import { CreateSlotDto } from '../dto/create-slot.dto';
+import { UpdateWeeklyHoursLimitDto } from '../dto/update-weekly-hours-limit.dto';
 import { UpdateSlotDto } from '../dto/update-slot.dto';
 import { DeleteSlotDto } from '../dto/delete-slot.dto';
 import { SlotAction } from '../enums/slot-action.enum';
@@ -168,6 +171,33 @@ export class AvailabilityController {
       default:
         throw new BadRequestException('Acción no válida');
     }
+  }
+
+  //====================================================
+  // PATCH /api/v1/availability/tutor/me/limits
+  // Actualizar límite semanal máximo agendable (solo TUTOR autenticado)
+  //====================================================
+  @Patch('tutor/me/limits')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TUTOR)
+  @HttpCode(HttpStatus.OK)
+  async updateMyWeeklyHoursLimit(
+    @CurrentUser() user: User,
+    @Body(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+        exceptionFactory: () =>
+          new BadRequestException({
+            errorCode: 'VALIDATION_01',
+            message: 'Datos de entrada inválidos',
+          }),
+      }),
+    )
+    dto: UpdateWeeklyHoursLimitDto,
+  ) {
+    return this.tutorService.updateWeeklyHoursLimit(user.idUser, dto.maxWeeklyHours);
   }
 
   /**
