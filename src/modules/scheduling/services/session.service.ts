@@ -407,7 +407,14 @@ export class SessionService {
   async cancelSession(userId: string, sessionId: string, dto: CancelSessionDto) {
     const session = await this.sessionRepository.findOne({
       where: { idSession: sessionId },
-      relations: ['studentParticipateSessions', 'tutor', 'tutor.user', 'subject'],
+      relations: [
+    'studentParticipateSessions',
+    'studentParticipateSessions.student',
+    'studentParticipateSessions.student.user',  // ← Para obtener student.user.name
+    'tutor',
+    'tutor.user',                                // ← Para obtener tutor.user.name
+    'subject',
+  ],
     });
     if (!session) throw new NotFoundException('Session not found');
 
