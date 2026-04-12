@@ -1,15 +1,16 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { TutorService } from './tutor.service';
 import { SessionStatus } from '../../scheduling/enums/session-status.enum';
 
 describe('TutorService', () => {
   let service: TutorService;
-  let tutorRepository: { findOne: jest.Mock };
+  let tutorRepository: { findOne: jest.Mock; save: jest.Mock };
   let sessionRepository: { find: jest.Mock };
 
   beforeEach(() => {
     tutorRepository = {
       findOne: jest.fn(),
+      save: jest.fn(),
     };
 
     sessionRepository = {
@@ -156,6 +157,87 @@ describe('TutorService', () => {
         SessionStatus.SCHEDULED,
         SessionStatus.PENDING_MODIFICATION,
       ]);
+    });
+  });
+
+  describe('updateWeeklyHoursLimit', () => {
+    it('should throw VALIDATION_01 when maxWeeklyHours is out of allowed range', async () => {
+      await expect(
+        service.updateWeeklyHoursLimit(
+          '11111111-1111-1111-1111-111111111111',
+          9,
+        ),
+      ).rejects.toThrow(BadRequestException);
+
+      await expect(
+        service.updateWeeklyHoursLimit(
+          '11111111-1111-1111-1111-111111111111',
+          9,
+        ),
+      ).rejects.toMatchObject({
+        response: {
+          errorCode: 'VALIDATION_01',
+          message: 'El límite semanal debe estar entre 1 y 8 horas',
+        },
+      });
+
+      expect(tutorRepository.findOne).not.toHaveBeenCalled();
+      expect(tutorRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('should throw RESOURCE_02 when tutor does not exist', async () => {
+      tutorRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.updateWeeklyHoursLimit(
+          '22222222-2222-2222-2222-222222222222',
+          6,
+        ),
+      ).rejects.toThrow(NotFoundException);
+
+      await expect(
+        service.updateWeeklyHoursLimit(
+          '22222222-2222-2222-2222-222222222222',
+          6,
+        ),
+      ).rejects.toMatchObject({
+        response: {
+          errorCode: 'RESOURCE_02',
+          message: 'Tutor no encontrado',
+        },
+      });
+
+      expect(tutorRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('should persist and return weekly hours update payload', async () => {
+      const tutorEntity = {
+        idUser: '33333333-3333-3333-3333-333333333333',
+        limitDisponibility: 4,
+      };
+
+      tutorRepository.findOne.mockResolvedValue(tutorEntity);
+      tutorRepository.save.mockResolvedValue({
+        ...tutorEntity,
+        limitDisponibility: 7,
+      });
+
+      const result = await service.updateWeeklyHoursLimit(
+        '33333333-3333-3333-3333-333333333333',
+        7,
+      );
+
+      expect(tutorRepository.findOne).toHaveBeenCalledWith({
+        where: { idUser: '33333333-3333-3333-3333-333333333333' },
+      });
+      expect(tutorRepository.save).toHaveBeenCalledWith({
+        ...tutorEntity,
+        limitDisponibility: 7,
+      });
+      expect(result.tutorId).toBe('33333333-3333-3333-3333-333333333333');
+      expect(result.previousMaxWeeklyHours).toBe(4);
+      expect(result.maxWeeklyHours).toBe(7);
+      expect(new Date(result.updatedAt).toString()).not.toBe('Invalid Date');
     });
   });
 });
