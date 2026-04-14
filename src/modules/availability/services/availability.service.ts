@@ -973,6 +973,16 @@ export class AvailabilityService {
       });
     }
 
+    if (
+      startMinutes % this.SLOT_DURATION_MINUTES !== 0 ||
+      endMinutes % this.SLOT_DURATION_MINUTES !== 0
+    ) {
+      throw new BadRequestException({
+        errorCode: 'VALIDATION_01',
+        message: 'La hora de inicio y fin deben estar alineadas a intervalos de 30 minutos',
+      });
+    }
+
     if ((endMinutes - startMinutes) % this.SLOT_DURATION_MINUTES !== 0) {
       throw new BadRequestException({
         errorCode: 'VALIDATION_01',

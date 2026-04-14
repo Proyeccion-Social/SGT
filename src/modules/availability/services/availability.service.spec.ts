@@ -350,5 +350,39 @@ describe('AvailabilityService', () => {
         },
       });
     });
+
+    it('throws VALIDATION_01 when start and end are not aligned to :00/:30 boundaries', async () => {
+      await expect(
+        service.createSlotsInRange('tutor-1', {
+          dayOfWeek: DayOfWeek.MONDAY,
+          startTime: '08:15',
+          endTime: '09:15',
+          modality: Modality.PRES,
+        }),
+      ).rejects.toMatchObject({
+        response: {
+          errorCode: 'VALIDATION_01',
+          message:
+            'La hora de inicio y fin deben estar alineadas a intervalos de 30 minutos',
+        },
+      });
+    });
+
+    it('throws VALIDATION_01 when only endTime is not aligned to :00/:30 boundaries', async () => {
+      await expect(
+        service.updateSlotsInRange('tutor-1', {
+          dayOfWeek: DayOfWeek.MONDAY,
+          startTime: '08:00',
+          endTime: '09:15',
+          modality: Modality.PRES,
+        }),
+      ).rejects.toMatchObject({
+        response: {
+          errorCode: 'VALIDATION_01',
+          message:
+            'La hora de inicio y fin deben estar alineadas a intervalos de 30 minutos',
+        },
+      });
+    });
   });
 });
