@@ -52,7 +52,8 @@ export class AvailabilityController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.TUTOR)
   async getMyAvailability(
-    @CurrentUser() user: User
+    @CurrentUser() user: User,
+    @Query() query: GetAvailabilityQueryDto,
 
   ) {
 
@@ -62,7 +63,9 @@ export class AvailabilityController {
     throw new NotFoundException('Tutor profile not found');
   }
 
-    return await this.availabilityService.getTutorAvailability(tutor.idUser, {});
+    return await this.availabilityService.getTutorAvailability(tutor.idUser, {
+      weekStart: query.weekStart, //NUEVO
+    });
   }
 
 
@@ -89,11 +92,12 @@ export class AvailabilityController {
     );
   }
 
-  const { tutors, total } = await this.availabilityService.getTutorsBySubjectWithAvailability(
+  const { tutors, total,weekReference } = await this.availabilityService.getTutorsBySubjectWithAvailability(
     subject.idSubject,
     {
       onlyAvailable: filters.onlyAvailable,
       modality: filters.modality,
+      weekStart: filters.weekStart, //NUEVO
       page: filters.page,
       limit: filters.limit,
     },
@@ -105,6 +109,7 @@ export class AvailabilityController {
       id: subject.idSubject,
       name: subject.name,
     },
+    weekReference, // NUEVO
     ...buildPaginatedResponse(tutors, total, filters.page ?? 1, filters.limit ?? 10),
   };
 }
@@ -287,6 +292,7 @@ export class AvailabilityController {
       onlyAvailable: query.onlyAvailable,
       onlyFuture: query.onlyFuture,
       modality: query.modality,
+      weekStart:     query.weekStart,   // NUEVO
     });
   }
 

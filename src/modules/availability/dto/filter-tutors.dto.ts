@@ -23,4 +23,8 @@ export class FilterTutorsDto extends PaginationDto{
   @IsBoolean()
   @Transform(({ value }) => value === 'true' || value === true)
   onlyAvailable?: boolean;
+
+  @IsOptional()
+  @IsString()
+  weekStart?: string; // Agregado para filtrar por semana específica
 }
