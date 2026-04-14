@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Alerta de límite de horas</title>
+  <style>
+    body { margin: 0; padding: 0; background-color: #f4f4f5; font-family: Arial, sans-serif; }
+    .wrapper { max-width: 600px; margin: 32px auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .header-warning  { background-color: #d97706; padding: 32px 40px; }
+    .header-urgent   { background-color: #c2410c; padding: 32px 40px; }
+    .header-critical { background-color: #b91c1c; padding: 32px 40px; }
+    .header-warning h1, .header-urgent h1, .header-critical h1 { margin: 0; color: #ffffff; font-size: 22px; font-weight: 700; }
+    .header-warning  p { margin: 6px 0 0; color: #fde68a; font-size: 14px; }
+    .header-urgent   p { margin: 6px 0 0; color: #fed7aa; font-size: 14px; }
+    .header-critical p { margin: 6px 0 0; color: #fecaca; font-size: 14px; }
+    .body { padding: 32px 40px; }
+    .body p { color: #374151; font-size: 15px; line-height: 1.6; margin: 0 0 16px; }
+    .progress-wrap { margin: 24px 0; }
+    .progress-label { display: flex; justify-content: space-between; font-size: 13px; color: #6b7280; margin-bottom: 8px; }
+    .progress-label strong { color: #111827; }
+    .progress-track { background: #e5e7eb; border-radius: 8px; height: 14px; overflow: hidden; }
+    .progress-bar-warning  { background: #d97706; height: 100%; border-radius: 8px; }
+    .progress-bar-urgent   { background: #c2410c; height: 100%; border-radius: 8px; }
+    .progress-bar-critical { background: #b91c1c; height: 100%; border-radius: 8px; }
+    .stats-row { display: flex; justify-content: space-around; text-align: center; margin: 20px 0; }
+    .stat { flex: 1; }
+    .stat-number { font-size: 26px; font-weight: 700; color: #111827; }
+    .stat-label  { font-size: 12px; color: #6b7280; margin-top: 2px; }
+    .stat-divider { width: 1px; background: #e5e7eb; margin: 4px 0; }
+    .alert-box-warning  { background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 14px 18px; margin: 20px 0; font-size: 14px; color: #854d0e; }
+    .alert-box-urgent   { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 6px; padding: 14px 18px; margin: 20px 0; font-size: 14px; color: #9a3412; }
+    .alert-box-critical { background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; padding: 14px 18px; margin: 20px 0; font-size: 14px; color: #991b1b; }
+    .actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
+    .btn { display: inline-block; padding: 12px 24px; border-radius: 6px; font-size: 14px; font-weight: 700; text-decoration: none; }
+    .btn-primary   { background-color: #1d4ed8; color: #ffffff; }
+    .btn-secondary { background-color: #ffffff; color: #374151; border: 1px solid #d1d5db; }
+    .footer { background: #f9fafb; padding: 20px 40px; text-align: center; font-size: 12px; color: #9ca3af; border-top: 1px solid #e5e7eb; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    {{#if is80Percent}}
+    <div class="header-warning">
+      <h1>Estás cerca de tu límite semanal</h1>
+      <p>Atlas — Sistema de Gestión de Tutorías</p>
+    </div>
+    {{else if is95Percent}}
+    <div class="header-urgent">
+      <h1>Casi alcanzas tu límite semanal</h1>
+      <p>Atlas — Sistema de Gestión de Tutorías</p>
+    </div>
+    {{else}}
+    <div class="header-critical">
+      <h1>Límite semanal alcanzado</h1>
+      <p>Atlas — Sistema de Gestión de Tutorías</p>
+    </div>
+    {{/if}}
+
+    <div class="body">
+      <p>Hola, <strong>{{tutorName}}</strong>.</p>
+
+      {{#if is80Percent}}
+        <p>Has utilizado el <strong>{{usagePercentage}}%</strong> de tu límite semanal de horas de tutoría. Te quedan <strong>{{hoursRemaining}} horas</strong> disponibles esta semana.</p>
+      {{else if is95Percent}}
+        <p>Has alcanzado el <strong>{{usagePercentage}}%</strong> de tu límite semanal. Solo te quedan <strong>{{hoursRemaining}} horas</strong>. Revisa las sesiones que tienes pendientes antes de aceptar más.</p>
+      {{else}}
+        <p>Has alcanzado el <strong>100%</strong> de tu límite semanal de horas. <strong>No puedes aceptar más sesiones esta semana.</strong> Tu disponibilidad se restablecerá al inicio de la próxima semana.</p>
+      {{/if}}
+
+      <div class="progress-wrap">
+        <div class="progress-label">
+          <span>Horas utilizadas: <strong>{{hoursUsed}} h</strong></span>
+          <span>Límite: <strong>{{weeklyHourLimit}} h</strong></span>
+        </div>
+        <div class="progress-track">
+          {{#if is80Percent}}
+          <div class="progress-bar-warning"  style="width: {{usagePercentage}}%"></div>
+          {{else if is95Percent}}
+          <div class="progress-bar-urgent"   style="width: {{usagePercentage}}%"></div>
+          {{else}}
+          <div class="progress-bar-critical" style="width: 100%"></div>
+          {{/if}}
+        </div>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat">
+          <div class="stat-number">{{hoursUsed}} h</div>
+          <div class="stat-label">Utilizadas</div>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat">
+          <div class="stat-number">{{hoursRemaining}} h</div>
+          <div class="stat-label">Disponibles</div>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat">
+          <div class="stat-number">{{weeklyHourLimit}} h</div>
+          <div class="stat-label">Límite semanal</div>
+        </div>
+      </div>
+
+      {{#if is80Percent}}
+      <div class="alert-box-warning">
+        ⚠️ Considera tu disponibilidad antes de aceptar nuevas solicitudes esta semana.
+      </div>
+      {{else if is95Percent}}
+      <div class="alert-box-urgent">
+        🔶 Tienes muy pocas horas restantes. Revisa tus sesiones agendadas antes de confirmar nuevas solicitudes.
+      </div>
+      {{else}}
+      <div class="alert-box-critical">
+        🚫 Has alcanzado tu límite semanal. Las nuevas solicitudes de sesión no podrán ser aceptadas hasta la próxima semana.
+      </div>
+      {{/if}}
+
+      <div class="actions">
+        <a href="{{sessionsUrl}}" class="btn btn-primary">Ver mis sesiones</a>
+        {{#if canAcceptMore}}
+        <a href="{{settingsUrl}}" class="btn btn-secondary">Ajustar límite</a>
+        {{/if}}
+      </div>
+    </div>
+    <div class="footer">
+      Atlas · Universidad Distrital Francisco José de Caldas<br/>
+      Este mensaje fue generado automáticamente, por favor no respondas a este correo.
+    </div>
+  </div>
+</body>
+</html>
