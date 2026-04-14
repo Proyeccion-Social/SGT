@@ -239,10 +239,15 @@ export class AvailabilityService {
       });
     }
 
-    for (const tutorAvailability of slotsToUpdate) {
-      tutorAvailability.modality = dto.modality;
-      await this.tutorHaveAvailabilityRepository.save(tutorAvailability);
-    }
+    const slotIds = slotsToUpdate.map((slot) => slot.idAvailability);
+
+    await this.tutorHaveAvailabilityRepository
+      .createQueryBuilder()
+      .update(TutorHaveAvailability)
+      .set({ modality: dto.modality })
+      .where('id_tutor = :tutorId', { tutorId })
+      .andWhere('id_availability IN (:...slotIds)', { slotIds })
+      .execute();
 
     return slotsToUpdate.map((slot) => ({
       slotId: slot.idAvailability,

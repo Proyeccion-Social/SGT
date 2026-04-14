@@ -2,7 +2,6 @@ import { BadRequestException, ConflictException, NotFoundException } from '@nest
 import { AvailabilityService } from './availability.service';
 import { DayOfWeek } from '../enums/day-of-week.enum';
 import { Modality } from '../enums/modality.enum';
-import { SessionStatus } from 'src/modules/scheduling/enums/session-status.enum';
 
 describe('AvailabilityService', () => {
   let service: AvailabilityService;
@@ -14,12 +13,15 @@ describe('AvailabilityService', () => {
   const createQueryBuilderMock = () => ({
     innerJoin: jest.fn().mockReturnThis(),
     innerJoinAndSelect: jest.fn().mockReturnThis(),
+    update: jest.fn().mockReturnThis(),
+    set: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
     select: jest.fn().mockReturnThis(),
     getCount: jest.fn(),
     getMany: jest.fn(),
     getRawMany: jest.fn(),
+    execute: jest.fn(),
   });
 
   beforeEach(() => {
@@ -172,8 +174,8 @@ describe('AvailabilityService', () => {
 
   describe('updateSlotsInRange', () => {
     it('updates modality for every slot in the range', async () => {
-      const qb = createQueryBuilderMock();
-      qb.getMany.mockResolvedValue([
+      const selectQb = createQueryBuilderMock();
+      selectQb.getMany.mockResolvedValue([
         {
           idTutor: 'tutor-1',
           idAvailability: 21,
@@ -187,8 +189,11 @@ describe('AvailabilityService', () => {
           availability: { startTime: '10:30' },
         },
       ]);
-      tutorHaveAvailabilityRepository.createQueryBuilder.mockReturnValue(qb);
-      tutorHaveAvailabilityRepository.save.mockResolvedValue({});
+      const updateQb = createQueryBuilderMock();
+      updateQb.execute.mockResolvedValue({ affected: 2 });
+      tutorHaveAvailabilityRepository.createQueryBuilder
+        .mockReturnValueOnce(selectQb)
+        .mockReturnValueOnce(updateQb);
 
       const result = await service.updateSlotsInRange('tutor-1', {
         dayOfWeek: DayOfWeek.TUESDAY,
@@ -197,7 +202,7 @@ describe('AvailabilityService', () => {
         modality: Modality.VIRT,
       });
 
-      expect(tutorHaveAvailabilityRepository.save).toHaveBeenCalledTimes(2);
+      expect(updateQb.execute).toHaveBeenCalledTimes(1);
       expect(result).toEqual([
         {
           slotId: 21,
