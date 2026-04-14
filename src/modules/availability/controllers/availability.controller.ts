@@ -5,6 +5,7 @@ import {
   Patch,
   Delete,
   UseGuards,
+  UsePipes,
   Param,
   Query,
   Body,
@@ -12,6 +13,7 @@ import {
   HttpStatus,
   BadRequestException,
   ParseUUIDPipe,
+  ValidationPipe,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -180,6 +182,7 @@ export class AvailabilityController {
   @Post('tutor/slots/range')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.TUTOR)
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
   @HttpCode(HttpStatus.CREATED)
   async createSlotsInRange(
     @CurrentUser() user: User,
@@ -201,6 +204,7 @@ export class AvailabilityController {
   @Patch('tutor/slots/range')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.TUTOR)
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
   @HttpCode(HttpStatus.OK)
   async updateSlotsInRange(
     @CurrentUser() user: User,
@@ -222,6 +226,7 @@ export class AvailabilityController {
   @Delete('tutor/slots/range')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.TUTOR)
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
   @HttpCode(HttpStatus.OK)
   async deleteSlotsInRange(
     @CurrentUser() user: User,

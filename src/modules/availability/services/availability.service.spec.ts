@@ -296,7 +296,6 @@ describe('AvailabilityService', () => {
         dayOfWeek: DayOfWeek.WEDNESDAY,
         startTime: '14:00',
         endTime: '15:00',
-        modality: Modality.PRES,
       });
     });
 
