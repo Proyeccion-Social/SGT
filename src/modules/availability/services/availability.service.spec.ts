@@ -27,6 +27,9 @@ describe('AvailabilityService', () => {
       findOne: jest.fn(),
       create: jest.fn((value) => value),
       save: jest.fn(),
+      manager: {
+        transaction: jest.fn(),
+      },
     };
 
     tutorHaveAvailabilityRepository = {
@@ -51,6 +54,18 @@ describe('AvailabilityService', () => {
       tutorHaveAvailabilityRepository,
       scheduledSessionRepository,
       sessionRepository,
+    );
+
+    availabilityRepository.manager.transaction.mockImplementation(
+      async (callback: (manager: { getRepository: (entity: unknown) => any }) => Promise<unknown>) =>
+        callback({
+          getRepository: (entity: unknown) => {
+            if ((entity as any).name === 'Availability') {
+              return availabilityRepository;
+            }
+            return tutorHaveAvailabilityRepository;
+          },
+        }),
     );
   });
 

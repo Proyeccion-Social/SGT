@@ -138,79 +138,86 @@ export class AvailabilityService {
     const dayOfWeekNumber = DayOfWeekToNumber[dto.dayOfWeek];
     const slotTimes = this.buildSlotTimesFromRange(dto.startTime, dto.endTime);
 
-    const existingSlotsInDay = await this.tutorHaveAvailabilityRepository
-      .createQueryBuilder('tha')
-      .innerJoin('tha.availability', 'a')
-      .where('tha.idTutor = :tutorId', { tutorId })
-      .andWhere('a.dayOfWeek = :dayOfWeek', { dayOfWeek: dayOfWeekNumber })
-      .getCount();
+    return this.availabilityRepository.manager.transaction(async (transactionalEntityManager) => {
+      const availabilityRepository =
+        transactionalEntityManager.getRepository(Availability);
+      const tutorHaveAvailabilityRepository =
+        transactionalEntityManager.getRepository(TutorHaveAvailability);
 
-    if (existingSlotsInDay + slotTimes.length > this.MAX_SLOTS_PER_DAY) {
-      throw new BadRequestException({
-        errorCode: 'VALIDATION_01',
-        message:
-          'Excede el máximo diario de 4 horas. Ya tienes slots registrados para este día.',
-      });
-    }
+      const existingSlotsInDay = await tutorHaveAvailabilityRepository
+        .createQueryBuilder('tha')
+        .innerJoin('tha.availability', 'a')
+        .where('tha.idTutor = :tutorId', { tutorId })
+        .andWhere('a.dayOfWeek = :dayOfWeek', { dayOfWeek: dayOfWeekNumber })
+        .getCount();
 
-    const overlappingSlots = await this.tutorHaveAvailabilityRepository
-      .createQueryBuilder('tha')
-      .innerJoin('tha.availability', 'a')
-      .where('tha.idTutor = :tutorId', { tutorId })
-      .andWhere('a.dayOfWeek = :dayOfWeek', { dayOfWeek: dayOfWeekNumber })
-      .andWhere('a.startTime IN (:...slotTimes)', { slotTimes })
-      .getCount();
-
-    if (overlappingSlots > 0) {
-      throw new ConflictException({
-        errorCode: 'CONFLICT_01',
-        message: 'El rango contiene horarios que se superponen con disponibilidades existentes',
-      });
-    }
-
-    const createdSlots: Array<{
-      slotId: number;
-      tutorId: string;
-      dayOfWeek: DayOfWeek;
-      startTime: string;
-      endTime: string;
-      modality: Modality;
-      duration: number;
-    }> = [];
-
-    for (const startTime of slotTimes) {
-      let availability = await this.availabilityRepository.findOne({
-        where: { dayOfWeek: dayOfWeekNumber, startTime },
-      });
-
-      if (!availability) {
-        availability = this.availabilityRepository.create({
-          dayOfWeek: dayOfWeekNumber,
-          startTime,
+      if (existingSlotsInDay + slotTimes.length > this.MAX_SLOTS_PER_DAY) {
+        throw new BadRequestException({
+          errorCode: 'VALIDATION_01',
+          message:
+            'Excede el máximo diario de 4 horas. Ya tienes slots registrados para este día.',
         });
-        availability = await this.availabilityRepository.save(availability);
       }
 
-      const assignment = this.tutorHaveAvailabilityRepository.create({
-        idTutor: tutorId,
-        idAvailability: availability.idAvailability,
-        modality: dto.modality,
-      });
+      const overlappingSlots = await tutorHaveAvailabilityRepository
+        .createQueryBuilder('tha')
+        .innerJoin('tha.availability', 'a')
+        .where('tha.idTutor = :tutorId', { tutorId })
+        .andWhere('a.dayOfWeek = :dayOfWeek', { dayOfWeek: dayOfWeekNumber })
+        .andWhere('a.startTime IN (:...slotTimes)', { slotTimes })
+        .getCount();
 
-      await this.tutorHaveAvailabilityRepository.save(assignment);
+      if (overlappingSlots > 0) {
+        throw new ConflictException({
+          errorCode: 'CONFLICT_01',
+          message: 'El rango contiene horarios que se superponen con disponibilidades existentes',
+        });
+      }
 
-      createdSlots.push({
-        slotId: availability.idAvailability,
-        tutorId,
-        dayOfWeek: dto.dayOfWeek,
-        startTime,
-        endTime: this.calculateEndTime(startTime),
-        modality: dto.modality,
-        duration: 0.5,
-      });
-    }
+      const createdSlots: Array<{
+        slotId: number;
+        tutorId: string;
+        dayOfWeek: DayOfWeek;
+        startTime: string;
+        endTime: string;
+        modality: Modality;
+        duration: number;
+      }> = [];
 
-    return createdSlots;
+      for (const startTime of slotTimes) {
+        let availability = await availabilityRepository.findOne({
+          where: { dayOfWeek: dayOfWeekNumber, startTime },
+        });
+
+        if (!availability) {
+          availability = availabilityRepository.create({
+            dayOfWeek: dayOfWeekNumber,
+            startTime,
+          });
+          availability = await availabilityRepository.save(availability);
+        }
+
+        const assignment = tutorHaveAvailabilityRepository.create({
+          idTutor: tutorId,
+          idAvailability: availability.idAvailability,
+          modality: dto.modality,
+        });
+
+        await tutorHaveAvailabilityRepository.save(assignment);
+
+        createdSlots.push({
+          slotId: availability.idAvailability,
+          tutorId,
+          dayOfWeek: dto.dayOfWeek,
+          startTime,
+          endTime: this.calculateEndTime(startTime),
+          modality: dto.modality,
+          duration: 0.5,
+        });
+      }
+
+      return createdSlots;
+    });
   }
 
   async updateSlotsInRange(tutorId: string, dto: CreateSlotRangeDto) {
