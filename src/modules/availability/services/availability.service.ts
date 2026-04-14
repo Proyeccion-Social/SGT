@@ -32,6 +32,7 @@ import { In, MoreThanOrEqual, Repository } from 'typeorm';
 import { Availability } from '../entities/availability.entity';
 import { TutorHaveAvailability } from '../entities/tutor-availability.entity';
 import { CreateSlotDto } from '../dto/create-slot.dto';
+import { CreateSlotRangeDto } from '../dto/create-slot-range.dto';
 import { UpdateSlotDto } from '../dto/update-slot.dto';
 import { DeleteSlotDto } from '../dto/delete-slot.dto';
 import {
@@ -130,6 +131,162 @@ export class AvailabilityService {
       startTime: dto.startTime,
       modality: dto.modality,
       duration: 0.5,
+    };
+  }
+
+  async createSlotsInRange(tutorId: string, dto: CreateSlotRangeDto) {
+    const dayOfWeekNumber = DayOfWeekToNumber[dto.dayOfWeek];
+    const slotTimes = this.buildSlotTimesFromRange(dto.startTime, dto.endTime);
+
+    return this.availabilityRepository.manager.transaction(async (transactionalEntityManager) => {
+      const availabilityRepository =
+        transactionalEntityManager.getRepository(Availability);
+      const tutorHaveAvailabilityRepository =
+        transactionalEntityManager.getRepository(TutorHaveAvailability);
+
+      const existingSlotsInDay = await tutorHaveAvailabilityRepository
+        .createQueryBuilder('tha')
+        .innerJoin('tha.availability', 'a')
+        .where('tha.idTutor = :tutorId', { tutorId })
+        .andWhere('a.dayOfWeek = :dayOfWeek', { dayOfWeek: dayOfWeekNumber })
+        .getCount();
+
+      if (existingSlotsInDay + slotTimes.length > this.MAX_SLOTS_PER_DAY) {
+        throw new BadRequestException({
+          errorCode: 'VALIDATION_01',
+          message:
+            'Excede el máximo diario de 4 horas. Ya tienes slots registrados para este día.',
+        });
+      }
+
+      const overlappingSlots = await tutorHaveAvailabilityRepository
+        .createQueryBuilder('tha')
+        .innerJoin('tha.availability', 'a')
+        .where('tha.idTutor = :tutorId', { tutorId })
+        .andWhere('a.dayOfWeek = :dayOfWeek', { dayOfWeek: dayOfWeekNumber })
+        .andWhere('a.startTime IN (:...slotTimes)', { slotTimes })
+        .getCount();
+
+      if (overlappingSlots > 0) {
+        throw new ConflictException({
+          errorCode: 'CONFLICT_01',
+          message: 'El rango contiene horarios que se superponen con disponibilidades existentes',
+        });
+      }
+
+      const createdSlots: Array<{
+        slotId: number;
+        tutorId: string;
+        dayOfWeek: DayOfWeek;
+        startTime: string;
+        endTime: string;
+        modality: Modality;
+        duration: number;
+      }> = [];
+
+      for (const startTime of slotTimes) {
+        let availability = await availabilityRepository.findOne({
+          where: { dayOfWeek: dayOfWeekNumber, startTime },
+        });
+
+        if (!availability) {
+          availability = availabilityRepository.create({
+            dayOfWeek: dayOfWeekNumber,
+            startTime,
+          });
+          availability = await availabilityRepository.save(availability);
+        }
+
+        const assignment = tutorHaveAvailabilityRepository.create({
+          idTutor: tutorId,
+          idAvailability: availability.idAvailability,
+          modality: dto.modality,
+        });
+
+        await tutorHaveAvailabilityRepository.save(assignment);
+
+        createdSlots.push({
+          slotId: availability.idAvailability,
+          tutorId,
+          dayOfWeek: dto.dayOfWeek,
+          startTime,
+          endTime: this.calculateEndTime(startTime),
+          modality: dto.modality,
+          duration: 0.5,
+        });
+      }
+
+      return createdSlots;
+    });
+  }
+
+  async updateSlotsInRange(tutorId: string, dto: CreateSlotRangeDto) {
+    const dayOfWeekNumber = DayOfWeekToNumber[dto.dayOfWeek];
+    const slotTimes = this.buildSlotTimesFromRange(dto.startTime, dto.endTime);
+
+    const slotsToUpdate = await this.tutorHaveAvailabilityRepository
+      .createQueryBuilder('tha')
+      .innerJoinAndSelect('tha.availability', 'a')
+      .where('tha.idTutor = :tutorId', { tutorId })
+      .andWhere('a.dayOfWeek = :dayOfWeek', { dayOfWeek: dayOfWeekNumber })
+      .andWhere('a.startTime IN (:...slotTimes)', { slotTimes })
+      .getMany();
+
+    if (slotsToUpdate.length === 0) {
+      throw new NotFoundException({
+        errorCode: 'RESOURCE_02',
+        message: 'No se encontraron franjas de disponibilidad para actualizar',
+      });
+    }
+
+    const slotIds = slotsToUpdate.map((slot) => slot.idAvailability);
+
+    await this.tutorHaveAvailabilityRepository
+      .createQueryBuilder()
+      .update(TutorHaveAvailability)
+      .set({ modality: dto.modality })
+      .where('id_tutor = :tutorId', { tutorId })
+      .andWhere('id_availability IN (:...slotIds)', { slotIds })
+      .execute();
+
+    return slotsToUpdate.map((slot) => ({
+      slotId: slot.idAvailability,
+      tutorId,
+      dayOfWeek: dto.dayOfWeek,
+      startTime: slot.availability.startTime,
+      endTime: this.calculateEndTime(slot.availability.startTime),
+      modality: dto.modality,
+      duration: 0.5,
+    }));
+  }
+
+  async deleteSlotsInRange(tutorId: string, dto: CreateSlotRangeDto) {
+    const dayOfWeekNumber = DayOfWeekToNumber[dto.dayOfWeek];
+    const slotTimes = this.buildSlotTimesFromRange(dto.startTime, dto.endTime);
+
+    const slotsToDelete = await this.tutorHaveAvailabilityRepository
+      .createQueryBuilder('tha')
+      .innerJoinAndSelect('tha.availability', 'a')
+      .where('tha.idTutor = :tutorId', { tutorId })
+      .andWhere('a.dayOfWeek = :dayOfWeek', { dayOfWeek: dayOfWeekNumber })
+      .andWhere('a.startTime IN (:...slotTimes)', { slotTimes })
+      .getMany();
+
+    if (slotsToDelete.length === 0) {
+      throw new NotFoundException({
+        errorCode: 'RESOURCE_02',
+        message: 'No se encontraron franjas de disponibilidad para eliminar',
+      });
+    }
+
+    await this.tutorHaveAvailabilityRepository.remove(slotsToDelete);
+
+    return {
+      deletedSlots: slotsToDelete.length,
+      dayOfWeek: dto.dayOfWeek,
+      startTime: dto.startTime,
+      endTime: dto.endTime,
+      modality: dto.modality,
     };
   }
  
@@ -793,6 +950,63 @@ export class AvailabilityService {
   private calculateEndTime(startTime: string): string {
     const endMinutes = this.timeToMinutes(startTime) + this.SLOT_DURATION_MINUTES;
     return this.minutesToTime(endMinutes);
+  }
+
+  private buildSlotTimesFromRange(startTime: string, endTime: string): string[] {
+    const minAllowedTime = this.timeToMinutes('06:00');
+    const maxAllowedTime = this.timeToMinutes('22:00');
+
+    const startMinutes = this.timeToMinutes(startTime);
+    const endMinutes = this.timeToMinutes(endTime);
+
+    if (startMinutes < minAllowedTime || endMinutes > maxAllowedTime) {
+      throw new BadRequestException({
+        errorCode: 'VALIDATION_01',
+        message: 'El horario debe estar entre 06:00 y 22:00',
+      });
+    }
+
+    if (startMinutes >= endMinutes) {
+      throw new BadRequestException({
+        errorCode: 'VALIDATION_01',
+        message: 'La hora de inicio debe ser menor que la hora de fin',
+      });
+    }
+
+    if (
+      startMinutes % this.SLOT_DURATION_MINUTES !== 0 ||
+      endMinutes % this.SLOT_DURATION_MINUTES !== 0
+    ) {
+      throw new BadRequestException({
+        errorCode: 'VALIDATION_01',
+        message: 'La hora de inicio y fin deben estar alineadas a intervalos de 30 minutos',
+      });
+    }
+
+    if ((endMinutes - startMinutes) % this.SLOT_DURATION_MINUTES !== 0) {
+      throw new BadRequestException({
+        errorCode: 'VALIDATION_01',
+        message: 'El rango debe respetar intervalos de 30 minutos',
+      });
+    }
+
+    const slotTimes: string[] = [];
+    for (
+      let current = startMinutes;
+      current < endMinutes;
+      current += this.SLOT_DURATION_MINUTES
+    ) {
+      slotTimes.push(this.minutesToTime(current));
+    }
+
+    if (slotTimes.length === 0) {
+      throw new BadRequestException({
+        errorCode: 'VALIDATION_01',
+        message: 'El rango de horario no contiene slots válidos',
+      });
+    }
+
+    return slotTimes;
   }
  
   private async validateNoOverlap(
