@@ -507,6 +507,39 @@ export class TutorService {
     return tutor.limitDisponibility ?? 8;
   }
 
+  async updateWeeklyHoursLimit(tutorId: string, maxWeeklyHours: number) {
+    const MAX_DECLARABLE_WEEKLY_HOURS = 8;
+
+    if (!Number.isInteger(maxWeeklyHours) || maxWeeklyHours < 1 || maxWeeklyHours > MAX_DECLARABLE_WEEKLY_HOURS) {
+      throw new BadRequestException({
+        errorCode: 'VALIDATION_01',
+        message: `El límite semanal debe estar entre 1 y ${MAX_DECLARABLE_WEEKLY_HOURS} horas`,
+      });
+    }
+
+    const tutor = await this.tutorRepository.findOne({
+      where: { idUser: tutorId },
+    });
+
+    if (!tutor) {
+      throw new NotFoundException({
+        errorCode: 'RESOURCE_02',
+        message: 'Tutor no encontrado',
+      });
+    }
+
+    const previousMaxWeeklyHours = tutor.limitDisponibility;
+    tutor.limitDisponibility = maxWeeklyHours;
+    await this.tutorRepository.save(tutor);
+
+    return {
+      tutorId,
+      previousMaxWeeklyHours,
+      maxWeeklyHours,
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
   async getTutorHoursStatus(tutorId: string) {
     const tutor = await this.tutorRepository.findOne({
       where: { idUser: tutorId },
