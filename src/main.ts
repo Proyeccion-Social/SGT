@@ -1,5 +1,9 @@
+import * as moduleAlias from 'module-alias';
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
+
+// Ensure absolute imports like "src/..." resolve in serverless runtime.
+moduleAlias.addAlias('src', __dirname);
+const { AppModule } = require('./app.module');
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
