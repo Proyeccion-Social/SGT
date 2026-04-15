@@ -48,11 +48,12 @@ import { Session } from 'src/modules/scheduling/entities/session.entity';
 export interface AvailabilitySlot {
   slotId: string;
   dayOfWeek: DayOfWeek;
+  dayOfWeekNumber: number;   // 0=Lun…5=Sáb, útil para el front si necesita ordenar
   startTime: string;
   endTime: string;
   modality: Modality;
   duration: number;
-  isAvailable: boolean;
+  isAvailable: boolean; // true si no hay sesión activa en la semana de referencia
 }
  
 export interface TutorAvailabilityPublic {
@@ -61,6 +62,7 @@ export interface TutorAvailabilityPublic {
   totalSlots: number;
   availableSlots: AvailabilitySlot[];
   groupedByDay: Record<DayOfWeek, AvailabilitySlot[]>;
+  weekReference: string //Lunes de la semana consultada, para que el front sepa qué semana es
 }
  
 // ─────────────────────────────────────────────────────────────────────────────
@@ -399,6 +401,7 @@ export class AvailabilityService {
       onlyAvailable?: boolean;
       onlyFuture?: boolean;
       modality?: Modality;
+      weekStart?:string //'YYYY-MM-DD' (lunes de la semana a consultar
     },
   ): Promise<TutorAvailabilityPublic> {
     const tutorAvailabilities = await this.tutorHaveAvailabilityRepository.find({
@@ -411,7 +414,8 @@ export class AvailabilityService {
     }
  
     // Obtener sesiones activas del tutor con su duración real
-    const occupiedRanges = await this.buildOccupiedRangesForTutor(tutorId);
+    const{weekStartStr, weekEndStr} = this.resolveWeekRange(options?.weekStart);
+    const occupiedRanges = await this.buildOccupiedRangesForTutor(tutorId,weekStartStr,weekEndStr);
  
     let slots: AvailabilitySlot[] = tutorAvailabilities.map((ta) => {
       const startTime = ta.availability.startTime;
@@ -422,6 +426,7 @@ export class AvailabilityService {
       return {
         slotId:      ta.idAvailability.toString(),
         dayOfWeek:   NumberToDayOfWeek[ta.availability.dayOfWeek],
+        dayOfWeekNumber: ta.availability.dayOfWeek,
         startTime,
         endTime,
         modality:    ta.modality,
@@ -438,15 +443,22 @@ export class AvailabilityService {
     return {
       tutorId,
       tutorName:      tutorAvailabilities[0].tutor.user.name,
+      weekReference:     weekStartStr,
       totalSlots:     slots.length,
       availableSlots: slots.filter((s) => s.isAvailable),
       groupedByDay,
     };
   }
  
+  /**
+   * 
+   * @param options Modality y/o onlyAvailable para filtrar los tutores, y weekStart para que el front sepa a qué semana corresponde la disponibilidad (lunes de la semana en formato 'YYYY-MM-DD') 
+   * @return Lista de tutores con disponibilidad, filtrados por modalidad y/o solo disponibles, sin importar la materia. Útil para el buscador general de tutores.
+   */
   async getAllAvailableTutors(options?: {
     modality?: Modality;
     onlyAvailable?: boolean;
+    weekStart?:string //'YYYY-MM-DD' (lunes de la semana a consultar)
   }): Promise<
     Array<{
       tutorId: string;
@@ -470,19 +482,24 @@ export class AvailabilityService {
       { tutorId: string; tutorName: string; slots: TutorHaveAvailability[] }
     >();
  
-    tutorsWithAvailability.forEach((ta) => {
+    for(const ta of tutorsWithAvailability) {
       if (!tutorMap.has(ta.idTutor)) {
         tutorMap.set(ta.idTutor, { tutorId: ta.idTutor, tutorName: ta.tutor.user.name, slots: [] });
       }
       tutorMap.get(ta.idTutor)!.slots.push(ta);
-    });
+    }
  
     // Obtener rangos ocupados para todos los tutores de una vez
     const allTutorIds = Array.from(tutorMap.keys());
-    const occupiedRangesByTutor = await this.buildOccupiedRangesForTutors(allTutorIds);
+    const { weekStartStr, weekEndStr } = this.resolveWeekRange(options?.weekStart);
+    const occupiedRangesByTutor = await this.buildOccupiedRangesForTutors(
+      allTutorIds,
+      weekStartStr,
+      weekEndStr,
+    );
  
     const result = Array.from(tutorMap.values()).map((tutor) => {
-      const occupiedRanges = occupiedRangesByTutor.get(tutor.tutorId) ?? [];
+      const occupied = occupiedRangesByTutor.get(tutor.tutorId) ?? [];
  
       let slots = tutor.slots;
       if (options?.modality) {
@@ -491,7 +508,7 @@ export class AvailabilityService {
  
       const totalSlots = slots.length;
       const availableCount = slots.filter(
-        (s) => !this.isSlotOccupiedByBlock(s.availability.startTime, occupiedRanges),
+        (s) => !this.isSlotOccupiedByBlock(s.availability.startTime, occupied),
       ).length;
  
       if (options?.onlyAvailable && availableCount === 0) return null;
@@ -511,6 +528,7 @@ export class AvailabilityService {
       modality?: Modality;
       page?: number;
       limit?: number;
+      weekStart?:string //'YYYY-MM-DD' (lunes de la semana a consultar)
     },
   ): Promise<{
     tutors: {
@@ -522,11 +540,13 @@ export class AvailabilityService {
       availability: TutorAvailabilityPublic;
     }[];
     total: number;
+    weekReference: string;
   }> {
     const page   = options?.page  ?? 1;
     const limit  = options?.limit ?? 10;
     const offset = (page - 1) * limit;
- 
+    const {weekStartStr, weekEndStr} = this.resolveWeekRange(options?.weekStart);
+
     // 1. IDs elegibles
     const eligibleTutorsQuery = this.tutorHaveAvailabilityRepository
       .createQueryBuilder('tha')
@@ -541,13 +561,17 @@ export class AvailabilityService {
       eligibleTutorsQuery.andWhere('tha.modality = :modality', { modality: options.modality });
     }
  
-    const allEligibleTutors = await eligibleTutorsQuery.getRawMany<{ tutorId: string }>();
-    if (allEligibleTutors.length === 0) return { tutors: [], total: 0 };
+    const allEligible = await eligibleTutorsQuery.getRawMany<{ tutorId: string }>();
+    if (allEligible.length === 0) return { tutors: [], total: 0, weekReference: weekStartStr };
  
-    const allEligibleIds = allEligibleTutors.map((r) => r.tutorId);
+    const allEligibleIds = allEligible.map((r) => r.tutorId);
  
-    // 2. Calcular rangos ocupados para todos los elegibles
-    const occupiedRangesByTutor = await this.buildOccupiedRangesForTutors(allEligibleIds);
+    // 2. Calcular rangos ocupados para la semana dada de los tutores elegibles
+    const occupiedRangesByTutor = await this.buildOccupiedRangesForTutors(
+      allEligibleIds,
+      weekStartStr,
+      weekEndStr
+    );
  
     // 3. Cargar todos sus slots para poder filtrar por disponibilidad real
     const allSlotsForEligible = await this.tutorHaveAvailabilityRepository
@@ -575,12 +599,12 @@ export class AvailabilityService {
         return hasAvailable;
       });
  
-      if (finalIds.length === 0) return { tutors: [], total: 0 };
+      if (finalIds.length === 0) return { tutors: [], total: 0, weekReference: weekStartStr };
     }
  
     const total    = finalIds.length;
     const pagedIds = finalIds.slice(offset, offset + limit);
-    if (pagedIds.length === 0) return { tutors: [], total };
+    if (pagedIds.length === 0) return { tutors: [], total, weekReference: weekStartStr };
  
     // 5. Cargar datos completos para la página
     const slotsQuery = this.tutorHaveAvailabilityRepository
@@ -601,25 +625,25 @@ export class AvailabilityService {
       { tutorId: string; tutorName: string; slots: TutorHaveAvailability[] }
     >();
  
-    slots.forEach((slot) => {
+    for(const slot of slots) {
       if (!tutorMap.has(slot.idTutor)) {
         tutorMap.set(slot.idTutor, { tutorId: slot.idTutor, tutorName: slot.tutor.user.name, slots: [] });
       }
       tutorMap.get(slot.idTutor)!.slots.push(slot);
-    });
+    };
  
-    // 6. Construir respuesta usando la nueva lógica de bloques
+    // 6. Construir respuesta usando la nueva lógica de bloques y isAvailable por semana
     const tutors = pagedIds
       .filter((id) => tutorMap.has(id))
       .map((id) => {
         const tutor        = tutorMap.get(id)!;
         const occupied     = occupiedRangesByTutor.get(id) ?? [];
-        const tutorSlots   = tutor.slots;
+        //const tutorSlots   = tutor.slots;
  
         const availableSlotsArray: AvailabilitySlot[] = [];
         const groupedByDay = {} as Record<DayOfWeek, AvailabilitySlot[]>;
  
-        tutorSlots.forEach((slot) => {
+        for (const slot of tutor.slots) {
           const dayOfWeek  = NumberToDayOfWeek[slot.availability.dayOfWeek];
           const startTime  = slot.availability.startTime;
           const endTime    = this.calculateEndTime(startTime);
@@ -628,6 +652,7 @@ export class AvailabilityService {
           const slotData: AvailabilitySlot = {
             slotId:      slot.idAvailability.toString(),
             dayOfWeek,
+            dayOfWeekNumber: slot.availability.dayOfWeek,
             startTime,
             endTime,
             modality:    slot.modality,
@@ -638,31 +663,34 @@ export class AvailabilityService {
           if (!isOccupied) availableSlotsArray.push(slotData);
           if (!groupedByDay[dayOfWeek]) groupedByDay[dayOfWeek] = [];
           groupedByDay[dayOfWeek].push(slotData);
-        });
+        };
+
+        //Ordenar por hora dentro de cada día
  
         Object.keys(groupedByDay).forEach((day) => {
           groupedByDay[day as DayOfWeek].sort((a, b) => a.startTime.localeCompare(b.startTime));
         });
  
-        const modalities = [...new Set(tutorSlots.map((s) => s.modality))] as Modality[];
+        const modalities = [...new Set(tutor.slots.map((s) => s.modality))] as Modality[];
  
         return {
           tutorId:        tutor.tutorId,
           tutorName:      tutor.tutorName,
-          totalSlots:     tutorSlots.length,
+          totalSlots:     tutor.slots.length,
           availableSlots: availableSlotsArray.length,
           modalities,
           availability: {
             tutorId:        tutor.tutorId,
             tutorName:      tutor.tutorName,
-            totalSlots:     tutorSlots.length,
+            totalSlots:     tutor.slots.length,
             availableSlots: availableSlotsArray,
             groupedByDay,
-          } as TutorAvailabilityPublic,
+            weekReference: weekStartStr,
+          },
         };
       });
  
-    return { tutors, total };
+    return { tutors, total, weekReference: weekStartStr };
   }
  
   // =====================================================
@@ -824,64 +852,6 @@ export class AvailabilityService {
   // =====================================================
  
   /**
-   * Construye los rangos de minutos ocupados para un solo tutor.
-   * Usado en getTutorAvailability() donde solo hay un tutor.
-   */
-  private async buildOccupiedRangesForTutor(tutorId: string): Promise<OccupiedRange[]> {
-    const map = await this.buildOccupiedRangesForTutors([tutorId]);
-    return map.get(tutorId) ?? [];
-  }
- 
-  /**
-   * Construye los rangos de minutos ocupados para múltiples tutores en una sola
-   * ronda de consultas. Devuelve Map<tutorId, OccupiedRange[]>.
-   *
-   * Para cada sesión activa:
-   *   - startMinutes = hora de inicio del slot seleccionado
-   *   - endMinutes   = startMinutes + duración real de la sesión (Session.endTime - startTime)
-   *
-   * El cálculo usa Session.startTime y Session.endTime (la duración real agendada),
-   * no el slot de 30 min de Availability. Así captura correctamente bloques de 1h o 1.5h.
-   */
-  private async buildOccupiedRangesForTutors(
-    tutorIds: string[],
-  ): Promise<Map<string, OccupiedRange[]>> {
-    if (!tutorIds.length) return new Map();
- 
-    // Traer sesiones activas con su slot de inicio y los tiempos de la sesión
-    const activeSessions = await this.scheduledSessionRepository
-      .createQueryBuilder('ss')
-      .innerJoinAndSelect('ss.session', 'session')
-      .innerJoinAndSelect('ss.availability', 'availability')
-      .where('ss.id_tutor IN (:...tutorIds)', { tutorIds })
-      .andWhere('session.status IN (:...activeStatuses)', {
-        activeStatuses: [
-          SessionStatus.SCHEDULED,
-          SessionStatus.PENDING_MODIFICATION,
-          SessionStatus.PENDING_TUTOR_CONFIRMATION,
-        ],
-      })
-      .getMany();
- 
-    const result = new Map<string, OccupiedRange[]>();
- 
-    for (const ss of activeSessions) {
-      if (!result.has(ss.idTutor)) result.set(ss.idTutor, []);
- 
-      // La duración real de la sesión viene de Session.startTime y Session.endTime
-      const sessionStartMinutes = this.timeToMinutes(ss.session.startTime);
-      const sessionEndMinutes   = this.timeToMinutes(ss.session.endTime);
- 
-      result.get(ss.idTutor)!.push({
-        startMinutes: sessionStartMinutes,
-        endMinutes:   sessionEndMinutes,
-      });
-    }
- 
-    return result;
-  }
- 
-  /**
    * Determina si un slot (definido por su startTime) queda dentro de algún
    * rango ocupado. Un slot de 30 min ocupa [slotStart, slotStart + 30).
    * Hay solapamiento si el slot empieza antes de que el bloque termine
@@ -914,6 +884,136 @@ export class AvailabilityService {
  
     return this.timeToMinutes(session.endTime) - this.timeToMinutes(session.startTime);
   }
+
+
+  // =====================================================
+  // HELPERS PRIVADOS — LÓGICA DE SEMANA
+  // =====================================================
+ 
+  /**
+   * Resuelve el rango lunes–domingo para una semana dada.
+   * Si weekStart no se pasa, usa el lunes de la semana actual.
+   * Devuelve strings 'YYYY-MM-DD' para usarlos directamente en queries.
+   */
+  private resolveWeekRange(weekStart?: string): {
+    weekStartStr: string;
+    weekEndStr: string;
+  } {
+    let monday: Date;
+ 
+    if (weekStart) {
+      // Construir en UTC para evitar desfase de zona horaria
+      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(weekStart);
+      if (!match) {
+        throw new BadRequestException(
+          'weekStart must have format YYYY-MM-DD',
+        );
+      }
+ 
+      const y = Number(match[1]);
+      const m = Number(match[2]);
+      const d = Number(match[3]);
+ 
+      if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) {
+        throw new BadRequestException(
+          'weekStart must be a valid date in format YYYY-MM-DD',
+        );
+      }
+ 
+      // Construir en UTC para evitar desfase de zona horaria
+      monday = new Date(Date.UTC(y, m - 1, d));
+ 
+      const isValidDate =
+        !Number.isNaN(monday.getTime()) &&
+        monday.getUTCFullYear() === y &&
+        monday.getUTCMonth() === m - 1 &&
+        monday.getUTCDate() === d;
+ 
+      if (!isValidDate) {
+        throw new BadRequestException(
+          'weekStart must be a valid date in format YYYY-MM-DD',
+        );
+      }
+ 
+      if (monday.getUTCDay() !== 1) {
+        throw new BadRequestException('weekStart must be a Monday');
+      }
+    } else {
+      // Lunes de la semana actual en UTC
+      const now = new Date();
+      const dayOfWeek = now.getUTCDay(); // 0=Dom, 1=Lun, ..., 6=Sáb
+      const daysToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + daysToMonday));
+    }
+ 
+    // Domingo = lunes + 6 días
+    const sunday = new Date(monday);
+    sunday.setUTCDate(sunday.getUTCDate() + 6);
+ 
+    return {
+      weekStartStr: monday.toISOString().split('T')[0],
+      weekEndStr:   sunday.toISOString().split('T')[0],
+    };
+  }
+ 
+  /**
+   * Calcula los rangos de minutos ocupados para múltiples tutores
+   * dentro de una semana específica (lunes a domingo).
+   *
+   * Un slot queda marcado como ocupado si tiene una sesión activa
+   * en CUALQUIER fecha dentro de esa semana. Esto es correcto porque
+   * un slot (día+hora) solo puede tener una sesión por semana —
+   * si el lunes de esta semana está ocupado, ese slot del lunes
+   * no está disponible esta semana, pero sí la siguiente.
+   */
+  private async buildOccupiedRangesForTutors(
+    tutorIds: string[],
+    weekStartStr: string,
+    weekEndStr: string,
+  ): Promise<Map<string, OccupiedRange[]>> {
+    if (!tutorIds.length) return new Map();
+ 
+    const activeSessions = await this.scheduledSessionRepository
+      .createQueryBuilder('ss')
+      .innerJoinAndSelect('ss.session', 'session')
+      .innerJoinAndSelect('ss.availability', 'availability')
+      .where('ss.id_tutor IN (:...tutorIds)', { tutorIds })
+      // Sesiones dentro de la semana de referencia
+      .andWhere('ss.scheduled_date BETWEEN :weekStart AND :weekEnd', {
+        weekStart: weekStartStr,
+        weekEnd:   weekEndStr,
+      })
+      .andWhere('session.status IN (:...activeStatuses)', {
+        activeStatuses: [
+          SessionStatus.SCHEDULED,
+          SessionStatus.PENDING_MODIFICATION,
+          SessionStatus.PENDING_TUTOR_CONFIRMATION,
+        ],
+      })
+      .getMany();
+ 
+    const result = new Map<string, OccupiedRange[]>();
+ 
+    for (const ss of activeSessions) {
+      if (!result.has(ss.idTutor)) result.set(ss.idTutor, []);
+      result.get(ss.idTutor)!.push({
+        startMinutes: this.timeToMinutes(ss.session.startTime),
+        endMinutes:   this.timeToMinutes(ss.session.endTime),
+      });
+    }
+ 
+    return result;
+  }
+ 
+  private async buildOccupiedRangesForTutor(
+    tutorId: string,
+    weekStartStr: string,
+    weekEndStr: string,
+  ): Promise<OccupiedRange[]> {
+    const map = await this.buildOccupiedRangesForTutors([tutorId], weekStartStr, weekEndStr);
+    return map.get(tutorId) ?? [];
+  }
+
  
   // =====================================================
   // HELPERS PRIVADOS — UTILIDADES
