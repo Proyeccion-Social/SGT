@@ -4,7 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Subject } from '../entities/subjects.entity';
 import { TutorImpartSubject } from '../entities/tutor-subject.entity';
-import { buildPaginatedResponse } from 'src/modules/common/helpers/pagination.helper';
+import { buildPaginatedResponse } from '../../common/helpers/pagination.helper';
 
 @Injectable()
 export class SubjectsService {

@@ -16,7 +16,7 @@ import { ScheduledSession } from './scheduled-session.entity';
 import { SessionModificationRequest } from './session-modification-request.entity';
 import { SessionType } from '../enums/session-type.enum';
 import { SessionStatus } from '../enums/session-status.enum';
-import { Modality } from 'src/modules/availability/enums/modality.enum';
+import { Modality } from '../../availability/enums/modality.enum';
 
 @Entity('sessions')
 export class Session {

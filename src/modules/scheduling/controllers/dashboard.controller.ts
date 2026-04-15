@@ -5,8 +5,13 @@ import { DashboardService } from '../services/dashboard.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
+<<<<<<< HEAD
 import { User, UserRole} from '../../users/entities/user.entity';
 import { CurrentUser } from 'src/modules/auth/decorators/current-user.decorator';
+=======
+import { User, UserRole } from '../../users/entities/user.entity';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+>>>>>>> b4adb19 (fix: replace absolute src/ imports with relative paths)
 
 @Controller('dashboard')
 @UseGuards(JwtAuthGuard, RolesGuard)

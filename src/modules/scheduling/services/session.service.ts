@@ -34,7 +34,7 @@ import { TutorService } from '../../tutor/services/tutor.service';
 import { UserService } from '../../users/services/users.service';
 import { SubjectsService } from '../../subjects/services/subjects.service';
 import { NotificationsService } from '../../notifications/services/notifications.service';
-import { buildPaginatedResponse } from 'src/modules/common/helpers/pagination.helper';
+import { buildPaginatedResponse } from '../../common/helpers/pagination.helper';
 
 
 @Injectable()
