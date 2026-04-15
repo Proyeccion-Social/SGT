@@ -40,10 +40,10 @@ import {
   DayOfWeekToNumber,
   NumberToDayOfWeek,
 } from '../enums/day-of-week.enum';
-import { ScheduledSession } from 'src/modules/scheduling/entities/scheduled-session.entity';
+import { ScheduledSession } from '../../scheduling/entities/scheduled-session.entity';
 import { Modality } from '../enums/modality.enum';
-import { SessionStatus } from 'src/modules/scheduling/enums/session-status.enum';
-import { Session } from 'src/modules/scheduling/entities/session.entity';
+import { SessionStatus } from '../../scheduling/enums/session-status.enum';
+import { Session } from '../../scheduling/entities/session.entity';
 
 export interface AvailabilitySlot {
   slotId: string;

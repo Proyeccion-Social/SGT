@@ -18,7 +18,7 @@ import {
   addHours,
   parseISO,
 } from 'date-fns';
-import { Modality } from 'src/modules/availability/enums/modality.enum';
+import { Modality } from '../../availability/enums/modality.enum';
 
 // Mapa de dayOfWeek numérico (guardado en Availability) al índice JS de día.
 // Availability usa: 0=Lunes, 1=Martes, ..., 5=Sábado  (sin domingo)
