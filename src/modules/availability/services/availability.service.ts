@@ -69,7 +69,6 @@ export interface TutorAvailabilityPublic {
 // Rango de tiempo ocupado (en minutos desde medianoche, dentro de un día)
 // ─────────────────────────────────────────────────────────────────────────────
 interface OccupiedRange {
-  dayOfWeek: number;
   startMinutes: number;
   endMinutes: number;
 }
@@ -422,7 +421,7 @@ export class AvailabilityService {
       const startTime = ta.availability.startTime;
       const endTime   = this.calculateEndTime(startTime);
  
-      const isOccupied = this.isSlotOccupiedByBlock(startTime, ta.availability.dayOfWeek, occupiedRanges);
+      const isOccupied = this.isSlotOccupiedByBlock(startTime, occupiedRanges);
  
       return {
         slotId:      ta.idAvailability.toString(),
@@ -509,7 +508,7 @@ export class AvailabilityService {
  
       const totalSlots = slots.length;
       const availableCount = slots.filter(
-        (s) => !this.isSlotOccupiedByBlock(s.availability.startTime, s.availability.dayOfWeek, occupied),
+        (s) => !this.isSlotOccupiedByBlock(s.availability.startTime, occupied),
       ).length;
  
       if (options?.onlyAvailable && availableCount === 0) return null;
@@ -595,7 +594,7 @@ export class AvailabilityService {
         const slots        = slotsByTutor.get(id) ?? [];
         const occupied     = occupiedRangesByTutor.get(id) ?? [];
         const hasAvailable = slots.some(
-          (s) => !this.isSlotOccupiedByBlock(s.availability.startTime, s.availability.dayOfWeek, occupied),
+          (s) => !this.isSlotOccupiedByBlock(s.availability.startTime, occupied),
         );
         return hasAvailable;
       });
@@ -648,7 +647,7 @@ export class AvailabilityService {
           const dayOfWeek  = NumberToDayOfWeek[slot.availability.dayOfWeek];
           const startTime  = slot.availability.startTime;
           const endTime    = this.calculateEndTime(startTime);
-          const isOccupied = this.isSlotOccupiedByBlock(startTime, slot.availability.dayOfWeek, occupied);
+          const isOccupied = this.isSlotOccupiedByBlock(startTime, occupied);
  
           const slotData: AvailabilitySlot = {
             slotId:      slot.idAvailability.toString(),
@@ -686,7 +685,8 @@ export class AvailabilityService {
             totalSlots:     tutor.slots.length,
             availableSlots: availableSlotsArray,
             groupedByDay,
-          } as TutorAvailabilityPublic,
+            weekReference: weekStartStr,
+          },
         };
       });
  
@@ -852,66 +852,6 @@ export class AvailabilityService {
   // =====================================================
  
   /**
-   * Construye los rangos de minutos ocupados para un solo tutor.
-   * Usado en getTutorAvailability() donde solo hay un tutor.
-   
-  private async buildOccupiedRangesForTutor(tutorId: string): Promise<OccupiedRange[]> {
-    const map = await this.buildOccupiedRangesForTutors([tutorId]);
-    return map.get(tutorId) ?? [];
-  }
- */
-
-  /**
-   * Construye los rangos de minutos ocupados para múltiples tutores en una sola
-   * ronda de consultas. Devuelve Map<tutorId, OccupiedRange[]>.
-   *
-   * Para cada sesión activa:
-   *   - startMinutes = hora de inicio del slot seleccionado
-   *   - endMinutes   = startMinutes + duración real de la sesión (Session.endTime - startTime)
-   *
-   * El cálculo usa Session.startTime y Session.endTime (la duración real agendada),
-   * no el slot de 30 min de Availability. Así captura correctamente bloques de 1h o 1.5h.
-   
-  private async buildOccupiedRangesForTutors(
-    tutorIds: string[],
-  ): Promise<Map<string, OccupiedRange[]>> {
-    if (!tutorIds.length) return new Map();
- 
-    // Traer sesiones activas con su slot de inicio y los tiempos de la sesión
-    const activeSessions = await this.scheduledSessionRepository
-      .createQueryBuilder('ss')
-      .innerJoinAndSelect('ss.session', 'session')
-      .innerJoinAndSelect('ss.availability', 'availability')
-      .where('ss.id_tutor IN (:...tutorIds)', { tutorIds })
-      .andWhere('session.status IN (:...activeStatuses)', {
-        activeStatuses: [
-          SessionStatus.SCHEDULED,
-          SessionStatus.PENDING_MODIFICATION,
-          SessionStatus.PENDING_TUTOR_CONFIRMATION,
-        ],
-      })
-      .getMany();
- 
-    const result = new Map<string, OccupiedRange[]>();
- 
-    for (const ss of activeSessions) {
-      if (!result.has(ss.idTutor)) result.set(ss.idTutor, []);
- 
-      // La duración real de la sesión viene de Session.startTime y Session.endTime
-      const sessionStartMinutes = this.timeToMinutes(ss.session.startTime);
-      const sessionEndMinutes   = this.timeToMinutes(ss.session.endTime);
- 
-      result.get(ss.idTutor)!.push({
-        startMinutes: sessionStartMinutes,
-        endMinutes:   sessionEndMinutes,
-      });
-    }
- 
-    return result;
-  }
-  */
- 
-  /**
    * Determina si un slot (definido por su startTime) queda dentro de algún
    * rango ocupado. Un slot de 30 min ocupa [slotStart, slotStart + 30).
    * Hay solapamiento si el slot empieza antes de que el bloque termine
@@ -919,17 +859,13 @@ export class AvailabilityService {
    */
   private isSlotOccupiedByBlock(
     slotStartTime: string,
-    slotDayOfWeek: number,
     occupiedRanges: OccupiedRange[],
   ): boolean {
     const slotStart = this.timeToMinutes(slotStartTime);
     const slotEnd   = slotStart + this.SLOT_DURATION_MINUTES;
-
+ 
     return occupiedRanges.some(
-      (range) =>
-        range.dayOfWeek === slotDayOfWeek &&
-        slotStart < range.endMinutes &&
-        slotEnd > range.startMinutes,
+      (range) => slotStart < range.endMinutes && slotEnd > range.startMinutes,
     );
   }
  
@@ -967,8 +903,41 @@ export class AvailabilityService {
  
     if (weekStart) {
       // Construir en UTC para evitar desfase de zona horaria
-      const [y, m, d] = weekStart.split('-').map(Number);
+      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(weekStart);
+      if (!match) {
+        throw new BadRequestException(
+          'weekStart must have format YYYY-MM-DD',
+        );
+      }
+ 
+      const y = Number(match[1]);
+      const m = Number(match[2]);
+      const d = Number(match[3]);
+ 
+      if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) {
+        throw new BadRequestException(
+          'weekStart must be a valid date in format YYYY-MM-DD',
+        );
+      }
+ 
+      // Construir en UTC para evitar desfase de zona horaria
       monday = new Date(Date.UTC(y, m - 1, d));
+ 
+      const isValidDate =
+        !Number.isNaN(monday.getTime()) &&
+        monday.getUTCFullYear() === y &&
+        monday.getUTCMonth() === m - 1 &&
+        monday.getUTCDate() === d;
+ 
+      if (!isValidDate) {
+        throw new BadRequestException(
+          'weekStart must be a valid date in format YYYY-MM-DD',
+        );
+      }
+ 
+      if (monday.getUTCDay() !== 1) {
+        throw new BadRequestException('weekStart must be a Monday');
+      }
     } else {
       // Lunes de la semana actual en UTC
       const now = new Date();
@@ -1028,15 +997,14 @@ export class AvailabilityService {
     for (const ss of activeSessions) {
       if (!result.has(ss.idTutor)) result.set(ss.idTutor, []);
       result.get(ss.idTutor)!.push({
-        dayOfWeek:    ss.availability.dayOfWeek,
         startMinutes: this.timeToMinutes(ss.session.startTime),
         endMinutes:   this.timeToMinutes(ss.session.endTime),
       });
     }
-
+ 
     return result;
   }
-
+ 
   private async buildOccupiedRangesForTutor(
     tutorId: string,
     weekStartStr: string,
