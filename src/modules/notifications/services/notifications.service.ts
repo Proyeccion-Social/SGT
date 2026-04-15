@@ -1441,7 +1441,7 @@ export class NotificationsService {
     if (!request.newStartTime || !request.newDurationHours) return '';
     const [h, m] = request.newStartTime.split(':').map(Number);
     const total = h * 60 + m + request.newDurationHours * 60;
-    return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+    return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
   }
 
   private generatePlainTextFallback(templateName: string, data: any): string {
