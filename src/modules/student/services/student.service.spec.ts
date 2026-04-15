@@ -18,7 +18,11 @@ describe('StudentService', () => {
 
   describe('createFromUser', () => {
     it('creates a student record with null career and modality', async () => {
-      studentRepository.save.mockResolvedValue({ idUser: 'user-1', career: null, preferredModality: null });
+      studentRepository.save.mockResolvedValue({
+        idUser: 'user-1',
+        career: null,
+        preferredModality: null,
+      });
 
       const result = await service.createFromUser('user-1');
 

@@ -23,7 +23,10 @@ describe('DashboardService', () => {
   };
 
   /** Builds a chainable QueryBuilder mock with a configurable terminal call. */
-  const makeQb = (terminalFn: 'getMany' | 'getCount' | 'getRawOne', returnValue: any) => {
+  const makeQb = (
+    terminalFn: 'getMany' | 'getCount' | 'getRawOne',
+    returnValue: any,
+  ) => {
     const qb: any = {
       innerJoin: jest.fn().mockReturnThis(),
       innerJoinAndSelect: jest.fn().mockReturnThis(),
@@ -70,7 +73,9 @@ describe('DashboardService', () => {
       // 2nd QB: upcoming sessions
       const upcomingQb = makeQb('getMany', [mockSessionCard]);
 
-      participationRepository.createQueryBuilder.mockReturnValueOnce(weekCountQb);
+      participationRepository.createQueryBuilder.mockReturnValueOnce(
+        weekCountQb,
+      );
       sessionRepository.createQueryBuilder.mockReturnValueOnce(upcomingQb);
 
       const result = await service.getStudentDashboard('student-1');
@@ -81,10 +86,12 @@ describe('DashboardService', () => {
 
     it('falls back to completed sessions when no upcoming sessions exist', async () => {
       const weekCountQb = makeQb('getCount', 0);
-      const emptyUpcomingQb = makeQb('getMany', []);        // no upcoming
+      const emptyUpcomingQb = makeQb('getMany', []); // no upcoming
       const historyQb = makeQb('getMany', [mockSessionCard]); // history fallback
 
-      participationRepository.createQueryBuilder.mockReturnValueOnce(weekCountQb);
+      participationRepository.createQueryBuilder.mockReturnValueOnce(
+        weekCountQb,
+      );
       sessionRepository.createQueryBuilder
         .mockReturnValueOnce(emptyUpcomingQb)
         .mockReturnValueOnce(historyQb);
@@ -109,7 +116,9 @@ describe('DashboardService', () => {
       sessionRepository.createQueryBuilder.mockReturnValueOnce(upcomingQb);
       // getTotalStudentsReached QB
       const studentsQb = makeQb('getRawOne', { count: '5' });
-      participationRepository.createQueryBuilder.mockReturnValueOnce(studentsQb);
+      participationRepository.createQueryBuilder.mockReturnValueOnce(
+        studentsQb,
+      );
 
       const result = await service.getTutorDashboard('tutor-1');
 
@@ -132,7 +141,9 @@ describe('DashboardService', () => {
         .mockReturnValueOnce(upcomingQb)
         .mockReturnValueOnce(historyQb);
       const studentsQb = makeQb('getRawOne', { count: '0' });
-      participationRepository.createQueryBuilder.mockReturnValueOnce(studentsQb);
+      participationRepository.createQueryBuilder.mockReturnValueOnce(
+        studentsQb,
+      );
 
       const result = await service.getTutorDashboard('tutor-1');
 
@@ -151,7 +162,9 @@ describe('DashboardService', () => {
         .mockReturnValueOnce(upcomingQb)
         .mockReturnValueOnce(historyQb);
       const studentsQb = makeQb('getRawOne', { count: '0' });
-      participationRepository.createQueryBuilder.mockReturnValueOnce(studentsQb);
+      participationRepository.createQueryBuilder.mockReturnValueOnce(
+        studentsQb,
+      );
 
       const result = await service.getTutorDashboard('tutor-1');
 
@@ -167,7 +180,9 @@ describe('DashboardService', () => {
         .mockReturnValueOnce(upcomingQb)
         .mockReturnValueOnce(historyQb);
       const studentsQb = makeQb('getRawOne', null);
-      participationRepository.createQueryBuilder.mockReturnValueOnce(studentsQb);
+      participationRepository.createQueryBuilder.mockReturnValueOnce(
+        studentsQb,
+      );
 
       const result = await service.getTutorDashboard('tutor-1');
 

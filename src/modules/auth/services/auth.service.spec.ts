@@ -44,7 +44,10 @@ describe('AuthService', () => {
     };
     studentService = { createFromUser: jest.fn() };
     tutorService = { isProfileComplete: jest.fn() };
-    jwtService = { sign: jest.fn().mockReturnValue('jwt-token'), verify: jest.fn() };
+    jwtService = {
+      sign: jest.fn().mockReturnValue('jwt-token'),
+      verify: jest.fn(),
+    };
     configService = { get: jest.fn().mockReturnValue('mock-secret') };
     sessionService = {
       createSession: jest.fn().mockResolvedValue({ id_session: 'session-1' }),
@@ -156,7 +159,9 @@ describe('AuthService', () => {
         name: 'Test',
       });
       studentService.createFromUser.mockResolvedValue(undefined);
-      emailService.sendEmailConfirmation.mockRejectedValue(new Error('SMTP error'));
+      emailService.sendEmailConfirmation.mockRejectedValue(
+        new Error('SMTP error'),
+      );
       auditService.log.mockResolvedValue(undefined);
 
       await expect(
@@ -200,7 +205,9 @@ describe('AuthService', () => {
       const result = await service.checkEmailExists('test@udistrital.edu.co');
 
       expect(result).toBe(true);
-      expect(userService.existsByEmail).toHaveBeenCalledWith('test@udistrital.edu.co');
+      expect(userService.existsByEmail).toHaveBeenCalledWith(
+        'test@udistrital.edu.co',
+      );
     });
   });
 
@@ -226,7 +233,11 @@ describe('AuthService', () => {
       });
 
       await expect(
-        service.login({ email: mockUser.email, password: 'pass' }, '127.0.0.1', 'agent'),
+        service.login(
+          { email: mockUser.email, password: 'pass' },
+          '127.0.0.1',
+          'agent',
+        ),
       ).rejects.toThrow(UnauthorizedException);
     });
 
@@ -241,13 +252,20 @@ describe('AuthService', () => {
       userService.resetFailedLoginAttempts.mockResolvedValue(undefined);
       auditService.logSuccessfulLogin.mockResolvedValue(undefined);
 
-      await service.login({ email: mockUser.email, password: 'pass' }, '127.0.0.1', 'agent');
+      await service.login(
+        { email: mockUser.email, password: 'pass' },
+        '127.0.0.1',
+        'agent',
+      );
 
       expect(userService.unlockAccount).toHaveBeenCalledWith(mockUser.idUser);
     });
 
     it('locks account and throws after 5 failed password attempts', async () => {
-      userService.findByEmail.mockResolvedValue({ ...mockUser, locked_until: null });
+      userService.findByEmail.mockResolvedValue({
+        ...mockUser,
+        locked_until: null,
+      });
       userService.validatePassword.mockResolvedValue(false);
       userService.incrementFailedLoginAttempts.mockResolvedValue(5);
       userService.lockAccount.mockResolvedValue(undefined);
@@ -255,20 +273,31 @@ describe('AuthService', () => {
       auditService.logAccountLocked.mockResolvedValue(undefined);
 
       await expect(
-        service.login({ email: mockUser.email, password: 'wrong' }, '127.0.0.1', 'agent'),
+        service.login(
+          { email: mockUser.email, password: 'wrong' },
+          '127.0.0.1',
+          'agent',
+        ),
       ).rejects.toThrow(UnauthorizedException);
 
       expect(userService.lockAccount).toHaveBeenCalled();
     });
 
     it('does not lock account and shows remaining attempts on failed password (< 5)', async () => {
-      userService.findByEmail.mockResolvedValue({ ...mockUser, locked_until: null });
+      userService.findByEmail.mockResolvedValue({
+        ...mockUser,
+        locked_until: null,
+      });
       userService.validatePassword.mockResolvedValue(false);
       userService.incrementFailedLoginAttempts.mockResolvedValue(2);
       auditService.logFailedLogin.mockResolvedValue(undefined);
 
       await expect(
-        service.login({ email: mockUser.email, password: 'wrong' }, '127.0.0.1', 'agent'),
+        service.login(
+          { email: mockUser.email, password: 'wrong' },
+          '127.0.0.1',
+          'agent',
+        ),
       ).rejects.toThrow(UnauthorizedException);
 
       expect(userService.lockAccount).not.toHaveBeenCalled();
@@ -284,7 +313,11 @@ describe('AuthService', () => {
       auditService.logFailedLogin.mockResolvedValue(undefined);
 
       await expect(
-        service.login({ email: mockUser.email, password: 'pass' }, '127.0.0.1', 'agent'),
+        service.login(
+          { email: mockUser.email, password: 'pass' },
+          '127.0.0.1',
+          'agent',
+        ),
       ).rejects.toThrow(UnauthorizedException);
     });
 
@@ -298,12 +331,19 @@ describe('AuthService', () => {
       auditService.logFailedLogin.mockResolvedValue(undefined);
 
       await expect(
-        service.login({ email: mockUser.email, password: 'pass' }, '127.0.0.1', 'agent'),
+        service.login(
+          { email: mockUser.email, password: 'pass' },
+          '127.0.0.1',
+          'agent',
+        ),
       ).rejects.toThrow(UnauthorizedException);
     });
 
     it('returns tokens and user data on successful student login', async () => {
-      userService.findByEmail.mockResolvedValue({ ...mockUser, failed_login_attempts: 0 });
+      userService.findByEmail.mockResolvedValue({
+        ...mockUser,
+        failed_login_attempts: 0,
+      });
       userService.validatePassword.mockResolvedValue(true);
       auditService.logSuccessfulLogin.mockResolvedValue(undefined);
 
@@ -357,9 +397,9 @@ describe('AuthService', () => {
     it('throws UnauthorizedException if token type is not refresh', async () => {
       jwtService.verify.mockReturnValue({ sub: 'user-1', type: 'access' });
 
-      await expect(service.refresh('access-token', '127.0.0.1')).rejects.toThrow(
-        UnauthorizedException,
-      );
+      await expect(
+        service.refresh('access-token', '127.0.0.1'),
+      ).rejects.toThrow(UnauthorizedException);
     });
 
     it('throws UnauthorizedException if session is not found or revoked', async () => {
@@ -373,8 +413,13 @@ describe('AuthService', () => {
 
     it('throws UnauthorizedException if user is not active', async () => {
       jwtService.verify.mockReturnValue({ sub: 'user-1', type: 'refresh' });
-      sessionService.findValidSession.mockResolvedValue({ id_session: 'session-1' });
-      userService.findById.mockResolvedValue({ ...mockUser, status: UserStatus.BLOCKED });
+      sessionService.findValidSession.mockResolvedValue({
+        id_session: 'session-1',
+      });
+      userService.findById.mockResolvedValue({
+        ...mockUser,
+        status: UserStatus.BLOCKED,
+      });
 
       await expect(service.refresh('token', '127.0.0.1')).rejects.toThrow(
         UnauthorizedException,
@@ -383,7 +428,9 @@ describe('AuthService', () => {
 
     it('returns new tokens on successful refresh', async () => {
       jwtService.verify.mockReturnValue({ sub: 'user-1', type: 'refresh' });
-      sessionService.findValidSession.mockResolvedValue({ id_session: 'session-1' });
+      sessionService.findValidSession.mockResolvedValue({
+        id_session: 'session-1',
+      });
       userService.findById.mockResolvedValue(mockUser);
       sessionService.updateSession.mockResolvedValue(undefined);
       auditService.logSessionRefreshed.mockResolvedValue(undefined);
@@ -399,10 +446,16 @@ describe('AuthService', () => {
 
   describe('logout', () => {
     it('revokes session and logs audit on successful logout', async () => {
-      sessionService.revokeSessionByToken.mockResolvedValue({ id_session: 'session-1' });
+      sessionService.revokeSessionByToken.mockResolvedValue({
+        id_session: 'session-1',
+      });
       auditService.logLogout.mockResolvedValue(undefined);
 
-      const result = await service.logout('user-1', 'refresh-token', '127.0.0.1');
+      const result = await service.logout(
+        'user-1',
+        'refresh-token',
+        '127.0.0.1',
+      );
 
       expect(result.message).toBe('Logged out successfully');
       expect(auditService.logLogout).toHaveBeenCalled();
@@ -411,7 +464,11 @@ describe('AuthService', () => {
     it('returns success even if session is not found', async () => {
       sessionService.revokeSessionByToken.mockResolvedValue(null);
 
-      const result = await service.logout('user-1', 'invalid-token', '127.0.0.1');
+      const result = await service.logout(
+        'user-1',
+        'invalid-token',
+        '127.0.0.1',
+      );
 
       expect(result.message).toBe('Logged out successfully');
       expect(auditService.logLogout).not.toHaveBeenCalled();
@@ -439,7 +496,9 @@ describe('AuthService', () => {
       const result = await service.recoverPassword(mockUser.email);
 
       expect(result.message).toContain('If the email exists');
-      expect(passwordResetService.createToken).toHaveBeenCalledWith(mockUser.idUser);
+      expect(passwordResetService.createToken).toHaveBeenCalledWith(
+        mockUser.idUser,
+      );
     });
   });
 
@@ -448,7 +507,12 @@ describe('AuthService', () => {
   describe('resetPassword', () => {
     it('throws BadRequestException if passwords do not match', async () => {
       await expect(
-        service.resetPassword('token', 'ValidPass1@', 'Different1@', '127.0.0.1'),
+        service.resetPassword(
+          'token',
+          'ValidPass1@',
+          'Different1@',
+          '127.0.0.1',
+        ),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -483,7 +547,9 @@ describe('AuthService', () => {
       );
 
       expect(result.message).toContain('Password reset successfully');
-      expect(sessionService.revokeAllUserSessions).toHaveBeenCalledWith('user-1');
+      expect(sessionService.revokeAllUserSessions).toHaveBeenCalledWith(
+        'user-1',
+      );
     });
   });
 
@@ -534,7 +600,11 @@ describe('AuthService', () => {
       await expect(
         service.changePassword(
           'user-1',
-          { currentPassword: 'SamePass1@', newPassword: 'SamePass1@', confirmNewPassword: 'SamePass1@' },
+          {
+            currentPassword: 'SamePass1@',
+            newPassword: 'SamePass1@',
+            confirmNewPassword: 'SamePass1@',
+          },
           '127.0.0.1',
           'agent',
         ),
@@ -544,13 +614,17 @@ describe('AuthService', () => {
     it('throws BadRequestException if new password does not meet security requirements', async () => {
       userService.findById.mockResolvedValue(mockUser);
       userService.validatePassword
-        .mockResolvedValueOnce(true)   // current password correct
+        .mockResolvedValueOnce(true) // current password correct
         .mockResolvedValueOnce(false); // new is different
 
       await expect(
         service.changePassword(
           'user-1',
-          { currentPassword: 'OldPass1@', newPassword: 'simple', confirmNewPassword: 'simple' },
+          {
+            currentPassword: 'OldPass1@',
+            newPassword: 'simple',
+            confirmNewPassword: 'simple',
+          },
           '127.0.0.1',
           'agent',
         ),
@@ -560,17 +634,24 @@ describe('AuthService', () => {
     it('changes password successfully and revokes all sessions', async () => {
       userService.findById.mockResolvedValue(mockUser);
       userService.validatePassword
-        .mockResolvedValueOnce(true)   // current password correct
+        .mockResolvedValueOnce(true) // current password correct
         .mockResolvedValueOnce(false); // new is different from current
       userService.updatePassword.mockResolvedValue(undefined);
       sessionService.revokeAllUserSessions.mockResolvedValue(undefined);
       auditService.logPasswordChange.mockResolvedValue(undefined);
       emailService.sendPasswordChangedNotification.mockResolvedValue(undefined);
 
-      const result = await service.changePassword('user-1', dto, '127.0.0.1', 'agent');
+      const result = await service.changePassword(
+        'user-1',
+        dto,
+        '127.0.0.1',
+        'agent',
+      );
 
       expect(result.message).toContain('Password changed successfully');
-      expect(sessionService.revokeAllUserSessions).toHaveBeenCalledWith('user-1');
+      expect(sessionService.revokeAllUserSessions).toHaveBeenCalledWith(
+        'user-1',
+      );
     });
   });
 });

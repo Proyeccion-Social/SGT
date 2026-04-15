@@ -43,7 +43,6 @@ export class AvailabilityController {
     private readonly availabilityService: AvailabilityService,
   ) {}
 
-
   //====================================================
   // GET /api/v1/availability/tutors/me
   // Visualizar mi disponibilidad como tutor
@@ -51,20 +50,18 @@ export class AvailabilityController {
   @Get('tutors/me')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.TUTOR)
-  async getMyAvailability(
-    @CurrentUser() user: User
-
-  ) {
-
+  async getMyAvailability(@CurrentUser() user: User) {
     const tutor = await this.tutorService.findByUserId(user.idUser);
 
     if (!tutor) {
-    throw new NotFoundException('Tutor profile not found');
-  }
+      throw new NotFoundException('Tutor profile not found');
+    }
 
-    return await this.availabilityService.getTutorAvailability(tutor.idUser, {});
+    return await this.availabilityService.getTutorAvailability(
+      tutor.idUser,
+      {},
+    );
   }
-
 
   //====================================================
   // GET /api/v1/availability/tutors/subject
@@ -72,42 +69,50 @@ export class AvailabilityController {
   //====================================================
   @Get('tutors/subject')
   async getTutorsBySubject(@Query() filters: FilterTutorsDto) {
-  if (!filters.subjectId && !filters.subjectName) {
-    throw new BadRequestException('Debe proporcionar subjectId o subjectName');
+    if (!filters.subjectId && !filters.subjectName) {
+      throw new BadRequestException(
+        'Debe proporcionar subjectId o subjectName',
+      );
+    }
+
+    let subject;
+    if (filters.subjectId) {
+      subject = await this.subjectsService.findById(filters.subjectId);
+    } else if (filters.subjectName) {
+      subject = await this.subjectsService.findByName(filters.subjectName);
+    }
+
+    if (!subject) {
+      throw new NotFoundException(
+        `Subject not found with ${filters.subjectId ? 'ID' : 'name'}: ${filters.subjectId || filters.subjectName}`,
+      );
+    }
+
+    const { tutors, total } =
+      await this.availabilityService.getTutorsBySubjectWithAvailability(
+        subject.idSubject,
+        {
+          onlyAvailable: filters.onlyAvailable,
+          modality: filters.modality,
+          page: filters.page,
+          limit: filters.limit,
+        },
+      );
+
+    return {
+      success: true,
+      subject: {
+        id: subject.idSubject,
+        name: subject.name,
+      },
+      ...buildPaginatedResponse(
+        tutors,
+        total,
+        filters.page ?? 1,
+        filters.limit ?? 10,
+      ),
+    };
   }
-
-  let subject;
-  if (filters.subjectId) {
-    subject = await this.subjectsService.findById(filters.subjectId);
-  } else if (filters.subjectName) {
-    subject = await this.subjectsService.findByName(filters.subjectName);
-  }
-
-  if (!subject) {
-    throw new NotFoundException(
-      `Subject not found with ${filters.subjectId ? 'ID' : 'name'}: ${filters.subjectId || filters.subjectName}`,
-    );
-  }
-
-  const { tutors, total } = await this.availabilityService.getTutorsBySubjectWithAvailability(
-    subject.idSubject,
-    {
-      onlyAvailable: filters.onlyAvailable,
-      modality: filters.modality,
-      page: filters.page,
-      limit: filters.limit,
-    },
-  );
-
-  return {
-    success: true,
-    subject: {
-      id: subject.idSubject,
-      name: subject.name,
-    },
-    ...buildPaginatedResponse(tutors, total, filters.page ?? 1, filters.limit ?? 10),
-  };
-}
 
   /**
    * POST /api/v1/availability/tutor/slots
@@ -125,9 +130,14 @@ export class AvailabilityController {
 
     // Enrutar según la acción solicitada
     switch (manageSlotDto.action) {
-      case SlotAction.CREATE:
+      case SlotAction.CREATE: {
         const createData = manageSlotDto.data as CreateSlotDto;
-        if (!createData || !createData.dayOfWeek || !createData.startTime || !createData.modality) {
+        if (
+          !createData ||
+          !createData.dayOfWeek ||
+          !createData.startTime ||
+          !createData.modality
+        ) {
           throw new BadRequestException(
             'Para CREATE se requieren: dayOfWeek, startTime, modality',
           );
@@ -141,8 +151,9 @@ export class AvailabilityController {
           message: 'Franja de disponibilidad creada exitosamente',
           slot: createdSlot,
         };
+      }
 
-      case SlotAction.UPDATE:
+      case SlotAction.UPDATE: {
         const updateData = manageSlotDto.data as UpdateSlotDto;
         if (!updateData || !updateData.slotId) {
           throw new BadRequestException('Para UPDATE se requiere: slotId');
@@ -156,8 +167,9 @@ export class AvailabilityController {
           message: 'Franja de disponibilidad actualizada exitosamente',
           slot: updatedSlot,
         };
+      }
 
-      case SlotAction.DELETE:
+      case SlotAction.DELETE: {
         const deleteData = manageSlotDto.data as DeleteSlotDto;
         if (!deleteData || !deleteData.slotId) {
           throw new BadRequestException('Para DELETE se requiere: slotId');
@@ -170,6 +182,7 @@ export class AvailabilityController {
           statusCode: HttpStatus.OK,
           ...result,
         };
+      }
 
       default:
         throw new BadRequestException('Acción no válida');
@@ -200,7 +213,10 @@ export class AvailabilityController {
     )
     dto: UpdateWeeklyHoursLimitDto,
   ) {
-    return this.tutorService.updateWeeklyHoursLimit(user.idUser, dto.maxWeeklyHours);
+    return this.tutorService.updateWeeklyHoursLimit(
+      user.idUser,
+      dto.maxWeeklyHours,
+    );
   }
 
   /**
@@ -210,13 +226,22 @@ export class AvailabilityController {
   @Post('tutor/slots/range')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.TUTOR)
-  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
+  @UsePipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  )
   @HttpCode(HttpStatus.CREATED)
   async createSlotsInRange(
     @CurrentUser() user: User,
     @Body() dto: CreateSlotRangeDto,
   ) {
-    const slots = await this.availabilityService.createSlotsInRange(user.idUser, dto);
+    const slots = await this.availabilityService.createSlotsInRange(
+      user.idUser,
+      dto,
+    );
 
     return {
       statusCode: HttpStatus.CREATED,
@@ -232,13 +257,22 @@ export class AvailabilityController {
   @Patch('tutor/slots/range')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.TUTOR)
-  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
+  @UsePipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  )
   @HttpCode(HttpStatus.OK)
   async updateSlotsInRange(
     @CurrentUser() user: User,
     @Body() dto: CreateSlotRangeDto,
   ) {
-    const slots = await this.availabilityService.updateSlotsInRange(user.idUser, dto);
+    const slots = await this.availabilityService.updateSlotsInRange(
+      user.idUser,
+      dto,
+    );
 
     return {
       statusCode: HttpStatus.OK,
@@ -254,13 +288,22 @@ export class AvailabilityController {
   @Delete('tutor/slots/range')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.TUTOR)
-  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
+  @UsePipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  )
   @HttpCode(HttpStatus.OK)
   async deleteSlotsInRange(
     @CurrentUser() user: User,
     @Body() dto: CreateSlotRangeDto,
   ) {
-    const result = await this.availabilityService.deleteSlotsInRange(user.idUser, dto);
+    const result = await this.availabilityService.deleteSlotsInRange(
+      user.idUser,
+      dto,
+    );
 
     return {
       statusCode: HttpStatus.OK,
@@ -272,7 +315,7 @@ export class AvailabilityController {
   /**
    * GET /api/availability/tutors/:tutorId
    * RF16:Ver disponibilidad de un tutor específico (público/estudiantes)
-   * 
+   *
    * Query params opcionales:
    * - onlyAvailable: true/false (solo slots sin reserva)
    * - onlyFuture: true/false (solo slots futuros)
@@ -302,6 +345,4 @@ export class AvailabilityController {
       onlyAvailable: query.onlyAvailable,
     });
   }
-
-
 }

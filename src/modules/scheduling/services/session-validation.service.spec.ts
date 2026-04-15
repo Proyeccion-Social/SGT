@@ -37,16 +37,16 @@ describe('SessionValidationService', () => {
   // ─── validateStudentNotTutor ─────────────────────────────────────────────────
 
   describe('validateStudentNotTutor', () => {
-    it('throws BadRequestException if student and tutor are the same user', async () => {
-      await expect(
-        service.validateStudentNotTutor('user-1', 'user-1'),
-      ).rejects.toThrow(BadRequestException);
+    it('throws BadRequestException if student and tutor are the same user', () => {
+      expect(() => service.validateStudentNotTutor('user-1', 'user-1')).toThrow(
+        BadRequestException,
+      );
     });
 
-    it('resolves without error when student and tutor are different users', async () => {
-      await expect(
+    it('does not throw when student and tutor are different users', () => {
+      expect(() =>
         service.validateStudentNotTutor('student-1', 'tutor-1'),
-      ).resolves.toBeUndefined();
+      ).not.toThrow();
     });
   });
 
@@ -75,7 +75,9 @@ describe('SessionValidationService', () => {
   describe('validateScheduledDateMatchesSlotDay', () => {
     it('resolves when scheduled date matches the slot day of week (Monday)', async () => {
       // 2025-04-07 is Monday; dayOfWeek=0 maps to UTC day 1 (Monday)
-      availabilityService.getAvailabilityById.mockResolvedValue({ dayOfWeek: 0 });
+      availabilityService.getAvailabilityById.mockResolvedValue({
+        dayOfWeek: 0,
+      });
 
       await expect(
         service.validateScheduledDateMatchesSlotDay(1, '2025-04-07'),
@@ -84,7 +86,9 @@ describe('SessionValidationService', () => {
 
     it('throws BadRequestException when date does not match slot day', async () => {
       // 2025-04-07 is Monday but slot expects Tuesday (dayOfWeek=1)
-      availabilityService.getAvailabilityById.mockResolvedValue({ dayOfWeek: 1 });
+      availabilityService.getAvailabilityById.mockResolvedValue({
+        dayOfWeek: 1,
+      });
 
       await expect(
         service.validateScheduledDateMatchesSlotDay(1, '2025-04-07'),
@@ -92,7 +96,9 @@ describe('SessionValidationService', () => {
     });
 
     it('throws BadRequestException when slot dayOfWeek is out of valid range', async () => {
-      availabilityService.getAvailabilityById.mockResolvedValue({ dayOfWeek: 7 });
+      availabilityService.getAvailabilityById.mockResolvedValue({
+        dayOfWeek: 7,
+      });
 
       await expect(
         service.validateScheduledDateMatchesSlotDay(1, '2025-04-07'),
@@ -211,12 +217,16 @@ describe('SessionValidationService', () => {
   describe('validateCancellationTime', () => {
     it('returns true when session is more than 24h in the future', () => {
       // Far future date — always more than 24h away
-      expect(service.validateCancellationTime('2030-12-31', '12:00')).toBe(true);
+      expect(service.validateCancellationTime('2030-12-31', '12:00')).toBe(
+        true,
+      );
     });
 
     it('returns false when session is in the past', () => {
       // Past date — always less than 24h away
-      expect(service.validateCancellationTime('2020-01-01', '12:00')).toBe(false);
+      expect(service.validateCancellationTime('2020-01-01', '12:00')).toBe(
+        false,
+      );
     });
   });
 });

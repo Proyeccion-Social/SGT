@@ -31,8 +31,8 @@ export class SessionModificationRequest {
   @Column({ name: 'new_start_time', type: 'time', nullable: true })
   newStartTime?: string;
 
-  @Column({ name: 'new_availability_id', type: 'bigint', nullable: true }) 
-  newAvailabilityId?: number; 
+  @Column({ name: 'new_availability_id', type: 'bigint', nullable: true })
+  newAvailabilityId?: number;
 
   @Column({
     name: 'new_modality',
@@ -42,7 +42,13 @@ export class SessionModificationRequest {
   })
   newModality?: Modality;
 
-  @Column({ name: 'new_duration_hours', type: 'decimal', precision: 3, scale: 1, nullable: true })
+  @Column({
+    name: 'new_duration_hours',
+    type: 'decimal',
+    precision: 3,
+    scale: 1,
+    nullable: true,
+  })
   newDurationHours?: number;
 
   @Column({

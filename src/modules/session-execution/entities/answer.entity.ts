@@ -1,10 +1,4 @@
-import {
-  Entity,
-  PrimaryColumn,
-  Column,
-  ManyToOne,
-  JoinColumn,
-} from 'typeorm';
+import { Entity, PrimaryColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { Question } from './question.entity';
 import { StudentParticipateSession } from '../../scheduling/entities/student-participate-session.entity';
 
@@ -28,10 +22,19 @@ export class Answer {
   })
   score: number;
 
-  @Column({ name: 'evaluated_at', type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  @Column({
+    name: 'evaluated_at',
+    type: 'timestamp',
+    default: () => 'CURRENT_TIMESTAMP',
+  })
   evaluatedAt: Date;
 
-  @Column({ name: 'questionnaire_version', type: 'varchar', length: 20, default: '1.0' })
+  @Column({
+    name: 'questionnaire_version',
+    type: 'varchar',
+    length: 20,
+    default: '1.0',
+  })
   questionnaireVersion: string;
 
   @ManyToOne(() => Question, (question) => question.answers)

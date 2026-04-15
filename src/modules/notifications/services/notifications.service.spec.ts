@@ -19,17 +19,21 @@ describe('NotificationsService', () => {
     configService = {
       get: jest.fn((key: string) => {
         const map: Record<string, string> = {
-          RESEND_API_KEY:    'test-api-key',
+          RESEND_API_KEY: 'test-api-key',
           RESEND_FROM_EMAIL: 'noreply@test.com',
-          FRONTEND_URL:      'http://localhost:3000',
+          FRONTEND_URL: 'http://localhost:3000',
         };
         return map[key] ?? null;
       }),
     };
-    usersService    = { findById: jest.fn(), findByIds: jest.fn() };
+    usersService = { findById: jest.fn(), findByIds: jest.fn() };
     appNotifications = { create: jest.fn().mockResolvedValue({}) };
 
-    service = new NotificationsService(configService, usersService, appNotifications);
+    service = new NotificationsService(
+      configService,
+      usersService,
+      appNotifications,
+    );
 
     // Replace the internal Resend instance with a controllable mock
     resendSendMock = jest.fn().mockResolvedValue({ error: null });
@@ -44,8 +48,12 @@ describe('NotificationsService', () => {
     it('resolves when all operations succeed', async () => {
       await expect(
         (service as any).settleAll([
-          { label: 'email',       context: 'test', promise: Promise.resolve() },
-          { label: 'persistencia', context: 'test', promise: Promise.resolve() },
+          { label: 'email', context: 'test', promise: Promise.resolve() },
+          {
+            label: 'persistencia',
+            context: 'test',
+            promise: Promise.resolve(),
+          },
         ]),
       ).resolves.toBeUndefined();
     });
@@ -55,8 +63,16 @@ describe('NotificationsService', () => {
 
       await expect(
         (service as any).settleAll([
-          { label: 'email',       context: 'test', promise: Promise.reject(emailError) },
-          { label: 'persistencia', context: 'test', promise: Promise.resolve() },
+          {
+            label: 'email',
+            context: 'test',
+            promise: Promise.reject(emailError),
+          },
+          {
+            label: 'persistencia',
+            context: 'test',
+            promise: Promise.resolve(),
+          },
         ]),
       ).rejects.toThrow('SMTP connection refused');
     });
@@ -64,8 +80,12 @@ describe('NotificationsService', () => {
     it('does NOT throw when only a persistence operation fails', async () => {
       await expect(
         (service as any).settleAll([
-          { label: 'email',       context: 'test', promise: Promise.resolve() },
-          { label: 'persistencia', context: 'test', promise: Promise.reject(new Error('DB timeout')) },
+          { label: 'email', context: 'test', promise: Promise.resolve() },
+          {
+            label: 'persistencia',
+            context: 'test',
+            promise: Promise.reject(new Error('DB timeout')),
+          },
         ]),
       ).resolves.toBeUndefined();
     });
@@ -75,8 +95,16 @@ describe('NotificationsService', () => {
 
       await expect(
         (service as any).settleAll([
-          { label: 'email',       context: 'test', promise: Promise.reject(emailError) },
-          { label: 'persistencia', context: 'test', promise: Promise.reject(new Error('DB failed')) },
+          {
+            label: 'email',
+            context: 'test',
+            promise: Promise.reject(emailError),
+          },
+          {
+            label: 'persistencia',
+            context: 'test',
+            promise: Promise.reject(new Error('DB failed')),
+          },
         ]),
       ).rejects.toThrow('Email failed');
     });
@@ -97,9 +125,9 @@ describe('NotificationsService', () => {
     });
 
     it('produces the same output for a Date object as for its ISO string', () => {
-      const dateObj  = new Date(Date.UTC(2025, 3, 7)); // April 7 2025 UTC
+      const dateObj = new Date(Date.UTC(2025, 3, 7)); // April 7 2025 UTC
       const asString: string = (service as any).formatDate('2025-04-07');
-      const asDate:   string = (service as any).formatDate(dateObj);
+      const asDate: string = (service as any).formatDate(dateObj);
 
       expect(asString).toBe(asDate);
     });
@@ -119,7 +147,7 @@ describe('NotificationsService', () => {
   describe('formatDateTime', () => {
     it('includes the minute in the formatted output (es-CO uses 12h clock)', () => {
       // es-CO locale formats 14:30 UTC as "02:30 p. m." — check minutes, not 24h hour
-      const date   = new Date(Date.UTC(2025, 3, 7, 14, 30)); // 14:30 UTC
+      const date = new Date(Date.UTC(2025, 3, 7, 14, 30)); // 14:30 UTC
       const result: string = (service as any).formatDateTime(date);
 
       expect(result).toContain('30');
@@ -127,7 +155,9 @@ describe('NotificationsService', () => {
     });
 
     it('accepts an ISO string as input', () => {
-      const result: string = (service as any).formatDateTime('2025-04-07T09:00:00.000Z');
+      const result: string = (service as any).formatDateTime(
+        '2025-04-07T09:00:00.000Z',
+      );
 
       expect(result.toLowerCase()).toContain('lunes');
     });
@@ -219,13 +249,15 @@ describe('NotificationsService', () => {
     it('throws NotFoundException when the user does not exist', async () => {
       usersService.findById.mockResolvedValue(null);
 
-      await expect(
-        (service as any).getUserEmail('unknown-id'),
-      ).rejects.toThrow(NotFoundException);
+      await expect((service as any).getUserEmail('unknown-id')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('returns the user email when found', async () => {
-      usersService.findById.mockResolvedValue({ email: 'user@udistrital.edu.co' });
+      usersService.findById.mockResolvedValue({
+        email: 'user@udistrital.edu.co',
+      });
 
       const email = await (service as any).getUserEmail('user-1');
 

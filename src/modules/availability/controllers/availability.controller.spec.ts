@@ -7,7 +7,9 @@ import { TutorService } from 'src/modules/tutor/services/tutor.service';
 describe('AvailabilityController', () => {
   let controller: AvailabilityController;
   let subjectsService: any;
-  let tutorService: jest.Mocked<Pick<TutorService, 'findByUserId' | 'updateWeeklyHoursLimit'>>;
+  let tutorService: jest.Mocked<
+    Pick<TutorService, 'findByUserId' | 'updateWeeklyHoursLimit'>
+  >;
   let availabilityService: any;
 
   beforeEach(() => {
@@ -167,7 +169,10 @@ describe('AvailabilityController', () => {
 
       const result = await controller.manageSlot(user, dto);
 
-      expect(availabilityService.createSlot).toHaveBeenCalledWith('tutor-4', dto.data);
+      expect(availabilityService.createSlot).toHaveBeenCalledWith(
+        'tutor-4',
+        dto.data,
+      );
       expect(result).toEqual({
         statusCode: HttpStatus.CREATED,
         message: 'Franja de disponibilidad creada exitosamente',
@@ -179,7 +184,10 @@ describe('AvailabilityController', () => {
       const user = { idUser: 'tutor-4', role: UserRole.TUTOR } as any;
 
       await expect(
-        controller.manageSlot(user, { action: SlotAction.CREATE, data: {} } as any),
+        controller.manageSlot(user, {
+          action: SlotAction.CREATE,
+          data: {},
+        } as any),
       ).rejects.toBeInstanceOf(BadRequestException);
     });
 
@@ -188,12 +196,17 @@ describe('AvailabilityController', () => {
       const tutor = { idUser: 'tutor-5' } as any;
 
       tutorService.findByUserId.mockResolvedValue(tutor);
-      availabilityService.getTutorAvailability.mockResolvedValue({ tutorId: 'tutor-5' });
+      availabilityService.getTutorAvailability.mockResolvedValue({
+        tutorId: 'tutor-5',
+      });
 
       const result = await controller.getMyAvailability(user);
 
       expect(tutorService.findByUserId).toHaveBeenCalledWith('tutor-5');
-      expect(availabilityService.getTutorAvailability).toHaveBeenCalledWith('tutor-5', {});
+      expect(availabilityService.getTutorAvailability).toHaveBeenCalledWith(
+        'tutor-5',
+        {},
+      );
       expect(result).toEqual({ tutorId: 'tutor-5' });
     });
   });

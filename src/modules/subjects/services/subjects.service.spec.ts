@@ -24,7 +24,10 @@ describe('SubjectsService', () => {
       count: jest.fn(),
     };
 
-    service = new SubjectsService(subjectRepository, tutorImpartSubjectRepository);
+    service = new SubjectsService(
+      subjectRepository,
+      tutorImpartSubjectRepository,
+    );
   });
 
   // ─── findById ─────────────────────────────────────────────────────────────────
@@ -52,13 +55,17 @@ describe('SubjectsService', () => {
         { idSubject: 'sub-2' },
       ]);
 
-      expect(await service.validateSubjectsExist(['sub-1', 'sub-2'])).toBe(true);
+      expect(await service.validateSubjectsExist(['sub-1', 'sub-2'])).toBe(
+        true,
+      );
     });
 
     it('returns false when some subjects are missing', async () => {
       subjectRepository.find.mockResolvedValue([{ idSubject: 'sub-1' }]);
 
-      expect(await service.validateSubjectsExist(['sub-1', 'sub-2'])).toBe(false);
+      expect(await service.validateSubjectsExist(['sub-1', 'sub-2'])).toBe(
+        false,
+      );
     });
   });
 
@@ -127,7 +134,9 @@ describe('SubjectsService', () => {
 
       await service.assignSubjectsToTutor('tutor-1', ['sub-1', 'sub-2']);
 
-      expect(tutorImpartSubjectRepository.delete).toHaveBeenCalledWith({ idTutor: 'tutor-1' });
+      expect(tutorImpartSubjectRepository.delete).toHaveBeenCalledWith({
+        idTutor: 'tutor-1',
+      });
       expect(tutorImpartSubjectRepository.save).toHaveBeenCalled();
     });
   });
@@ -145,7 +154,10 @@ describe('SubjectsService', () => {
 
     it('does nothing if the relation already exists', async () => {
       subjectRepository.findOne.mockResolvedValue(mockSubject);
-      tutorImpartSubjectRepository.findOne.mockResolvedValue({ idTutor: 'tutor-1', idSubject: 'sub-1' });
+      tutorImpartSubjectRepository.findOne.mockResolvedValue({
+        idTutor: 'tutor-1',
+        idSubject: 'sub-1',
+      });
 
       await service.addSubjectToTutor('tutor-1', 'sub-1');
 
@@ -222,7 +234,9 @@ describe('SubjectsService', () => {
 
       await service.removeAllSubjectsFromTutor('tutor-1');
 
-      expect(tutorImpartSubjectRepository.delete).toHaveBeenCalledWith({ idTutor: 'tutor-1' });
+      expect(tutorImpartSubjectRepository.delete).toHaveBeenCalledWith({
+        idTutor: 'tutor-1',
+      });
     });
   });
 });

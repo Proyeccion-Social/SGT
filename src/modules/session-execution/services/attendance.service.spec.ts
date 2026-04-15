@@ -64,7 +64,9 @@ describe('AttendanceService', () => {
       sessionRepository.findOne.mockResolvedValue(null);
 
       await expect(
-        service.registerStudentAttendance('session-1', 'tutor-1', { attendances: [] }),
+        service.registerStudentAttendance('session-1', 'tutor-1', {
+          attendances: [],
+        }),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -72,7 +74,9 @@ describe('AttendanceService', () => {
       sessionRepository.findOne.mockResolvedValue(mockSession);
 
       await expect(
-        service.registerStudentAttendance('session-1', 'other-tutor', { attendances: [] }),
+        service.registerStudentAttendance('session-1', 'other-tutor', {
+          attendances: [],
+        }),
       ).rejects.toThrow(ForbiddenException);
     });
 
@@ -83,7 +87,9 @@ describe('AttendanceService', () => {
       });
 
       await expect(
-        service.registerStudentAttendance('session-1', 'tutor-1', { attendances: [] }),
+        service.registerStudentAttendance('session-1', 'tutor-1', {
+          attendances: [],
+        }),
       ).rejects.toThrow(ConflictException);
     });
 
@@ -94,7 +100,9 @@ describe('AttendanceService', () => {
       });
 
       await expect(
-        service.registerStudentAttendance('session-1', 'tutor-1', { attendances: [] }),
+        service.registerStudentAttendance('session-1', 'tutor-1', {
+          attendances: [],
+        }),
       ).rejects.toThrow(ConflictException);
     });
 
@@ -105,7 +113,9 @@ describe('AttendanceService', () => {
       });
 
       await expect(
-        service.registerStudentAttendance('session-1', 'tutor-1', { attendances: [] }),
+        service.registerStudentAttendance('session-1', 'tutor-1', {
+          attendances: [],
+        }),
       ).rejects.toThrow(ConflictException);
     });
 
@@ -128,7 +138,11 @@ describe('AttendanceService', () => {
       await expect(
         service.registerStudentAttendance('session-1', 'tutor-1', {
           attendances: [
-            { studentId: 'student-1', status: ParticipationStatus.LATE, arrivalTime: null },
+            {
+              studentId: 'student-1',
+              status: ParticipationStatus.LATE,
+              arrivalTime: null,
+            },
           ],
         }),
       ).rejects.toThrow(BadRequestException);
@@ -140,7 +154,11 @@ describe('AttendanceService', () => {
       await expect(
         service.registerStudentAttendance('session-1', 'tutor-1', {
           attendances: [
-            { studentId: 'student-1', status: ParticipationStatus.ABSENT, arrivalTime: '2020-01-01T09:05:00Z' },
+            {
+              studentId: 'student-1',
+              status: ParticipationStatus.ABSENT,
+              arrivalTime: '2020-01-01T09:05:00Z',
+            },
           ],
         }),
       ).rejects.toThrow(BadRequestException);
@@ -148,7 +166,9 @@ describe('AttendanceService', () => {
 
     it('throws ConflictException when a studentId is not among session participants', async () => {
       sessionRepository.findOne.mockResolvedValue(mockSession);
-      studentParticipateSessionRepository.find.mockResolvedValue([mockParticipation]);
+      studentParticipateSessionRepository.find.mockResolvedValue([
+        mockParticipation,
+      ]);
 
       await expect(
         service.registerStudentAttendance('session-1', 'tutor-1', {
@@ -161,14 +181,20 @@ describe('AttendanceService', () => {
 
     it('saves attendance and returns success result', async () => {
       sessionRepository.findOne.mockResolvedValue(mockSession);
-      studentParticipateSessionRepository.find.mockResolvedValue([mockParticipation]);
+      studentParticipateSessionRepository.find.mockResolvedValue([
+        mockParticipation,
+      ]);
       studentParticipateSessionRepository.save.mockResolvedValue([]);
 
-      const result = await service.registerStudentAttendance('session-1', 'tutor-1', {
-        attendances: [
-          { studentId: 'student-1', status: ParticipationStatus.ATTENDED },
-        ],
-      });
+      const result = await service.registerStudentAttendance(
+        'session-1',
+        'tutor-1',
+        {
+          attendances: [
+            { studentId: 'student-1', status: ParticipationStatus.ATTENDED },
+          ],
+        },
+      );
 
       expect(result.message).toContain('exitosamente');
       expect(result.sessionId).toBe('session-1');
@@ -247,7 +273,10 @@ describe('AttendanceService', () => {
       ]);
       sessionRepository.save.mockResolvedValue({});
 
-      const result = await service.registerCompletedSession('session-1', 'tutor-1');
+      const result = await service.registerCompletedSession(
+        'session-1',
+        'tutor-1',
+      );
 
       expect(result.status).toBe(SessionStatus.COMPLETED);
       expect(result.message).toContain('completada exitosamente');

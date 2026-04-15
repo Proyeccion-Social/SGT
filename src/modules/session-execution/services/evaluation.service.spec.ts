@@ -37,10 +37,30 @@ describe('EvaluationService', () => {
   };
 
   const mockQuestions = [
-    { idQuestion: 'q-1', aspect: QuestionAspect.CLARITY, isActive: true, questionnaireVersion: '1.0' },
-    { idQuestion: 'q-2', aspect: QuestionAspect.PATIENCE, isActive: true, questionnaireVersion: '1.0' },
-    { idQuestion: 'q-3', aspect: QuestionAspect.PUNCTUALITY, isActive: true, questionnaireVersion: '1.0' },
-    { idQuestion: 'q-4', aspect: QuestionAspect.KNOWLEDGE, isActive: true, questionnaireVersion: '1.0' },
+    {
+      idQuestion: 'q-1',
+      aspect: QuestionAspect.CLARITY,
+      isActive: true,
+      questionnaireVersion: '1.0',
+    },
+    {
+      idQuestion: 'q-2',
+      aspect: QuestionAspect.PATIENCE,
+      isActive: true,
+      questionnaireVersion: '1.0',
+    },
+    {
+      idQuestion: 'q-3',
+      aspect: QuestionAspect.PUNCTUALITY,
+      isActive: true,
+      questionnaireVersion: '1.0',
+    },
+    {
+      idQuestion: 'q-4',
+      aspect: QuestionAspect.KNOWLEDGE,
+      isActive: true,
+      questionnaireVersion: '1.0',
+    },
   ];
 
   const mockDto = {
@@ -159,7 +179,11 @@ describe('EvaluationService', () => {
       answerRepository.save.mockResolvedValue([]);
       participationRepository.save.mockResolvedValue(mockParticipation);
 
-      const result = await service.sendSessionEvaluation('session-1', 'student-1', mockDto);
+      const result = await service.sendSessionEvaluation(
+        'session-1',
+        'student-1',
+        mockDto,
+      );
 
       expect(result.message).toContain('exitosamente');
       expect(result.sessionId).toBe('session-1');
@@ -176,7 +200,11 @@ describe('EvaluationService', () => {
       participationRepository.save.mockResolvedValue(mockParticipation);
 
       const dtoNoOverall = { ...mockDto, overallRating: undefined };
-      const result = await service.sendSessionEvaluation('session-1', 'student-1', dtoNoOverall);
+      const result = await service.sendSessionEvaluation(
+        'session-1',
+        'student-1',
+        dtoNoOverall,
+      );
 
       // (5 + 4 + 5 + 4) / 4 = 4.5
       expect(result.overallRating).toBe(4.5);
@@ -210,7 +238,11 @@ describe('EvaluationService', () => {
       answerRepository.count.mockResolvedValue(0);
 
       await expect(
-        service.getSessionEvaluation('session-1', 'student-1', UserRole.STUDENT),
+        service.getSessionEvaluation(
+          'session-1',
+          'student-1',
+          UserRole.STUDENT,
+        ),
       ).rejects.toThrow(ForbiddenException);
     });
 

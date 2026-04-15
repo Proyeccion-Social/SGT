@@ -87,7 +87,9 @@ describe('UserService', () => {
         role: UserRole.STUDENT,
       });
 
-      expect(userRepository.save.mock.calls[0][0].status).toBe(UserStatus.PENDING);
+      expect(userRepository.save.mock.calls[0][0].status).toBe(
+        UserStatus.PENDING,
+      );
     });
 
     it('uses provided status when given', async () => {
@@ -103,7 +105,9 @@ describe('UserService', () => {
         status: UserStatus.ACTIVE,
       });
 
-      expect(userRepository.save.mock.calls[0][0].status).toBe(UserStatus.ACTIVE);
+      expect(userRepository.save.mock.calls[0][0].status).toBe(
+        UserStatus.ACTIVE,
+      );
     });
   });
 
@@ -215,7 +219,9 @@ describe('UserService', () => {
     it('returns false when count is 0', async () => {
       userRepository.count.mockResolvedValue(0);
 
-      expect(await service.existsByEmail('unknown@udistrital.edu.co')).toBe(false);
+      expect(await service.existsByEmail('unknown@udistrital.edu.co')).toBe(
+        false,
+      );
     });
   });
 
@@ -223,7 +229,10 @@ describe('UserService', () => {
 
   describe('isAdmin', () => {
     it('returns true for ADMIN users', async () => {
-      userRepository.findOne.mockResolvedValue({ ...mockUser, role: UserRole.ADMIN });
+      userRepository.findOne.mockResolvedValue({
+        ...mockUser,
+        role: UserRole.ADMIN,
+      });
 
       expect(await service.isAdmin('user-1')).toBe(true);
     });
@@ -243,7 +252,10 @@ describe('UserService', () => {
 
   describe('isTutor', () => {
     it('returns true for TUTOR users', async () => {
-      userRepository.findOne.mockResolvedValue({ ...mockUser, role: UserRole.TUTOR });
+      userRepository.findOne.mockResolvedValue({
+        ...mockUser,
+        role: UserRole.TUTOR,
+      });
 
       expect(await service.isTutor('user-1')).toBe(true);
     });
@@ -259,7 +271,10 @@ describe('UserService', () => {
 
   describe('hasTemporaryPassword', () => {
     it('returns true when password_changed_at is null', async () => {
-      userRepository.findOne.mockResolvedValue({ ...mockUser, password_changed_at: null });
+      userRepository.findOne.mockResolvedValue({
+        ...mockUser,
+        password_changed_at: null,
+      });
 
       expect(await service.hasTemporaryPassword('user-1')).toBe(true);
     });
@@ -349,13 +364,16 @@ describe('UserService', () => {
     it('throws NotFoundException if user does not exist', async () => {
       userRepository.findOne.mockResolvedValue(null);
 
-      await expect(service.incrementFailedLoginAttempts('nonexistent')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.incrementFailedLoginAttempts('nonexistent'),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('increments counter and returns new value', async () => {
-      userRepository.findOne.mockResolvedValue({ ...mockUser, failed_login_attempts: 2 });
+      userRepository.findOne.mockResolvedValue({
+        ...mockUser,
+        failed_login_attempts: 2,
+      });
       userRepository.update.mockResolvedValue({ affected: 1 });
 
       const result = await service.incrementFailedLoginAttempts('user-1');
@@ -447,7 +465,10 @@ describe('UserService', () => {
     it('returns true when password matches hash', async () => {
       bcryptCompare.mockResolvedValue(true);
 
-      const result = await service.validatePassword(mockUser as any, 'correct-password');
+      const result = await service.validatePassword(
+        mockUser as any,
+        'correct-password',
+      );
 
       expect(result).toBe(true);
     });
@@ -455,7 +476,10 @@ describe('UserService', () => {
     it('returns false when password does not match hash', async () => {
       bcryptCompare.mockResolvedValue(false);
 
-      const result = await service.validatePassword(mockUser as any, 'wrong-password');
+      const result = await service.validatePassword(
+        mockUser as any,
+        'wrong-password',
+      );
 
       expect(result).toBe(false);
     });

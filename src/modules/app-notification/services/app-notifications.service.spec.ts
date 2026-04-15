@@ -74,8 +74,16 @@ describe('AppNotificationsService', () => {
       notificationRepository.save.mockResolvedValue([]);
 
       await service.createMany([
-        { userId: 'user-1', type: AppNotificationType.SESSION_CONFIRMED, message: 'msg1' },
-        { userId: 'user-2', type: AppNotificationType.SESSION_CONFIRMED, message: 'msg2' },
+        {
+          userId: 'user-1',
+          type: AppNotificationType.SESSION_CONFIRMED,
+          message: 'msg1',
+        },
+        {
+          userId: 'user-2',
+          type: AppNotificationType.SESSION_CONFIRMED,
+          message: 'msg2',
+        },
       ]);
 
       const saved = notificationRepository.save.mock.calls[0][0];
@@ -87,7 +95,10 @@ describe('AppNotificationsService', () => {
 
   describe('findByUser', () => {
     it('returns paginated notifications with unread count in meta', async () => {
-      notificationRepository.findAndCount.mockResolvedValue([[mockNotification], 1]);
+      notificationRepository.findAndCount.mockResolvedValue([
+        [mockNotification],
+        1,
+      ]);
       notificationRepository.count.mockResolvedValue(1);
 
       const result = await service.findByUser('user-1', 1, 20);
@@ -103,7 +114,8 @@ describe('AppNotificationsService', () => {
 
       await service.findByUser('user-1', 1, 20, true);
 
-      const whereClause = notificationRepository.findAndCount.mock.calls[0][0].where;
+      const whereClause =
+        notificationRepository.findAndCount.mock.calls[0][0].where;
       expect(whereClause.read).toBe(false);
     });
 
@@ -113,7 +125,8 @@ describe('AppNotificationsService', () => {
 
       await service.findByUser('user-1', 1, 20, false);
 
-      const whereClause = notificationRepository.findAndCount.mock.calls[0][0].where;
+      const whereClause =
+        notificationRepository.findAndCount.mock.calls[0][0].where;
       expect(whereClause.read).toBeUndefined();
     });
   });
@@ -141,7 +154,10 @@ describe('AppNotificationsService', () => {
     });
 
     it('does not call update if notification is already read', async () => {
-      notificationRepository.findOne.mockResolvedValue({ ...mockNotification, read: true });
+      notificationRepository.findOne.mockResolvedValue({
+        ...mockNotification,
+        read: true,
+      });
 
       await service.markAsRead('notif-1', 'user-1');
 
@@ -154,7 +170,9 @@ describe('AppNotificationsService', () => {
 
       await service.markAsRead('notif-1', 'user-1');
 
-      expect(notificationRepository.update).toHaveBeenCalledWith('notif-1', { read: true });
+      expect(notificationRepository.update).toHaveBeenCalledWith('notif-1', {
+        read: true,
+      });
     });
   });
 

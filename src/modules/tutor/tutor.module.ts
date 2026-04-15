@@ -14,16 +14,13 @@ import { UsersModule } from '../users/users.module'; // Importar el módulo de U
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      Tutor,
-      Session,
-    ], 'local'), //Especificar la conexión 'local' para usar la configuración de TypeORM del entorno local
+    TypeOrmModule.forFeature([Tutor, Session], 'local'), //Especificar la conexión 'local' para usar la configuración de TypeORM del entorno local
     SubjectsModule, //No había importado el módulo de Subjects, lo añado para poder usar el servicio de Subjects dentro del TutorService
     NotificationsModule, // Para EmailService
     UsersModule,
   ],
   controllers: [TutorsController],
   providers: [TutorService],
-  exports: [TutorService,TypeOrmModule], 
+  exports: [TutorService, TypeOrmModule],
 })
 export class TutorModule {}

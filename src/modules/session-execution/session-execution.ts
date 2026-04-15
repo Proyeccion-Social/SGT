@@ -17,7 +17,8 @@ import { NotificationsModule } from '../notifications/notifications.module';
       [Question, Answer, Session, StudentParticipateSession],
       'local',
     ),
-    AuthModule,NotificationsModule
+    AuthModule,
+    NotificationsModule,
   ],
   controllers: [SessionExecutionController],
   providers: [
@@ -28,4 +29,3 @@ import { NotificationsModule } from '../notifications/notifications.module';
   exports: [TypeOrmModule, EvaluationService],
 })
 export class SessionExecutionModule {}
-
