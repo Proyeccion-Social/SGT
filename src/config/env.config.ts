@@ -40,9 +40,10 @@ export const envValidationSchema = Joi.object({
       otherwise: Joi.string().uri().optional(),
     }),
 
-  //Resend
-  RESEND_API_KEY: Joi.string().required(),
-  RESEND_FROM_EMAIL: Joi.string().email().required(),
+  //Resend — optional outside production; Vercel preview deployments can run
+  // without email credentials (features that send email will silently fail).
+  RESEND_API_KEY: Joi.string().default('dummy-resend-key'),
+  RESEND_FROM_EMAIL: Joi.string().email().default('dev@noreply.local'),
 
   // JWT Config
   JWT_SECRET: Joi.string().min(32).required(),
