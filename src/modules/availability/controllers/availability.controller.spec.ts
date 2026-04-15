@@ -190,7 +190,7 @@ describe('AvailabilityController', () => {
       tutorService.findByUserId.mockResolvedValue(tutor);
       availabilityService.getTutorAvailability.mockResolvedValue({ tutorId: 'tutor-5' });
 
-      const result = await controller.getMyAvailability(user);
+      const result = await controller.getMyAvailability(user, {} as any);
 
       expect(tutorService.findByUserId).toHaveBeenCalledWith('tutor-5');
       expect(availabilityService.getTutorAvailability).toHaveBeenCalledWith('tutor-5', {});
