@@ -9,7 +9,7 @@ import {
   MinLength,
   IsIn,
 } from 'class-validator';
-import { Modality } from '../../availability/enums';
+import { Modality } from 'src/modules/availability/enums';
 
 export class CreateIndividualSessionDto {
   @IsUUID('4', { message: 'tutorId debe ser un UUID válido' })

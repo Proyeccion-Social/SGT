@@ -29,11 +29,11 @@ import { CreateSlotRangeDto } from '../dto/create-slot-range.dto';
 import { UpdateSlotDto } from '../dto/update-slot.dto';
 import { DeleteSlotDto } from '../dto/delete-slot.dto';
 import { SlotAction } from '../enums/slot-action.enum';
-import { SubjectsService } from '../../subjects/services/subjects.service';
-import { TutorService } from '../../tutor/services/tutor.service';
+import { SubjectsService } from 'src/modules/subjects/services/subjects.service';
+import { TutorService } from 'src/modules/tutor/services/tutor.service';
 import { AvailabilityService } from '../services/availability.service';
 import { GetAvailabilityQueryDto } from '../dto/GetAvailabilityQueryDto';
-import { buildPaginatedResponse } from '../../common/helpers/pagination.helper';
+import { buildPaginatedResponse } from 'src/modules/common/helpers/pagination.helper';
 
 @Controller('availability')
 export class AvailabilityController {

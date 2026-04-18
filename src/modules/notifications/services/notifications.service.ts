@@ -7,9 +7,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as Handlebars from 'handlebars';
 
-import { Session } from '../../scheduling/entities/session.entity';
-import { SessionModificationRequest } from '../../scheduling/entities/session-modification-request.entity';
-import { UserService } from '../../users/services/users.service';
+import { Session } from 'src/modules/scheduling/entities/session.entity';
+import { SessionModificationRequest } from 'src/modules/scheduling/entities/session-modification-request.entity';
+import { UserService } from 'src/modules/users/services/users.service';
 import { AppNotificationsService } from '../../app-notification/services/app-notifications.service';
 import { AppNotificationType } from '../../app-notification/entities/app-notification.entity';
 

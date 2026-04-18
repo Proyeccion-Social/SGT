@@ -11,21 +11,9 @@ import { Session } from '../entities/session.entity';
 import { SessionStatus } from '../enums/session-status.enum';
 import { AvailabilityService } from '../../availability/services/availability.service';
 import { TutorService } from '../../tutor/services/tutor.service';
-<<<<<<< HEAD
 import { startOfWeek, endOfWeek, differenceInHours, addHours, parseISO } from 'date-fns';
 import { Modality } from 'src/modules/availability/enums/modality.enum';
  
-=======
-import {
-  startOfWeek,
-  endOfWeek,
-  differenceInHours,
-  addHours,
-  parseISO,
-} from 'date-fns';
-import { Modality } from '../../availability/enums/modality.enum';
-
->>>>>>> b4adb19 (fix: replace absolute src/ imports with relative paths)
 // Mapa de dayOfWeek numérico (guardado en Availability) al índice JS de día.
 // Availability usa: 0=Lunes, 1=Martes, ..., 5=Sábado  (sin domingo)
 // Date.getUTCDay() usa: 0=Domingo, 1=Lunes, ..., 6=Sábado
