@@ -1,5 +1,12 @@
 // src/availability/dto/get-availability-query.dto.ts
-import { IsOptional, IsBoolean, IsEnum, IsDateString,IsInt,Min,} from 'class-validator';
+import {
+  IsOptional,
+  IsBoolean,
+  IsEnum,
+  IsDateString,
+  IsInt,
+  Min,
+} from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { Modality } from '../enums/modality.enum';
 
@@ -8,12 +15,12 @@ export class GetAvailabilityQueryDto {
   @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
   onlyAvailable?: boolean;
- 
+
   @IsOptional()
   @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
   onlyFuture?: boolean;
- 
+
   @IsOptional()
   @IsEnum(Modality)
   modality?: Modality;
@@ -28,7 +35,10 @@ export class GetAvailabilityQueryDto {
    *   En dos semanas:  ?weekStart=2025-04-28
    */
   @IsOptional()
-  @IsDateString({}, { message: 'weekStart debe ser una fecha válida en formato YYYY-MM-DD' })
+  @IsDateString(
+    {},
+    { message: 'weekStart debe ser una fecha válida en formato YYYY-MM-DD' },
+  )
   weekStart?: string;
 
   @IsOptional()

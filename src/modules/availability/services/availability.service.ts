@@ -48,7 +48,7 @@ import { Session } from '../../scheduling/entities/session.entity';
 export interface AvailabilitySlot {
   slotId: string;
   dayOfWeek: DayOfWeek;
-  dayOfWeekNumber: number;   // 0=Lun…5=Sáb, útil para el front si necesita ordenar
+  dayOfWeekNumber: number; // 0=Lun…5=Sáb, útil para el front si necesita ordenar
   startTime: string;
   endTime: string;
   modality: Modality;
@@ -62,14 +62,14 @@ export interface TutorAvailabilityPublic {
   totalSlots: number;
   availableSlots: AvailabilitySlot[];
   groupedByDay: Record<DayOfWeek, AvailabilitySlot[]>;
-  weekReference: string //Lunes de la semana consultada, para que el front sepa qué semana es
+  weekReference: string; //Lunes de la semana consultada, para que el front sepa qué semana es
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Rango de tiempo ocupado (en minutos desde medianoche, dentro de un día)
 // ─────────────────────────────────────────────────────────────────────────────
 interface OccupiedRange {
-  dayOfWeek: number;      // Mismo sistema que Availability: 0=Lun, 1=Mar, ..., 5=Sáb
+  dayOfWeek: number; // Mismo sistema que Availability: 0=Lun, 1=Mar, ..., 5=Sáb
   startMinutes: number;
   endMinutes: number;
 }
@@ -423,7 +423,7 @@ export class AvailabilityService {
       onlyAvailable?: boolean;
       onlyFuture?: boolean;
       modality?: Modality;
-      weekStart?:string //'YYYY-MM-DD' (lunes de la semana a consultar
+      weekStart?: string; //'YYYY-MM-DD' (lunes de la semana a consultar
     },
   ): Promise<TutorAvailabilityPublic> {
     const tutorAvailabilities = await this.tutorHaveAvailabilityRepository.find(
@@ -438,15 +438,24 @@ export class AvailabilityService {
     }
 
     // Obtener sesiones activas del tutor con su duración real
-    const{weekStartStr, weekEndStr} = this.resolveWeekRange(options?.weekStart);
-    const occupiedRanges = await this.buildOccupiedRangesForTutor(tutorId,weekStartStr,weekEndStr);
-
+    const { weekStartStr, weekEndStr } = this.resolveWeekRange(
+      options?.weekStart,
+    );
+    const occupiedRanges = await this.buildOccupiedRangesForTutor(
+      tutorId,
+      weekStartStr,
+      weekEndStr,
+    );
 
     let slots: AvailabilitySlot[] = tutorAvailabilities.map((ta) => {
       const startTime = ta.availability.startTime;
       const endTime = this.calculateEndTime(startTime);
 
-      const isOccupied = this.isSlotOccupiedByBlock(startTime,ta.availability.dayOfWeek, occupiedRanges);
+      const isOccupied = this.isSlotOccupiedByBlock(
+        startTime,
+        ta.availability.dayOfWeek,
+        occupiedRanges,
+      );
 
       return {
         slotId: ta.idAvailability.toString(),
@@ -483,7 +492,7 @@ export class AvailabilityService {
   async getAllAvailableTutors(options?: {
     modality?: Modality;
     onlyAvailable?: boolean;
-    weekStart?:string //'YYYY-MM-DD' (lunes de la semana a consultar)
+    weekStart?: string; //'YYYY-MM-DD' (lunes de la semana a consultar)
   }): Promise<
     Array<{
       tutorId: string;
@@ -507,7 +516,6 @@ export class AvailabilityService {
       { tutorId: string; tutorName: string; slots: TutorHaveAvailability[] }
     >();
 
-
     for (const ta of tutorsWithAvailability) {
       if (!tutorMap.has(ta.idTutor)) {
         tutorMap.set(ta.idTutor, {
@@ -521,7 +529,9 @@ export class AvailabilityService {
 
     // Obtener rangos ocupados para todos los tutores de una vez
     const allTutorIds = Array.from(tutorMap.keys());
-    const { weekStartStr, weekEndStr } = this.resolveWeekRange(options?.weekStart);
+    const { weekStartStr, weekEndStr } = this.resolveWeekRange(
+      options?.weekStart,
+    );
     const occupiedRangesByTutor = await this.buildOccupiedRangesForTutors(
       allTutorIds,
       weekStartStr,
@@ -531,7 +541,6 @@ export class AvailabilityService {
     const result = Array.from(tutorMap.values()).map((tutor) => {
       const occupied = occupiedRangesByTutor.get(tutor.tutorId) ?? [];
 
-
       let slots = tutor.slots;
       if (options?.modality) {
         slots = slots.filter((s) => s.modality === options.modality);
@@ -539,7 +548,12 @@ export class AvailabilityService {
 
       const totalSlots = slots.length;
       const availableCount = slots.filter(
-        (s) => !this.isSlotOccupiedByBlock(s.availability.startTime, s.availability.dayOfWeek, occupied),
+        (s) =>
+          !this.isSlotOccupiedByBlock(
+            s.availability.startTime,
+            s.availability.dayOfWeek,
+            occupied,
+          ),
       ).length;
 
       if (options?.onlyAvailable && availableCount === 0) return null;
@@ -567,7 +581,7 @@ export class AvailabilityService {
       modality?: Modality;
       page?: number;
       limit?: number;
-      weekStart?:string //'YYYY-MM-DD' (lunes de la semana a consultar)
+      weekStart?: string; //'YYYY-MM-DD' (lunes de la semana a consultar)
     },
   ): Promise<{
     tutors: {
@@ -584,7 +598,9 @@ export class AvailabilityService {
     const page = options?.page ?? 1;
     const limit = options?.limit ?? 10;
     const offset = (page - 1) * limit;
-    const {weekStartStr, weekEndStr} = this.resolveWeekRange(options?.weekStart);
+    const { weekStartStr, weekEndStr } = this.resolveWeekRange(
+      options?.weekStart,
+    );
 
     // 1. IDs elegibles
     const eligibleTutorsQuery = this.tutorHaveAvailabilityRepository
@@ -602,9 +618,11 @@ export class AvailabilityService {
       });
     }
 
-
-    const allEligible = await eligibleTutorsQuery.getRawMany<{ tutorId: string }>();
-    if (allEligible.length === 0) return { tutors: [], total: 0, weekReference: weekStartStr };
+    const allEligible = await eligibleTutorsQuery.getRawMany<{
+      tutorId: string;
+    }>();
+    if (allEligible.length === 0)
+      return { tutors: [], total: 0, weekReference: weekStartStr };
 
     const allEligibleIds = allEligible.map((r) => r.tutorId);
 
@@ -614,7 +632,6 @@ export class AvailabilityService {
       weekStartStr,
       weekEndStr,
     );
-
 
     // 3. Cargar todos sus slots para poder filtrar por disponibilidad real
     const allSlotsForEligible = await this.tutorHaveAvailabilityRepository
@@ -638,19 +655,23 @@ export class AvailabilityService {
         const occupied = occupiedRangesByTutor.get(id) ?? [];
         const hasAvailable = slots.some(
           (s) =>
-            !this.isSlotOccupiedByBlock(s.availability.startTime, s.availability.dayOfWeek, occupied),
+            !this.isSlotOccupiedByBlock(
+              s.availability.startTime,
+              s.availability.dayOfWeek,
+              occupied,
+            ),
         );
         return hasAvailable;
       });
 
-
-      if (finalIds.length === 0) return { tutors: [], total: 0, weekReference: weekStartStr };
+      if (finalIds.length === 0)
+        return { tutors: [], total: 0, weekReference: weekStartStr };
     }
 
     const total = finalIds.length;
     const pagedIds = finalIds.slice(offset, offset + limit);
-    if (pagedIds.length === 0) return { tutors: [], total, weekReference: weekStartStr };
-
+    if (pagedIds.length === 0)
+      return { tutors: [], total, weekReference: weekStartStr };
 
     // 5. Cargar datos completos para la página
     const slotsQuery = this.tutorHaveAvailabilityRepository
@@ -672,7 +693,6 @@ export class AvailabilityService {
       string,
       { tutorId: string; tutorName: string; slots: TutorHaveAvailability[] }
     >();
-
 
     for (const slot of slots) {
       if (!tutorMap.has(slot.idTutor)) {
@@ -699,7 +719,11 @@ export class AvailabilityService {
           const dayOfWeek = NumberToDayOfWeek[slot.availability.dayOfWeek];
           const startTime = slot.availability.startTime;
           const endTime = this.calculateEndTime(startTime);
-          const isOccupied = this.isSlotOccupiedByBlock(startTime, slot.availability.dayOfWeek, occupied);
+          const isOccupied = this.isSlotOccupiedByBlock(
+            startTime,
+            slot.availability.dayOfWeek,
+            occupied,
+          );
 
           const slotData: AvailabilitySlot = {
             slotId: slot.idAvailability.toString(),
@@ -717,15 +741,15 @@ export class AvailabilityService {
           groupedByDay[dayOfWeek].push(slotData);
         }
 
-
         Object.keys(groupedByDay).forEach((day) => {
           groupedByDay[day as DayOfWeek].sort((a, b) =>
             a.startTime.localeCompare(b.startTime),
           );
         });
 
-
-        const modalities = [...new Set(tutor.slots.map((s) => s.modality))] as Modality[];
+        const modalities = [
+          ...new Set(tutor.slots.map((s) => s.modality)),
+        ] as Modality[];
 
         return {
           tutorId: tutor.tutorId,
@@ -927,19 +951,19 @@ export class AvailabilityService {
    * y termina después de que el bloque empieza.
    */
   private isSlotOccupiedByBlock(
-  slotStartTime: string,
-  slotDayOfWeek: number,          // ← NUEVO: día del slot que se está evaluando
-  occupiedRanges: OccupiedRange[],
-): boolean {
-  const slotStart = this.timeToMinutes(slotStartTime);
-  const slotEnd   = slotStart + this.SLOT_DURATION_MINUTES;
-  return occupiedRanges.some(
-    (r) =>
-      r.dayOfWeek === slotDayOfWeek &&          // ← Solo comparar si es el mismo día
-      slotStart < r.endMinutes &&
-      slotEnd > r.startMinutes,
-  );
-}
+    slotStartTime: string,
+    slotDayOfWeek: number, // ← NUEVO: día del slot que se está evaluando
+    occupiedRanges: OccupiedRange[],
+  ): boolean {
+    const slotStart = this.timeToMinutes(slotStartTime);
+    const slotEnd = slotStart + this.SLOT_DURATION_MINUTES;
+    return occupiedRanges.some(
+      (r) =>
+        r.dayOfWeek === slotDayOfWeek && // ← Solo comparar si es el mismo día
+        slotStart < r.endMinutes &&
+        slotEnd > r.startMinutes,
+    );
+  }
 
   /**
    * Obtiene la duración en minutos de una sesión a partir de su ID.
@@ -960,11 +984,10 @@ export class AvailabilityService {
     );
   }
 
-
   // =====================================================
   // HELPERS PRIVADOS — LÓGICA DE SEMANA
   // =====================================================
- 
+
   /**
    * Resuelve el rango lunes–domingo para una semana dada.
    * Si weekStart no se pasa, usa el lunes de la semana actual.
@@ -975,41 +998,39 @@ export class AvailabilityService {
     weekEndStr: string;
   } {
     let monday: Date;
- 
+
     if (weekStart) {
       // Construir en UTC para evitar desfase de zona horaria
       const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(weekStart);
       if (!match) {
-        throw new BadRequestException(
-          'weekStart must have format YYYY-MM-DD',
-        );
+        throw new BadRequestException('weekStart must have format YYYY-MM-DD');
       }
- 
+
       const y = Number(match[1]);
       const m = Number(match[2]);
       const d = Number(match[3]);
- 
+
       if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) {
         throw new BadRequestException(
           'weekStart must be a valid date in format YYYY-MM-DD',
         );
       }
- 
+
       // Construir en UTC para evitar desfase de zona horaria
       monday = new Date(Date.UTC(y, m - 1, d));
- 
+
       const isValidDate =
         !Number.isNaN(monday.getTime()) &&
         monday.getUTCFullYear() === y &&
         monday.getUTCMonth() === m - 1 &&
         monday.getUTCDate() === d;
- 
+
       if (!isValidDate) {
         throw new BadRequestException(
           'weekStart must be a valid date in format YYYY-MM-DD',
         );
       }
- 
+
       if (monday.getUTCDay() !== 1) {
         throw new BadRequestException('weekStart must be a Monday');
       }
@@ -1018,19 +1039,25 @@ export class AvailabilityService {
       const now = new Date();
       const dayOfWeek = now.getUTCDay(); // 0=Dom, 1=Lun, ..., 6=Sáb
       const daysToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-      monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + daysToMonday));
+      monday = new Date(
+        Date.UTC(
+          now.getUTCFullYear(),
+          now.getUTCMonth(),
+          now.getUTCDate() + daysToMonday,
+        ),
+      );
     }
- 
+
     // Domingo = lunes + 6 días
     const sunday = new Date(monday);
     sunday.setUTCDate(sunday.getUTCDate() + 6);
- 
+
     return {
       weekStartStr: monday.toISOString().split('T')[0],
-      weekEndStr:   sunday.toISOString().split('T')[0],
+      weekEndStr: sunday.toISOString().split('T')[0],
     };
   }
- 
+
   /**
    * Calcula los rangos de minutos ocupados para múltiples tutores
    * dentro de una semana específica (lunes a domingo).
@@ -1047,7 +1074,7 @@ export class AvailabilityService {
     weekEndStr: string,
   ): Promise<Map<string, OccupiedRange[]>> {
     if (!tutorIds.length) return new Map();
- 
+
     const activeSessions = await this.scheduledSessionRepository
       .createQueryBuilder('ss')
       .innerJoinAndSelect('ss.session', 'session')
@@ -1056,7 +1083,7 @@ export class AvailabilityService {
       // Sesiones dentro de la semana de referencia
       .andWhere('ss.scheduled_date BETWEEN :weekStart AND :weekEnd', {
         weekStart: weekStartStr,
-        weekEnd:   weekEndStr,
+        weekEnd: weekEndStr,
       })
       .andWhere('session.status IN (:...activeStatuses)', {
         activeStatuses: [
@@ -1066,27 +1093,31 @@ export class AvailabilityService {
         ],
       })
       .getMany();
- 
+
     const result = new Map<string, OccupiedRange[]>();
- 
+
     for (const ss of activeSessions) {
       if (!result.has(ss.idTutor)) result.set(ss.idTutor, []);
       result.get(ss.idTutor)!.push({
-        dayOfWeek:    ss.availability.dayOfWeek,              //  NUEVO: día del slot que origina la sesión
+        dayOfWeek: ss.availability.dayOfWeek, //  NUEVO: día del slot que origina la sesión
         startMinutes: this.timeToMinutes(ss.session.startTime),
-        endMinutes:   this.timeToMinutes(ss.session.endTime),
+        endMinutes: this.timeToMinutes(ss.session.endTime),
       });
     }
- 
+
     return result;
   }
- 
+
   private async buildOccupiedRangesForTutor(
     tutorId: string,
     weekStartStr: string,
     weekEndStr: string,
   ): Promise<OccupiedRange[]> {
-    const map = await this.buildOccupiedRangesForTutors([tutorId], weekStartStr, weekEndStr);
+    const map = await this.buildOccupiedRangesForTutors(
+      [tutorId],
+      weekStartStr,
+      weekEndStr,
+    );
     return map.get(tutorId) ?? [];
   }
 
