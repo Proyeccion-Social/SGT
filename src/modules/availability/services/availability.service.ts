@@ -69,6 +69,7 @@ export interface TutorAvailabilityPublic {
 // Rango de tiempo ocupado (en minutos desde medianoche, dentro de un día)
 // ─────────────────────────────────────────────────────────────────────────────
 interface OccupiedRange {
+  dayOfWeek: number;      // Mismo sistema que Availability: 0=Lun, 1=Mar, ..., 5=Sáb
   startMinutes: number;
   endMinutes: number;
 }
@@ -445,7 +446,7 @@ export class AvailabilityService {
       const startTime = ta.availability.startTime;
       const endTime = this.calculateEndTime(startTime);
 
-      const isOccupied = this.isSlotOccupiedByBlock(startTime, occupiedRanges);
+      const isOccupied = this.isSlotOccupiedByBlock(startTime,ta.availability.dayOfWeek, occupiedRanges);
 
       return {
         slotId: ta.idAvailability.toString(),
@@ -538,7 +539,7 @@ export class AvailabilityService {
 
       const totalSlots = slots.length;
       const availableCount = slots.filter(
-        (s) => !this.isSlotOccupiedByBlock(s.availability.startTime, occupied),
+        (s) => !this.isSlotOccupiedByBlock(s.availability.startTime, s.availability.dayOfWeek, occupied),
       ).length;
 
       if (options?.onlyAvailable && availableCount === 0) return null;
@@ -637,7 +638,7 @@ export class AvailabilityService {
         const occupied = occupiedRangesByTutor.get(id) ?? [];
         const hasAvailable = slots.some(
           (s) =>
-            !this.isSlotOccupiedByBlock(s.availability.startTime, occupied),
+            !this.isSlotOccupiedByBlock(s.availability.startTime, s.availability.dayOfWeek, occupied),
         );
         return hasAvailable;
       });
@@ -698,7 +699,7 @@ export class AvailabilityService {
           const dayOfWeek = NumberToDayOfWeek[slot.availability.dayOfWeek];
           const startTime = slot.availability.startTime;
           const endTime = this.calculateEndTime(startTime);
-          const isOccupied = this.isSlotOccupiedByBlock(startTime, occupied);
+          const isOccupied = this.isSlotOccupiedByBlock(startTime, slot.availability.dayOfWeek, occupied);
 
           const slotData: AvailabilitySlot = {
             slotId: slot.idAvailability.toString(),
@@ -926,16 +927,19 @@ export class AvailabilityService {
    * y termina después de que el bloque empieza.
    */
   private isSlotOccupiedByBlock(
-    slotStartTime: string,
-    occupiedRanges: OccupiedRange[],
-  ): boolean {
-    const slotStart = this.timeToMinutes(slotStartTime);
-    const slotEnd = slotStart + this.SLOT_DURATION_MINUTES;
-
-    return occupiedRanges.some(
-      (range) => slotStart < range.endMinutes && slotEnd > range.startMinutes,
-    );
-  }
+  slotStartTime: string,
+  slotDayOfWeek: number,          // ← NUEVO: día del slot que se está evaluando
+  occupiedRanges: OccupiedRange[],
+): boolean {
+  const slotStart = this.timeToMinutes(slotStartTime);
+  const slotEnd   = slotStart + this.SLOT_DURATION_MINUTES;
+  return occupiedRanges.some(
+    (r) =>
+      r.dayOfWeek === slotDayOfWeek &&          // ← Solo comparar si es el mismo día
+      slotStart < r.endMinutes &&
+      slotEnd > r.startMinutes,
+  );
+}
 
   /**
    * Obtiene la duración en minutos de una sesión a partir de su ID.
@@ -1068,6 +1072,7 @@ export class AvailabilityService {
     for (const ss of activeSessions) {
       if (!result.has(ss.idTutor)) result.set(ss.idTutor, []);
       result.get(ss.idTutor)!.push({
+        dayOfWeek:    ss.availability.dayOfWeek,              //  NUEVO: día del slot que origina la sesión
         startMinutes: this.timeToMinutes(ss.session.startTime),
         endMinutes:   this.timeToMinutes(ss.session.endTime),
       });
