@@ -17,7 +17,7 @@ export class UpdateSessionDetailsDto {
   @IsOptional()
   @IsString()
   location?: string; // para presencial
-    
+
   @IsOptional()
   @IsString()
   virtualLink?: string; // para virtual

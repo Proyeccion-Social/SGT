@@ -13,7 +13,7 @@ import { randomBytes } from 'crypto';
 @Injectable()
 export class PasswordResetService {
   constructor(
-    @InjectRepository(PasswordResetToken,'local')
+    @InjectRepository(PasswordResetToken, 'local')
     private tokenRepository: Repository<PasswordResetToken>,
   ) {}
 

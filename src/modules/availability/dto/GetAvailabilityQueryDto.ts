@@ -17,7 +17,7 @@ export class GetAvailabilityQueryDto {
   @IsOptional()
   @IsEnum(Modality)
   modality?: Modality;
- 
+
   /**
    * Lunes de la semana a consultar, formato YYYY-MM-DD.
    * Si no se pasa, se usa el lunes de la semana actual.
@@ -30,13 +30,13 @@ export class GetAvailabilityQueryDto {
   @IsOptional()
   @IsDateString({}, { message: 'weekStart debe ser una fecha válida en formato YYYY-MM-DD' })
   weekStart?: string;
- 
+
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   page?: number;
- 
+
   @IsOptional()
   @Type(() => Number)
   @IsInt()

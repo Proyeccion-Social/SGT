@@ -20,7 +20,7 @@
 //
 // El resto del servicio (createSlot, updateSlot, deleteSlot, validaciones privadas)
 // no se modifica.
- 
+
 import {
   BadRequestException,
   ConflictException,
@@ -40,11 +40,11 @@ import {
   DayOfWeekToNumber,
   NumberToDayOfWeek,
 } from '../enums/day-of-week.enum';
-import { ScheduledSession } from 'src/modules/scheduling/entities/scheduled-session.entity';
+import { ScheduledSession } from '../../scheduling/entities/scheduled-session.entity';
 import { Modality } from '../enums/modality.enum';
-import { SessionStatus } from 'src/modules/scheduling/enums/session-status.enum';
-import { Session } from 'src/modules/scheduling/entities/session.entity';
- 
+import { SessionStatus } from '../../scheduling/enums/session-status.enum';
+import { Session } from '../../scheduling/entities/session.entity';
+
 export interface AvailabilitySlot {
   slotId: string;
   dayOfWeek: DayOfWeek;
@@ -55,7 +55,7 @@ export interface AvailabilitySlot {
   duration: number;
   isAvailable: boolean; // true si no hay sesión activa en la semana de referencia
 }
- 
+
 export interface TutorAvailabilityPublic {
   tutorId: string;
   tutorName: string;
@@ -64,7 +64,7 @@ export interface TutorAvailabilityPublic {
   groupedByDay: Record<DayOfWeek, AvailabilitySlot[]>;
   weekReference: string //Lunes de la semana consultada, para que el front sepa qué semana es
 }
- 
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Rango de tiempo ocupado (en minutos desde medianoche, dentro de un día)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -72,12 +72,12 @@ interface OccupiedRange {
   startMinutes: number;
   endMinutes: number;
 }
- 
+
 @Injectable()
 export class AvailabilityService {
   private readonly SLOT_DURATION_MINUTES = 30;
   private readonly MAX_SLOTS_PER_DAY = 8;
- 
+
   constructor(
     @InjectRepository(Availability, 'local')
     private readonly availabilityRepository: Repository<Availability>,
@@ -88,20 +88,20 @@ export class AvailabilityService {
     @InjectRepository(Session, 'local')
     private readonly sessionRepository: Repository<Session>,
   ) {}
- 
+
   // =====================================================
   // createSlot, updateSlot, deleteSlot — sin cambios
   // =====================================================
- 
+
   async createSlot(tutorId: string, dto: CreateSlotDto) {
     const dayOfWeekNumber = DayOfWeekToNumber[dto.dayOfWeek];
     await this.validateNoOverlap(tutorId, dayOfWeekNumber, dto.startTime);
     await this.validateDailyHoursLimit(tutorId, dayOfWeekNumber);
- 
+
     let availability = await this.availabilityRepository.findOne({
       where: { dayOfWeek: dayOfWeekNumber, startTime: dto.startTime },
     });
- 
+
     if (!availability) {
       availability = this.availabilityRepository.create({
         dayOfWeek: dayOfWeekNumber,
@@ -109,23 +109,29 @@ export class AvailabilityService {
       });
       availability = await this.availabilityRepository.save(availability);
     }
- 
-    const existingAssignment = await this.tutorHaveAvailabilityRepository.findOne({
-      where: { idTutor: tutorId, idAvailability: availability.idAvailability },
-    });
- 
+
+    const existingAssignment =
+      await this.tutorHaveAvailabilityRepository.findOne({
+        where: {
+          idTutor: tutorId,
+          idAvailability: availability.idAvailability,
+        },
+      });
+
     if (existingAssignment) {
-      throw new ConflictException('El tutor ya tiene asignado este slot de disponibilidad');
+      throw new ConflictException(
+        'El tutor ya tiene asignado este slot de disponibilidad',
+      );
     }
- 
+
     const tutorAvailability = this.tutorHaveAvailabilityRepository.create({
       idTutor: tutorId,
       idAvailability: availability.idAvailability,
       modality: dto.modality,
     });
- 
+
     await this.tutorHaveAvailabilityRepository.save(tutorAvailability);
- 
+
     return {
       slotId: availability.idAvailability,
       tutorId,
@@ -140,86 +146,89 @@ export class AvailabilityService {
     const dayOfWeekNumber = DayOfWeekToNumber[dto.dayOfWeek];
     const slotTimes = this.buildSlotTimesFromRange(dto.startTime, dto.endTime);
 
-    return this.availabilityRepository.manager.transaction(async (transactionalEntityManager) => {
-      const availabilityRepository =
-        transactionalEntityManager.getRepository(Availability);
-      const tutorHaveAvailabilityRepository =
-        transactionalEntityManager.getRepository(TutorHaveAvailability);
+    return this.availabilityRepository.manager.transaction(
+      async (transactionalEntityManager) => {
+        const availabilityRepository =
+          transactionalEntityManager.getRepository(Availability);
+        const tutorHaveAvailabilityRepository =
+          transactionalEntityManager.getRepository(TutorHaveAvailability);
 
-      const existingSlotsInDay = await tutorHaveAvailabilityRepository
-        .createQueryBuilder('tha')
-        .innerJoin('tha.availability', 'a')
-        .where('tha.idTutor = :tutorId', { tutorId })
-        .andWhere('a.dayOfWeek = :dayOfWeek', { dayOfWeek: dayOfWeekNumber })
-        .getCount();
+        const existingSlotsInDay = await tutorHaveAvailabilityRepository
+          .createQueryBuilder('tha')
+          .innerJoin('tha.availability', 'a')
+          .where('tha.idTutor = :tutorId', { tutorId })
+          .andWhere('a.dayOfWeek = :dayOfWeek', { dayOfWeek: dayOfWeekNumber })
+          .getCount();
 
-      if (existingSlotsInDay + slotTimes.length > this.MAX_SLOTS_PER_DAY) {
-        throw new BadRequestException({
-          errorCode: 'VALIDATION_01',
-          message:
-            'Excede el máximo diario de 4 horas. Ya tienes slots registrados para este día.',
-        });
-      }
-
-      const overlappingSlots = await tutorHaveAvailabilityRepository
-        .createQueryBuilder('tha')
-        .innerJoin('tha.availability', 'a')
-        .where('tha.idTutor = :tutorId', { tutorId })
-        .andWhere('a.dayOfWeek = :dayOfWeek', { dayOfWeek: dayOfWeekNumber })
-        .andWhere('a.startTime IN (:...slotTimes)', { slotTimes })
-        .getCount();
-
-      if (overlappingSlots > 0) {
-        throw new ConflictException({
-          errorCode: 'CONFLICT_01',
-          message: 'El rango contiene horarios que se superponen con disponibilidades existentes',
-        });
-      }
-
-      const createdSlots: Array<{
-        slotId: number;
-        tutorId: string;
-        dayOfWeek: DayOfWeek;
-        startTime: string;
-        endTime: string;
-        modality: Modality;
-        duration: number;
-      }> = [];
-
-      for (const startTime of slotTimes) {
-        let availability = await availabilityRepository.findOne({
-          where: { dayOfWeek: dayOfWeekNumber, startTime },
-        });
-
-        if (!availability) {
-          availability = availabilityRepository.create({
-            dayOfWeek: dayOfWeekNumber,
-            startTime,
+        if (existingSlotsInDay + slotTimes.length > this.MAX_SLOTS_PER_DAY) {
+          throw new BadRequestException({
+            errorCode: 'VALIDATION_01',
+            message:
+              'Excede el máximo diario de 4 horas. Ya tienes slots registrados para este día.',
           });
-          availability = await availabilityRepository.save(availability);
         }
 
-        const assignment = tutorHaveAvailabilityRepository.create({
-          idTutor: tutorId,
-          idAvailability: availability.idAvailability,
-          modality: dto.modality,
-        });
+        const overlappingSlots = await tutorHaveAvailabilityRepository
+          .createQueryBuilder('tha')
+          .innerJoin('tha.availability', 'a')
+          .where('tha.idTutor = :tutorId', { tutorId })
+          .andWhere('a.dayOfWeek = :dayOfWeek', { dayOfWeek: dayOfWeekNumber })
+          .andWhere('a.startTime IN (:...slotTimes)', { slotTimes })
+          .getCount();
 
-        await tutorHaveAvailabilityRepository.save(assignment);
+        if (overlappingSlots > 0) {
+          throw new ConflictException({
+            errorCode: 'CONFLICT_01',
+            message:
+              'El rango contiene horarios que se superponen con disponibilidades existentes',
+          });
+        }
 
-        createdSlots.push({
-          slotId: availability.idAvailability,
-          tutorId,
-          dayOfWeek: dto.dayOfWeek,
-          startTime,
-          endTime: this.calculateEndTime(startTime),
-          modality: dto.modality,
-          duration: 0.5,
-        });
-      }
+        const createdSlots: Array<{
+          slotId: number;
+          tutorId: string;
+          dayOfWeek: DayOfWeek;
+          startTime: string;
+          endTime: string;
+          modality: Modality;
+          duration: number;
+        }> = [];
 
-      return createdSlots;
-    });
+        for (const startTime of slotTimes) {
+          let availability = await availabilityRepository.findOne({
+            where: { dayOfWeek: dayOfWeekNumber, startTime },
+          });
+
+          if (!availability) {
+            availability = availabilityRepository.create({
+              dayOfWeek: dayOfWeekNumber,
+              startTime,
+            });
+            availability = await availabilityRepository.save(availability);
+          }
+
+          const assignment = tutorHaveAvailabilityRepository.create({
+            idTutor: tutorId,
+            idAvailability: availability.idAvailability,
+            modality: dto.modality,
+          });
+
+          await tutorHaveAvailabilityRepository.save(assignment);
+
+          createdSlots.push({
+            slotId: availability.idAvailability,
+            tutorId,
+            dayOfWeek: dto.dayOfWeek,
+            startTime,
+            endTime: this.calculateEndTime(startTime),
+            modality: dto.modality,
+            duration: 0.5,
+          });
+        }
+
+        return createdSlots;
+      },
+    );
   }
 
   async updateSlotsInRange(tutorId: string, dto: CreateSlotRangeDto) {
@@ -291,22 +300,23 @@ export class AvailabilityService {
       modality: dto.modality,
     };
   }
- 
+
   async updateSlot(tutorId: string, dto: UpdateSlotDto) {
-    const tutorAvailability = await this.tutorHaveAvailabilityRepository.findOne({
-      where: { idTutor: tutorId, idAvailability: dto.slotId },
-      relations: ['availability'],
-    });
- 
+    const tutorAvailability =
+      await this.tutorHaveAvailabilityRepository.findOne({
+        where: { idTutor: tutorId, idAvailability: dto.slotId },
+        relations: ['availability'],
+      });
+
     if (!tutorAvailability) {
       throw new NotFoundException(
         'Franja de disponibilidad no encontrada o no pertenece al tutor',
       );
     }
- 
+
     const currentAvailability = tutorAvailability.availability;
     let updatedAvailability = currentAvailability;
- 
+
     if (dto.startTime && dto.startTime !== currentAvailability.startTime) {
       await this.validateNoOverlapExcluding(
         tutorId,
@@ -314,43 +324,53 @@ export class AvailabilityService {
         dto.startTime,
         dto.slotId,
       );
- 
+
       let newAvailability = await this.availabilityRepository.findOne({
-        where: { dayOfWeek: currentAvailability.dayOfWeek, startTime: dto.startTime },
+        where: {
+          dayOfWeek: currentAvailability.dayOfWeek,
+          startTime: dto.startTime,
+        },
       });
- 
+
       if (!newAvailability) {
         newAvailability = this.availabilityRepository.create({
           dayOfWeek: currentAvailability.dayOfWeek,
           startTime: dto.startTime,
         });
-        newAvailability = await this.availabilityRepository.save(newAvailability);
+        newAvailability =
+          await this.availabilityRepository.save(newAvailability);
       }
- 
-      const existingAssignment = await this.tutorHaveAvailabilityRepository.findOne({
-        where: { idTutor: tutorId, idAvailability: newAvailability.idAvailability },
-      });
- 
+
+      const existingAssignment =
+        await this.tutorHaveAvailabilityRepository.findOne({
+          where: {
+            idTutor: tutorId,
+            idAvailability: newAvailability.idAvailability,
+          },
+        });
+
       if (existingAssignment) {
-        throw new ConflictException('Ya tienes asignado un slot en ese nuevo horario');
+        throw new ConflictException(
+          'Ya tienes asignado un slot en ese nuevo horario',
+        );
       }
- 
+
       const modalityToUse = dto.modality || tutorAvailability.modality;
       await this.tutorHaveAvailabilityRepository.remove(tutorAvailability);
- 
+
       const newTutorAvailability = this.tutorHaveAvailabilityRepository.create({
         idTutor: tutorId,
         idAvailability: newAvailability.idAvailability,
         modality: modalityToUse,
       });
- 
+
       await this.tutorHaveAvailabilityRepository.save(newTutorAvailability);
       updatedAvailability = newAvailability;
     } else if (dto.modality && dto.modality !== tutorAvailability.modality) {
       tutorAvailability.modality = dto.modality;
       await this.tutorHaveAvailabilityRepository.save(tutorAvailability);
     }
- 
+
     return {
       slotId: updatedAvailability.idAvailability,
       tutorId,
@@ -360,30 +380,31 @@ export class AvailabilityService {
       duration: 0.5,
     };
   }
- 
+
   async deleteSlot(tutorId: string, dto: DeleteSlotDto) {
-    const tutorAvailability = await this.tutorHaveAvailabilityRepository.findOne({
-      where: { idTutor: tutorId, idAvailability: dto.slotId },
-    });
- 
+    const tutorAvailability =
+      await this.tutorHaveAvailabilityRepository.findOne({
+        where: { idTutor: tutorId, idAvailability: dto.slotId },
+      });
+
     if (!tutorAvailability) {
       throw new NotFoundException(
         'Franja de disponibilidad no encontrada o no pertenece al tutor',
       );
     }
- 
+
     await this.tutorHaveAvailabilityRepository.remove(tutorAvailability);
- 
+
     return {
       message: 'Franja de disponibilidad eliminada exitosamente',
       slotId: dto.slotId,
     };
   }
- 
+
   // =====================================================
   // CONSULTA PÚBLICA PARA ESTUDIANTES
   // =====================================================
- 
+
   /**
    * Obtiene la disponibilidad de un tutor marcando correctamente
    * los slots que quedan dentro del bloque de tiempo de sesiones activas.
@@ -404,55 +425,58 @@ export class AvailabilityService {
       weekStart?:string //'YYYY-MM-DD' (lunes de la semana a consultar
     },
   ): Promise<TutorAvailabilityPublic> {
-    const tutorAvailabilities = await this.tutorHaveAvailabilityRepository.find({
-      where: { idTutor: tutorId },
-      relations: ['availability', 'tutor', 'tutor.user'],
-    });
- 
+    const tutorAvailabilities = await this.tutorHaveAvailabilityRepository.find(
+      {
+        where: { idTutor: tutorId },
+        relations: ['availability', 'tutor', 'tutor.user'],
+      },
+    );
+
     if (tutorAvailabilities.length === 0) {
       throw new NotFoundException('Tutor no tiene disponibilidad configurada');
     }
- 
+
     // Obtener sesiones activas del tutor con su duración real
     const{weekStartStr, weekEndStr} = this.resolveWeekRange(options?.weekStart);
     const occupiedRanges = await this.buildOccupiedRangesForTutor(tutorId,weekStartStr,weekEndStr);
- 
+
+
     let slots: AvailabilitySlot[] = tutorAvailabilities.map((ta) => {
       const startTime = ta.availability.startTime;
-      const endTime   = this.calculateEndTime(startTime);
- 
+      const endTime = this.calculateEndTime(startTime);
+
       const isOccupied = this.isSlotOccupiedByBlock(startTime, occupiedRanges);
- 
+
       return {
-        slotId:      ta.idAvailability.toString(),
-        dayOfWeek:   NumberToDayOfWeek[ta.availability.dayOfWeek],
+        slotId: ta.idAvailability.toString(),
+        dayOfWeek: NumberToDayOfWeek[ta.availability.dayOfWeek],
         dayOfWeekNumber: ta.availability.dayOfWeek,
         startTime,
         endTime,
-        modality:    ta.modality,
-        duration:    0.5,
+        modality: ta.modality,
+        duration: 0.5,
         isAvailable: !isOccupied,
       };
     });
- 
+
     if (options?.onlyAvailable) slots = slots.filter((s) => s.isAvailable);
-    if (options?.modality)      slots = slots.filter((s) => s.modality === options.modality);
- 
+    if (options?.modality)
+      slots = slots.filter((s) => s.modality === options.modality);
+
     const groupedByDay = this.groupSlotsByDay(slots);
- 
+
     return {
       tutorId,
-      tutorName:      tutorAvailabilities[0].tutor.user.name,
-      weekReference:     weekStartStr,
-      totalSlots:     slots.length,
+      tutorName: tutorAvailabilities[0].tutor.user.name,
+      weekReference: weekStartStr,
+      totalSlots: slots.length,
       availableSlots: slots.filter((s) => s.isAvailable),
       groupedByDay,
     };
   }
- 
+
   /**
-   * 
-   * @param options Modality y/o onlyAvailable para filtrar los tutores, y weekStart para que el front sepa a qué semana corresponde la disponibilidad (lunes de la semana en formato 'YYYY-MM-DD') 
+   * @param options Modality y/o onlyAvailable para filtrar los tutores, y weekStart para que el front sepa a qué semana corresponde la disponibilidad (lunes de la semana en formato 'YYYY-MM-DD')
    * @return Lista de tutores con disponibilidad, filtrados por modalidad y/o solo disponibles, sin importar la materia. Útil para el buscador general de tutores.
    */
   async getAllAvailableTutors(options?: {
@@ -476,19 +500,24 @@ export class AvailabilityService {
       .where('tutor.isActive = :isActive', { isActive: true })
       .andWhere('tutor.profile_completed = :completed', { completed: true })
       .getMany();
- 
+
     const tutorMap = new Map<
       string,
       { tutorId: string; tutorName: string; slots: TutorHaveAvailability[] }
     >();
- 
-    for(const ta of tutorsWithAvailability) {
+
+
+    for (const ta of tutorsWithAvailability) {
       if (!tutorMap.has(ta.idTutor)) {
-        tutorMap.set(ta.idTutor, { tutorId: ta.idTutor, tutorName: ta.tutor.user.name, slots: [] });
+        tutorMap.set(ta.idTutor, {
+          tutorId: ta.idTutor,
+          tutorName: ta.tutor.user.name,
+          slots: [],
+        });
       }
       tutorMap.get(ta.idTutor)!.slots.push(ta);
     }
- 
+
     // Obtener rangos ocupados para todos los tutores de una vez
     const allTutorIds = Array.from(tutorMap.keys());
     const { weekStartStr, weekEndStr } = this.resolveWeekRange(options?.weekStart);
@@ -497,30 +526,39 @@ export class AvailabilityService {
       weekStartStr,
       weekEndStr,
     );
- 
+
     const result = Array.from(tutorMap.values()).map((tutor) => {
       const occupied = occupiedRangesByTutor.get(tutor.tutorId) ?? [];
- 
+
+
       let slots = tutor.slots;
       if (options?.modality) {
         slots = slots.filter((s) => s.modality === options.modality);
       }
- 
+
       const totalSlots = slots.length;
       const availableCount = slots.filter(
         (s) => !this.isSlotOccupiedByBlock(s.availability.startTime, occupied),
       ).length;
- 
+
       if (options?.onlyAvailable && availableCount === 0) return null;
- 
-      const modalities = [...new Set(slots.map((s) => s.modality))] as Modality[];
- 
-      return { tutorId: tutor.tutorId, tutorName: tutor.tutorName, totalSlots, availableSlots: availableCount, modalities };
+
+      const modalities = [
+        ...new Set(slots.map((s) => s.modality)),
+      ] as Modality[];
+
+      return {
+        tutorId: tutor.tutorId,
+        tutorName: tutor.tutorName,
+        totalSlots,
+        availableSlots: availableCount,
+        modalities,
+      };
     });
- 
+
     return result.filter((r) => r !== null);
   }
- 
+
   async getTutorsBySubjectWithAvailability(
     subjectId: string,
     options?: {
@@ -542,8 +580,8 @@ export class AvailabilityService {
     total: number;
     weekReference: string;
   }> {
-    const page   = options?.page  ?? 1;
-    const limit  = options?.limit ?? 10;
+    const page = options?.page ?? 1;
+    const limit = options?.limit ?? 10;
     const offset = (page - 1) * limit;
     const {weekStartStr, weekEndStr} = this.resolveWeekRange(options?.weekStart);
 
@@ -556,56 +594,63 @@ export class AvailabilityService {
       .where('tutor.isActive = :isActive', { isActive: true })
       .andWhere('tutor.profile_completed = :completed', { completed: true })
       .andWhere('tis.idSubject = :subjectId', { subjectId });
- 
+
     if (options?.modality) {
-      eligibleTutorsQuery.andWhere('tha.modality = :modality', { modality: options.modality });
+      eligibleTutorsQuery.andWhere('tha.modality = :modality', {
+        modality: options.modality,
+      });
     }
- 
+
+
     const allEligible = await eligibleTutorsQuery.getRawMany<{ tutorId: string }>();
     if (allEligible.length === 0) return { tutors: [], total: 0, weekReference: weekStartStr };
- 
+
     const allEligibleIds = allEligible.map((r) => r.tutorId);
- 
+
     // 2. Calcular rangos ocupados para la semana dada de los tutores elegibles
     const occupiedRangesByTutor = await this.buildOccupiedRangesForTutors(
       allEligibleIds,
       weekStartStr,
-      weekEndStr
+      weekEndStr,
     );
- 
+
+
     // 3. Cargar todos sus slots para poder filtrar por disponibilidad real
     const allSlotsForEligible = await this.tutorHaveAvailabilityRepository
       .createQueryBuilder('tha')
       .innerJoinAndSelect('tha.availability', 'availability')
       .where('tha.id_tutor IN (:...ids)', { ids: allEligibleIds })
       .getMany();
- 
+
     const slotsByTutor = new Map<string, TutorHaveAvailability[]>();
     for (const slot of allSlotsForEligible) {
       if (!slotsByTutor.has(slot.idTutor)) slotsByTutor.set(slot.idTutor, []);
       slotsByTutor.get(slot.idTutor)!.push(slot);
     }
- 
+
     // 4. Filtrar onlyAvailable con la lógica de bloques
     let finalIds = allEligibleIds;
- 
+
     if (options?.onlyAvailable) {
       finalIds = allEligibleIds.filter((id) => {
-        const slots        = slotsByTutor.get(id) ?? [];
-        const occupied     = occupiedRangesByTutor.get(id) ?? [];
+        const slots = slotsByTutor.get(id) ?? [];
+        const occupied = occupiedRangesByTutor.get(id) ?? [];
         const hasAvailable = slots.some(
-          (s) => !this.isSlotOccupiedByBlock(s.availability.startTime, occupied),
+          (s) =>
+            !this.isSlotOccupiedByBlock(s.availability.startTime, occupied),
         );
         return hasAvailable;
       });
- 
+
+
       if (finalIds.length === 0) return { tutors: [], total: 0, weekReference: weekStartStr };
     }
- 
-    const total    = finalIds.length;
+
+    const total = finalIds.length;
     const pagedIds = finalIds.slice(offset, offset + limit);
     if (pagedIds.length === 0) return { tutors: [], total, weekReference: weekStartStr };
- 
+
+
     // 5. Cargar datos completos para la página
     const slotsQuery = this.tutorHaveAvailabilityRepository
       .createQueryBuilder('tha')
@@ -613,118 +658,130 @@ export class AvailabilityService {
       .innerJoinAndSelect('tutor.user', 'user')
       .innerJoinAndSelect('tha.availability', 'availability')
       .where('tha.id_tutor IN (:...pagedIds)', { pagedIds });
- 
+
     if (options?.modality) {
-      slotsQuery.andWhere('tha.modality = :modality', { modality: options.modality });
+      slotsQuery.andWhere('tha.modality = :modality', {
+        modality: options.modality,
+      });
     }
- 
+
     const slots = await slotsQuery.getMany();
- 
+
     const tutorMap = new Map<
       string,
       { tutorId: string; tutorName: string; slots: TutorHaveAvailability[] }
     >();
- 
-    for(const slot of slots) {
+
+
+    for (const slot of slots) {
       if (!tutorMap.has(slot.idTutor)) {
-        tutorMap.set(slot.idTutor, { tutorId: slot.idTutor, tutorName: slot.tutor.user.name, slots: [] });
+        tutorMap.set(slot.idTutor, {
+          tutorId: slot.idTutor,
+          tutorName: slot.tutor.user.name,
+          slots: [],
+        });
       }
       tutorMap.get(slot.idTutor)!.slots.push(slot);
-    };
- 
+    }
+
     // 6. Construir respuesta usando la nueva lógica de bloques y isAvailable por semana
     const tutors = pagedIds
       .filter((id) => tutorMap.has(id))
       .map((id) => {
-        const tutor        = tutorMap.get(id)!;
-        const occupied     = occupiedRangesByTutor.get(id) ?? [];
-        //const tutorSlots   = tutor.slots;
- 
+        const tutor = tutorMap.get(id)!;
+        const occupied = occupiedRangesByTutor.get(id) ?? [];
+
         const availableSlotsArray: AvailabilitySlot[] = [];
         const groupedByDay = {} as Record<DayOfWeek, AvailabilitySlot[]>;
- 
+
         for (const slot of tutor.slots) {
-          const dayOfWeek  = NumberToDayOfWeek[slot.availability.dayOfWeek];
-          const startTime  = slot.availability.startTime;
-          const endTime    = this.calculateEndTime(startTime);
+          const dayOfWeek = NumberToDayOfWeek[slot.availability.dayOfWeek];
+          const startTime = slot.availability.startTime;
+          const endTime = this.calculateEndTime(startTime);
           const isOccupied = this.isSlotOccupiedByBlock(startTime, occupied);
- 
+
           const slotData: AvailabilitySlot = {
-            slotId:      slot.idAvailability.toString(),
+            slotId: slot.idAvailability.toString(),
             dayOfWeek,
             dayOfWeekNumber: slot.availability.dayOfWeek,
             startTime,
             endTime,
-            modality:    slot.modality,
-            duration:    0.5,
+            modality: slot.modality,
+            duration: 0.5,
             isAvailable: !isOccupied,
           };
- 
+
           if (!isOccupied) availableSlotsArray.push(slotData);
           if (!groupedByDay[dayOfWeek]) groupedByDay[dayOfWeek] = [];
           groupedByDay[dayOfWeek].push(slotData);
-        };
+        }
 
-        //Ordenar por hora dentro de cada día
- 
+
         Object.keys(groupedByDay).forEach((day) => {
-          groupedByDay[day as DayOfWeek].sort((a, b) => a.startTime.localeCompare(b.startTime));
+          groupedByDay[day as DayOfWeek].sort((a, b) =>
+            a.startTime.localeCompare(b.startTime),
+          );
         });
- 
+
+
         const modalities = [...new Set(tutor.slots.map((s) => s.modality))] as Modality[];
- 
+
         return {
-          tutorId:        tutor.tutorId,
-          tutorName:      tutor.tutorName,
-          totalSlots:     tutor.slots.length,
+          tutorId: tutor.tutorId,
+          tutorName: tutor.tutorName,
+          totalSlots: tutor.slots.length,
           availableSlots: availableSlotsArray.length,
           modalities,
           availability: {
-            tutorId:        tutor.tutorId,
-            tutorName:      tutor.tutorName,
-            totalSlots:     tutor.slots.length,
+            tutorId: tutor.tutorId,
+            tutorName: tutor.tutorName,
+            totalSlots: tutor.slots.length,
             availableSlots: availableSlotsArray,
             groupedByDay,
             weekReference: weekStartStr,
           },
         };
       });
- 
+
     return { tutors, total, weekReference: weekStartStr };
   }
- 
+
   // =====================================================
   // MÉTODOS USADOS POR SessionValidationService
   // =====================================================
- 
+
   async getAvailabilityById(availabilityId: number): Promise<Availability> {
     const availability = await this.availabilityRepository.findOne({
       where: { idAvailability: availabilityId },
     });
-    if (!availability) throw new NotFoundException('Availability slot not found');
+    if (!availability)
+      throw new NotFoundException('Availability slot not found');
     return availability;
   }
- 
+
   async validateModalityForSlot(
     availabilityId: number,
     tutorId: string,
     requestedModality: Modality,
   ): Promise<void> {
-    const tutorAvailability = await this.tutorHaveAvailabilityRepository.findOne({
-      where: { idAvailability: availabilityId, idTutor: tutorId },
-    });
- 
+    const tutorAvailability =
+      await this.tutorHaveAvailabilityRepository.findOne({
+        where: { idAvailability: availabilityId, idTutor: tutorId },
+      });
+
     if (!tutorAvailability) {
-      throw new NotFoundException('Franja de disponibilidad no encontrada para este tutor');
+      throw new NotFoundException(
+        'Franja de disponibilidad no encontrada para este tutor',
+      );
     }
- 
+
     if (tutorAvailability.modality !== requestedModality) {
       throw new BadRequestException(
         `La modalidad de la franja es ${tutorAvailability.modality}, pero solicitaste ${requestedModality}`,
       );
     }
   }
- 
+
   /**
    * Versión original — verifica si un slot exacto está libre en una fecha.
    * Se mantiene para compatibilidad con el SessionValidationService existente.
@@ -735,21 +792,25 @@ export class AvailabilityService {
     scheduledDate: string,
   ): Promise<boolean> {
     const existing = await this.scheduledSessionRepository.findOne({
-      where: { idTutor: tutorId, idAvailability: availabilityId, scheduledDate },
+      where: {
+        idTutor: tutorId,
+        idAvailability: availabilityId,
+        scheduledDate,
+      },
       relations: ['session'],
     });
- 
+
     if (!existing?.session) return true;
- 
+
     const isActive = [
       SessionStatus.SCHEDULED,
       SessionStatus.PENDING_MODIFICATION,
       SessionStatus.PENDING_TUTOR_CONFIRMATION,
     ].includes(existing.session.status);
- 
+
     return !isActive;
   }
- 
+
   /**
    * Versión extendida — además valida que ningún slot dentro del bloque
    * de la sesión propuesta esté ocupado, y que el tutor tenga slots
@@ -763,94 +824,101 @@ export class AvailabilityService {
    * @param durationHours   Duración solicitada (0.5, 1 o 1.5)
    */
   async isSlotAvailableForDateWithDuration(
-  tutorId: string,
-  availabilityId: number,
-  scheduledDate: string,
-  durationHours: number,
-  excludeSessionId?: string, // ← NUEVO
-): Promise<{ available: boolean; reason?: string }> {
-  // 1. Obtener el slot de inicio
-  const startSlot = await this.availabilityRepository.findOne({
-    where: { idAvailability: availabilityId },
-  });
-
-  if (!startSlot) {
-    return { available: false, reason: 'El slot de disponibilidad no existe' };
-  }
-
-  const startMinutes = this.timeToMinutes(startSlot.startTime);
-  const durationMinutes = Math.round(durationHours * 60);
-  const endMinutes = startMinutes + durationMinutes;
-
-  // 2. Verificar cobertura completa de slots del tutor
-  const neededSlotCount = durationMinutes / this.SLOT_DURATION_MINUTES;
-
-  const tutorSlotsInDay = await this.tutorHaveAvailabilityRepository
-    .createQueryBuilder('tha')
-    .innerJoin('tha.availability', 'a')
-    .where('tha.id_tutor = :tutorId', { tutorId })
-    .andWhere('a.day_of_week = :dayOfWeek', { dayOfWeek: startSlot.dayOfWeek })
-    .andWhere(
-      `(EXTRACT(HOUR FROM a.start_time::time) * 60 + EXTRACT(MINUTE FROM a.start_time::time)) >= :startMin`,
-      { startMin: startMinutes },
-    )
-    .andWhere(
-      `(EXTRACT(HOUR FROM a.start_time::time) * 60 + EXTRACT(MINUTE FROM a.start_time::time)) < :endMin`,
-      { endMin: endMinutes },
-    )
-    .getCount();
-
-  if (tutorSlotsInDay < neededSlotCount) {
-    return {
-      available: false,
-      reason: `El tutor no tiene disponibilidad registrada para cubrir ${durationHours}h desde las ${startSlot.startTime}. Solo tiene ${tutorSlotsInDay} franja(s) de las ${neededSlotCount} necesarias.`,
-    };
-  }
-
-  // 3. Verificar solapamientos con sesiones activas
-  const qb = this.scheduledSessionRepository
-    .createQueryBuilder('ss')
-    .innerJoinAndSelect('ss.session', 'session')
-    .innerJoinAndSelect('ss.availability', 'availability')
-    .where('ss.id_tutor = :tutorId', { tutorId })
-    .andWhere('ss.scheduled_date = :scheduledDate', { scheduledDate })
-    .andWhere('session.status IN (:...activeStatuses)', {
-      activeStatuses: [
-        SessionStatus.SCHEDULED,
-        SessionStatus.PENDING_MODIFICATION,
-        SessionStatus.PENDING_TUTOR_CONFIRMATION,
-      ],
+    tutorId: string,
+    availabilityId: number,
+    scheduledDate: string,
+    durationHours: number,
+    excludeSessionId?: string, // ← NUEVO
+  ): Promise<{ available: boolean; reason?: string }> {
+    // 1. Obtener el slot de inicio
+    const startSlot = await this.availabilityRepository.findOne({
+      where: { idAvailability: availabilityId },
     });
 
-  //  CLAVE: excluir la sesión actual si aplica
-  if (excludeSessionId) {
-    qb.andWhere('ss.idSession != :excludeSessionId', { excludeSessionId });
-  }
-
-  const activeSessionsInDay = await qb.getMany();
-
-  for (const ss of activeSessionsInDay) {
-    const sessionStart = this.timeToMinutes(ss.availability.startTime);
-    const sessionDuration = await this.getSessionDurationMinutes(ss.idSession);
-    const sessionEnd = sessionStart + sessionDuration;
-
-    const overlaps = startMinutes < sessionEnd && endMinutes > sessionStart;
-
-    if (overlaps) {
+    if (!startSlot) {
       return {
         available: false,
-        reason: `El horario solicitado se solapa con una sesión activa de ${ss.availability.startTime} a ${this.minutesToTime(sessionEnd)}`,
+        reason: 'El slot de disponibilidad no existe',
       };
     }
+
+    const startMinutes = this.timeToMinutes(startSlot.startTime);
+    const durationMinutes = Math.round(durationHours * 60);
+    const endMinutes = startMinutes + durationMinutes;
+
+    // 2. Verificar cobertura completa de slots del tutor
+    const neededSlotCount = durationMinutes / this.SLOT_DURATION_MINUTES;
+
+    const tutorSlotsInDay = await this.tutorHaveAvailabilityRepository
+      .createQueryBuilder('tha')
+      .innerJoin('tha.availability', 'a')
+      .where('tha.id_tutor = :tutorId', { tutorId })
+      .andWhere('a.day_of_week = :dayOfWeek', {
+        dayOfWeek: startSlot.dayOfWeek,
+      })
+      .andWhere(
+        `(EXTRACT(HOUR FROM a.start_time::time) * 60 + EXTRACT(MINUTE FROM a.start_time::time)) >= :startMin`,
+        { startMin: startMinutes },
+      )
+      .andWhere(
+        `(EXTRACT(HOUR FROM a.start_time::time) * 60 + EXTRACT(MINUTE FROM a.start_time::time)) < :endMin`,
+        { endMin: endMinutes },
+      )
+      .getCount();
+
+    if (tutorSlotsInDay < neededSlotCount) {
+      return {
+        available: false,
+        reason: `El tutor no tiene disponibilidad registrada para cubrir ${durationHours}h desde las ${startSlot.startTime}. Solo tiene ${tutorSlotsInDay} franja(s) de las ${neededSlotCount} necesarias.`,
+      };
+    }
+
+    // 3. Verificar solapamientos con sesiones activas
+    const qb = this.scheduledSessionRepository
+      .createQueryBuilder('ss')
+      .innerJoinAndSelect('ss.session', 'session')
+      .innerJoinAndSelect('ss.availability', 'availability')
+      .where('ss.id_tutor = :tutorId', { tutorId })
+      .andWhere('ss.scheduled_date = :scheduledDate', { scheduledDate })
+      .andWhere('session.status IN (:...activeStatuses)', {
+        activeStatuses: [
+          SessionStatus.SCHEDULED,
+          SessionStatus.PENDING_MODIFICATION,
+          SessionStatus.PENDING_TUTOR_CONFIRMATION,
+        ],
+      });
+
+    //  CLAVE: excluir la sesión actual si aplica
+    if (excludeSessionId) {
+      qb.andWhere('ss.idSession != :excludeSessionId', { excludeSessionId });
+    }
+
+    const activeSessionsInDay = await qb.getMany();
+
+    for (const ss of activeSessionsInDay) {
+      const sessionStart = this.timeToMinutes(ss.availability.startTime);
+      const sessionDuration = await this.getSessionDurationMinutes(
+        ss.idSession,
+      );
+      const sessionEnd = sessionStart + sessionDuration;
+
+      const overlaps = startMinutes < sessionEnd && endMinutes > sessionStart;
+
+      if (overlaps) {
+        return {
+          available: false,
+          reason: `El horario solicitado se solapa con una sesión activa de ${ss.availability.startTime} a ${this.minutesToTime(sessionEnd)}`,
+        };
+      }
+    }
+
+    return { available: true };
   }
 
-  return { available: true };
-}
- 
   // =====================================================
   // HELPERS PRIVADOS — LÓGICA DE BLOQUES
   // =====================================================
- 
+
   /**
    * Determina si un slot (definido por su startTime) queda dentro de algún
    * rango ocupado. Un slot de 30 min ocupa [slotStart, slotStart + 30).
@@ -862,13 +930,13 @@ export class AvailabilityService {
     occupiedRanges: OccupiedRange[],
   ): boolean {
     const slotStart = this.timeToMinutes(slotStartTime);
-    const slotEnd   = slotStart + this.SLOT_DURATION_MINUTES;
- 
+    const slotEnd = slotStart + this.SLOT_DURATION_MINUTES;
+
     return occupiedRanges.some(
       (range) => slotStart < range.endMinutes && slotEnd > range.startMinutes,
     );
   }
- 
+
   /**
    * Obtiene la duración en minutos de una sesión a partir de su ID.
    * Solo se usa en isSlotAvailableForDateWithDuration() para validar
@@ -879,10 +947,13 @@ export class AvailabilityService {
       where: { idSession },
       select: ['startTime', 'endTime'],
     });
- 
+
     if (!session) return this.SLOT_DURATION_MINUTES;
- 
-    return this.timeToMinutes(session.endTime) - this.timeToMinutes(session.startTime);
+
+    return (
+      this.timeToMinutes(session.endTime) -
+      this.timeToMinutes(session.startTime)
+    );
   }
 
 
@@ -1014,12 +1085,13 @@ export class AvailabilityService {
     return map.get(tutorId) ?? [];
   }
 
- 
   // =====================================================
   // HELPERS PRIVADOS — UTILIDADES
   // =====================================================
- 
-  private groupSlotsByDay(slots: AvailabilitySlot[]): Record<DayOfWeek, AvailabilitySlot[]> {
+
+  private groupSlotsByDay(
+    slots: AvailabilitySlot[],
+  ): Record<DayOfWeek, AvailabilitySlot[]> {
     const grouped = slots.reduce(
       (acc, slot) => {
         if (!acc[slot.dayOfWeek]) acc[slot.dayOfWeek] = [];
@@ -1028,31 +1100,37 @@ export class AvailabilityService {
       },
       {} as Record<DayOfWeek, AvailabilitySlot[]>,
     );
- 
+
     Object.keys(grouped).forEach((day) => {
-      grouped[day as DayOfWeek].sort((a, b) => a.startTime.localeCompare(b.startTime));
+      grouped[day as DayOfWeek].sort((a, b) =>
+        a.startTime.localeCompare(b.startTime),
+      );
     });
- 
+
     return grouped;
   }
- 
+
   private timeToMinutes(time: string): number {
     const [hours, minutes] = time.split(':').map(Number);
     return hours * 60 + minutes;
   }
- 
+
   private minutesToTime(totalMinutes: number): string {
     const h = Math.floor(totalMinutes / 60);
     const m = totalMinutes % 60;
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
   }
- 
+
   private calculateEndTime(startTime: string): string {
-    const endMinutes = this.timeToMinutes(startTime) + this.SLOT_DURATION_MINUTES;
+    const endMinutes =
+      this.timeToMinutes(startTime) + this.SLOT_DURATION_MINUTES;
     return this.minutesToTime(endMinutes);
   }
 
-  private buildSlotTimesFromRange(startTime: string, endTime: string): string[] {
+  private buildSlotTimesFromRange(
+    startTime: string,
+    endTime: string,
+  ): string[] {
     const minAllowedTime = this.timeToMinutes('06:00');
     const maxAllowedTime = this.timeToMinutes('22:00');
 
@@ -1079,7 +1157,8 @@ export class AvailabilityService {
     ) {
       throw new BadRequestException({
         errorCode: 'VALIDATION_01',
-        message: 'La hora de inicio y fin deben estar alineadas a intervalos de 30 minutos',
+        message:
+          'La hora de inicio y fin deben estar alineadas a intervalos de 30 minutos',
       });
     }
 
@@ -1108,7 +1187,7 @@ export class AvailabilityService {
 
     return slotTimes;
   }
- 
+
   private async validateNoOverlap(
     tutorId: string,
     dayOfWeek: number,
@@ -1121,12 +1200,14 @@ export class AvailabilityService {
       .andWhere('a.dayOfWeek = :dayOfWeek', { dayOfWeek })
       .andWhere('a.startTime = :startTime', { startTime })
       .getCount();
- 
+
     if (existingSlots > 0) {
-      throw new ConflictException('Ya existe una franja en ese horario para este día');
+      throw new ConflictException(
+        'Ya existe una franja en ese horario para este día',
+      );
     }
   }
- 
+
   private async validateNoOverlapExcluding(
     tutorId: string,
     dayOfWeek: number,
@@ -1141,12 +1222,14 @@ export class AvailabilityService {
       .andWhere('a.startTime = :startTime', { startTime })
       .andWhere('a.idAvailability != :excludeSlotId', { excludeSlotId })
       .getCount();
- 
+
     if (existingSlots > 0) {
-      throw new ConflictException('Ya existe otra franja en ese horario para este día');
+      throw new ConflictException(
+        'Ya existe otra franja en ese horario para este día',
+      );
     }
   }
- 
+
   private async validateDailyHoursLimit(
     tutorId: string,
     dayOfWeek: number,
@@ -1157,7 +1240,7 @@ export class AvailabilityService {
       .where('tha.idTutor = :tutorId', { tutorId })
       .andWhere('a.dayOfWeek = :dayOfWeek', { dayOfWeek })
       .getCount();
- 
+
     if (slotsInDay >= this.MAX_SLOTS_PER_DAY) {
       const daysWithSlots = await this.tutorHaveAvailabilityRepository
         .createQueryBuilder('tha')
@@ -1165,7 +1248,7 @@ export class AvailabilityService {
         .select('DISTINCT a.dayOfWeek', 'day')
         .where('tha.idTutor = :tutorId', { tutorId })
         .getRawMany();
- 
+
       if (daysWithSlots.length > 1) {
         throw new BadRequestException(
           'Excede el máximo diario de 4 horas. Ya tienes 8 slots (4 horas) en este día.',

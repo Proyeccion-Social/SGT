@@ -13,14 +13,14 @@ export class Session {
   @PrimaryGeneratedColumn('uuid')
   id_session: string;
 
- // @Column({ type: 'uuid' }) //Aquí había un error, se estaba intentando usar id_user como columna, pero es una relación con User
- // id_user: string;
+  // @Column({ type: 'uuid' }) //Aquí había un error, se estaba intentando usar id_user como columna, pero es una relación con User
+  // id_user: string;
 
   @Column({ type: 'varchar', length: 255 })
   refresh_token_hash: string;
 
- // @Column({ type: 'varchar', length: 45, nullable: true })
- // ip_address: string | null;
+  // @Column({ type: 'varchar', length: 45, nullable: true })
+  // ip_address: string | null;
 
   @Column({ type: 'text', nullable: true })
   user_agent: string | null;

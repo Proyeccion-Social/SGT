@@ -16,22 +16,26 @@ import { SessionValidationService } from './services/session-validation.service'
 import { DashboardController } from './controllers/dashboard.controller';
 import { DashboardService } from './services/dashboard.service';
 
-
 @Module({
   imports: [
     TypeOrmModule.forFeature(
-      [Session, ScheduledSession, StudentParticipateSession,SessionModificationRequest],
-      'local'),
+      [
+        Session,
+        ScheduledSession,
+        StudentParticipateSession,
+        SessionModificationRequest,
+      ],
+      'local',
+    ),
     AuthModule,
     AvailabilityModule,
     TutorModule,
     UsersModule,
     SubjectsModule,
     NotificationsModule,
-    
   ],
   providers: [SessionService, SessionValidationService, DashboardService],
-  controllers: [SessionController,DashboardController],
+  controllers: [SessionController, DashboardController],
   exports: [TypeOrmModule, SessionService, DashboardService],
 })
-export class SchedulingModule { }
+export class SchedulingModule {}

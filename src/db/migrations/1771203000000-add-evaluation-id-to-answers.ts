@@ -29,6 +29,8 @@ export class AddEvaluationIdToAnswers1771203000000 implements MigrationInterface
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`DROP INDEX "public"."IDX_answers_evaluation_id"`);
-    await queryRunner.query(`ALTER TABLE "answers" DROP COLUMN "evaluation_id"`);
+    await queryRunner.query(
+      `ALTER TABLE "answers" DROP COLUMN "evaluation_id"`,
+    );
   }
 }

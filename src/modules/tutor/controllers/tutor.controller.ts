@@ -29,7 +29,7 @@ export class TutorsController {
   constructor(
     private readonly tutorService: TutorService,
     private readonly userService: UserService,
-  ) { }
+  ) {}
 
   // =====================================================
   // POST /api/v1/tutors
@@ -39,10 +39,7 @@ export class TutorsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.CREATED)
-  async createTutor(
-    @CurrentUser() admin: User,
-    @Body() dto: CreateTutorDto,
-  ) {
+  async createTutor(@CurrentUser() admin: User, @Body() dto: CreateTutorDto) {
     return this.tutorService.createByAdmin(admin.idUser, dto);
   }
 
@@ -84,11 +81,13 @@ export class TutorsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.TUTOR)
   async getMyStatus(@CurrentUser() user: User) {
-    const hasTemporaryPassword =
-      await this.userService.hasTemporaryPassword(user.idUser);
+    const hasTemporaryPassword = await this.userService.hasTemporaryPassword(
+      user.idUser,
+    );
 
-    const profileCompleted =
-      await this.tutorService.isProfileComplete(user.idUser);
+    const profileCompleted = await this.tutorService.isProfileComplete(
+      user.idUser,
+    );
 
     return {
       userId: user.idUser,
@@ -168,7 +167,4 @@ export class TutorsController {
   async getPublicProfile(@Param('id') id: string) {
     return this.tutorService.getPublicProfile(id);
   }
-
-  
 }
-

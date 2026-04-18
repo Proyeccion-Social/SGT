@@ -7,9 +7,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as Handlebars from 'handlebars';
 
-import { Session } from 'src/modules/scheduling/entities/session.entity';
-import { SessionModificationRequest } from 'src/modules/scheduling/entities/session-modification-request.entity';
-import { UserService } from 'src/modules/users/services/users.service';
+import { Session } from '../../scheduling/entities/session.entity';
+import { SessionModificationRequest } from '../../scheduling/entities/session-modification-request.entity';
+import { UserService } from '../../users/services/users.service';
 import { AppNotificationsService } from '../../app-notification/services/app-notifications.service';
 import { AppNotificationType } from '../../app-notification/entities/app-notification.entity';
 
@@ -50,13 +50,18 @@ export class NotificationsService {
   ) {
     const apiKey = this.configService.get<string>('RESEND_API_KEY');
     if (!apiKey) {
-      this.logger.error('RESEND_API_KEY no está definida en las variables de entorno');
+      this.logger.error(
+        'RESEND_API_KEY no está definida en las variables de entorno',
+      );
       throw new Error('RESEND_API_KEY is required');
     }
 
     this.resend = new Resend(apiKey);
-    this.fromEmail = this.configService.get<string>('RESEND_FROM_EMAIL') || 'noreply@yourdomain.com';
-    this.frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+    this.fromEmail =
+      this.configService.get<string>('RESEND_FROM_EMAIL') ||
+      'noreply@yourdomain.com';
+    this.frontendUrl =
+      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
 
     // Registrar helpers de Handlebars una sola vez en el constructor
     Handlebars.registerHelper('eq', (a: any, b: any) => a === b);
@@ -69,20 +74,34 @@ export class NotificationsService {
   // (sin persistencia en BD: emails de onboarding, no acciones de sesión)
   // =====================================================
 
-  async sendEmailConfirmation(email: string, fullName: string, token: string): Promise<void> {
+  async sendEmailConfirmation(
+    email: string,
+    fullName: string,
+    token: string,
+  ): Promise<void> {
     const confirmationUrl = `${this.frontendUrl}/confirm-email?token=${token}`;
-    const htmlContent = this.renderTemplate('email-confirmation', { fullName, confirmationUrl });
+    const htmlContent = this.renderTemplate('email-confirmation', {
+      fullName,
+      confirmationUrl,
+    });
 
     try {
       const { error } = await this.resend.emails.send({
-        from: this.fromEmail, to: email,
+        from: this.fromEmail,
+        to: email,
         subject: 'Confirma tu cuenta en Atlas - Sistema de Gestión de Tutorías',
         html: htmlContent,
       });
-      if (error) throw error;
+      if (error)
+        throw new Error(
+          (error as { message?: string }).message ?? 'Resend API error',
+        );
       this.logger.log(`Email de confirmación enviado a ${email}`);
     } catch (error) {
-      this.logger.error(`Error al enviar email de confirmación a ${email}`, error);
+      this.logger.error(
+        `Error al enviar email de confirmación a ${email}`,
+        error,
+      );
       throw error;
     }
   }
@@ -95,14 +114,21 @@ export class NotificationsService {
 
     try {
       const { error } = await this.resend.emails.send({
-        from: this.fromEmail, to: email,
+        from: this.fromEmail,
+        to: email,
         subject: 'Bienvenido a Atlas - Sistema de Gestión de Tutorías',
         html: htmlContent,
       });
-      if (error) throw error;
+      if (error)
+        throw new Error(
+          (error as { message?: string }).message ?? 'Resend API error',
+        );
       this.logger.log(`Email de bienvenida enviado a ${email}`);
     } catch (error) {
-      this.logger.error(`Error al enviar email de bienvenida a ${email}`, error);
+      this.logger.error(
+        `Error al enviar email de bienvenida a ${email}`,
+        error,
+      );
       throw error;
     }
   }
@@ -111,27 +137,43 @@ export class NotificationsService {
   // TUTORES - Credenciales temporales
   // =====================================================
 
-  async sendTutorCredentials(email: string, name: string, temporaryPassword: string): Promise<void> {
+  async sendTutorCredentials(
+    email: string,
+    name: string,
+    temporaryPassword: string,
+  ): Promise<void> {
     const htmlContent = this.renderTemplate('tutor-credentials', {
-      name, email, temporaryPassword,
+      name,
+      email,
+      temporaryPassword,
       loginUrl: `${this.frontendUrl}/login`,
     });
 
     try {
       const { error } = await this.resend.emails.send({
-        from: this.fromEmail, to: email,
+        from: this.fromEmail,
+        to: email,
         subject: 'Bienvenido a Atlas - Credenciales de Tutor',
         html: htmlContent,
       });
-      if (error) throw error;
+      if (error)
+        throw new Error(
+          (error as { message?: string }).message ?? 'Resend API error',
+        );
       this.logger.log(`Credenciales de tutor enviadas a ${email}`);
     } catch (error) {
-      this.logger.error(`Error al enviar credenciales de tutor a ${email}`, error);
+      this.logger.error(
+        `Error al enviar credenciales de tutor a ${email}`,
+        error,
+      );
       throw error;
     }
   }
 
-  async sendProfileCompletedNotification(email: string, name: string): Promise<void> {
+  async sendProfileCompletedNotification(
+    email: string,
+    name: string,
+  ): Promise<void> {
     const htmlContent = this.renderTemplate('tutor-profile-completed', {
       name,
       dashboardUrl: `${this.frontendUrl}/dashboard`,
@@ -139,14 +181,21 @@ export class NotificationsService {
 
     try {
       const { error } = await this.resend.emails.send({
-        from: this.fromEmail, to: email,
+        from: this.fromEmail,
+        to: email,
         subject: 'Perfil de Tutor Completado - Atlas',
         html: htmlContent,
       });
-      if (error) throw error;
+      if (error)
+        throw new Error(
+          (error as { message?: string }).message ?? 'Resend API error',
+        );
       this.logger.log(`Notificación de perfil completado enviada a ${email}`);
     } catch (error) {
-      this.logger.error(`Error al enviar notificación de perfil completado a ${email}`, error);
+      this.logger.error(
+        `Error al enviar notificación de perfil completado a ${email}`,
+        error,
+      );
       throw error;
     }
   }
@@ -155,7 +204,11 @@ export class NotificationsService {
   // PASSWORD RESET
   // =====================================================
 
-  async sendPasswordResetEmail(email: string, name: string, resetToken: string): Promise<void> {
+  async sendPasswordResetEmail(
+    email: string,
+    name: string,
+    resetToken: string,
+  ): Promise<void> {
     const htmlContent = this.renderTemplate('password-reset', {
       name,
       resetUrl: `${this.frontendUrl}/reset-password?token=${resetToken}`,
@@ -163,31 +216,50 @@ export class NotificationsService {
 
     try {
       const { error } = await this.resend.emails.send({
-        from: this.fromEmail, to: email,
+        from: this.fromEmail,
+        to: email,
         subject: 'Recupera tu contraseña - Atlas',
         html: htmlContent,
       });
-      if (error) throw error;
+      if (error)
+        throw new Error(
+          (error as { message?: string }).message ?? 'Resend API error',
+        );
       this.logger.log(`Email de recuperación enviado a ${email}`);
     } catch (error) {
-      this.logger.error(`Error al enviar email de recuperación a ${email}`, error);
+      this.logger.error(
+        `Error al enviar email de recuperación a ${email}`,
+        error,
+      );
       throw error;
     }
   }
 
-  async sendPasswordChangedNotification(email: string, name: string): Promise<void> {
+  async sendPasswordChangedNotification(
+    email: string,
+    name: string,
+  ): Promise<void> {
     const htmlContent = this.renderTemplate('password-changed', { name });
 
     try {
       const { error } = await this.resend.emails.send({
-        from: this.fromEmail, to: email,
+        from: this.fromEmail,
+        to: email,
         subject: 'Tu contraseña ha sido cambiada - Atlas',
         html: htmlContent,
       });
-      if (error) throw error;
-      this.logger.log(`Notificación de cambio de contraseña enviada a ${email}`);
+      if (error)
+        throw new Error(
+          (error as { message?: string }).message ?? 'Resend API error',
+        );
+      this.logger.log(
+        `Notificación de cambio de contraseña enviada a ${email}`,
+      );
     } catch (error) {
-      this.logger.error(`Error al enviar notificación de cambio de contraseña a ${email}`, error);
+      this.logger.error(
+        `Error al enviar notificación de cambio de contraseña a ${email}`,
+        error,
+      );
       // Intencional: no re-lanzar — es solo notificación de seguridad.
     }
   }
@@ -200,7 +272,10 @@ export class NotificationsService {
   //   session.tutor.id  → idUser del tutor (Tutor.idUser)
   // =====================================================
 
-  async sendTutorConfirmationRequest(session: any, studentId: string): Promise<void> {
+  async sendTutorConfirmationRequest(
+    session: any,
+    studentId: string,
+  ): Promise<void> {
     try {
       const tutorEmail = await this.getUserEmail(session.tutor.id);
       const student = session.participants.find((p: any) => p.id === studentId);
@@ -219,7 +294,9 @@ export class NotificationsService {
         description: session.description,
         confirmUrl: `${this.frontendUrl}/tutor/sessions/${session.id}/confirm`,
         rejectUrl: `${this.frontendUrl}/tutor/sessions/${session.id}/reject`,
-        expiresAt: this.formatDateTime(new Date(Date.now() + 24 * 60 * 60 * 1000)),
+        expiresAt: this.formatDateTime(
+          new Date(Date.now() + 24 * 60 * 60 * 1000),
+        ),
       });
 
       await this.settleAll([
@@ -227,7 +304,8 @@ export class NotificationsService {
           label: 'email',
           context: `tutor=${session.tutor.id} sesión=${session.id}`,
           promise: this.resend.emails.send({
-            from: this.fromEmail, to: tutorEmail,
+            from: this.fromEmail,
+            to: tutorEmail,
             subject: `Nueva solicitud de tutoría: ${session.subject.name}`,
             html: htmlContent,
           }),
@@ -244,9 +322,14 @@ export class NotificationsService {
         },
       ]);
 
-      this.logger.log(`[RF-25] Solicitud de confirmación enviada al tutor ${tutorEmail} — sesión ${session.id}`);
+      this.logger.log(
+        `[RF-25] Solicitud de confirmación enviada al tutor ${tutorEmail} — sesión ${session.id}`,
+      );
     } catch (error: any) {
-      this.logger.error(`Error en sendTutorConfirmationRequest: ${error.message}`, error.stack);
+      this.logger.error(
+        `Error en sendTutorConfirmationRequest: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -255,7 +338,10 @@ export class NotificationsService {
   // RF-25 / RF-20: AGENDAMIENTO — Acuse al estudiante
   // =====================================================
 
-  async sendStudentSessionRequestAck(session: any, studentId: string): Promise<void> {
+  async sendStudentSessionRequestAck(
+    session: any,
+    studentId: string,
+  ): Promise<void> {
     try {
       const studentEmail = await this.getUserEmail(studentId);
       const student = session.participants.find((p: any) => p.id === studentId);
@@ -281,7 +367,8 @@ export class NotificationsService {
           label: 'email',
           context: `estudiante=${studentId} sesión=${session.id}`,
           promise: this.resend.emails.send({
-            from: this.fromEmail, to: studentEmail,
+            from: this.fromEmail,
+            to: studentEmail,
             subject: `Solicitud enviada: ${session.subject.name} — pendiente de confirmación`,
             html: htmlContent,
           }),
@@ -298,11 +385,16 @@ export class NotificationsService {
         },
       ]);
 
-      this.logger.log(`[RF-25] Acuse enviado al estudiante ${studentEmail} — sesión ${session.id}`);
+      this.logger.log(
+        `[RF-25] Acuse enviado al estudiante ${studentEmail} — sesión ${session.id}`,
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const stack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(`Error en sendStudentSessionRequestAck: ${message}`, stack);
+      this.logger.error(
+        `Error en sendStudentSessionRequestAck: ${message}`,
+        stack,
+      );
       throw error;
     }
   }
@@ -311,7 +403,10 @@ export class NotificationsService {
   // RF-20: CONFIRMACIÓN — Tutor acepta la sesión
   // =====================================================
 
-  async sendSessionConfirmationStudent(session: any, studentId: string): Promise<void> {
+  async sendSessionConfirmationStudent(
+    session: any,
+    studentId: string,
+  ): Promise<void> {
     try {
       const studentEmail = await this.getUserEmail(studentId);
       const student = session.participants.find((p: any) => p.id === studentId);
@@ -338,7 +433,8 @@ export class NotificationsService {
           label: 'email',
           context: `estudiante=${studentId} sesión=${session.id}`,
           promise: this.resend.emails.send({
-            from: this.fromEmail, to: studentEmail,
+            from: this.fromEmail,
+            to: studentEmail,
             subject: `¡Sesión confirmada! ${session.subject.name}`,
             html: htmlContent,
           }),
@@ -355,15 +451,23 @@ export class NotificationsService {
         },
       ]);
 
-      this.logger.log(`[RF-20] Confirmación enviada al estudiante ${studentEmail} — sesión ${session.id}`);
+      this.logger.log(
+        `[RF-20] Confirmación enviada al estudiante ${studentEmail} — sesión ${session.id}`,
+      );
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
-      this.logger.error(`Error en sendSessionConfirmationStudent: ${err.message}`, err.stack);
+      this.logger.error(
+        `Error en sendSessionConfirmationStudent: ${err.message}`,
+        err.stack,
+      );
       throw error;
     }
   }
 
-  async sendSessionConfirmationTutor(session: any, tutorId: string): Promise<void> {
+  async sendSessionConfirmationTutor(
+    session: any,
+    tutorId: string,
+  ): Promise<void> {
     try {
       const tutorEmail = await this.getUserEmail(tutorId);
       const studentName = session.participants[0]?.name ?? 'Estudiante';
@@ -388,7 +492,8 @@ export class NotificationsService {
           label: 'email',
           context: `tutor=${tutorId} sesión=${session.id}`,
           promise: this.resend.emails.send({
-            from: this.fromEmail, to: tutorEmail,
+            from: this.fromEmail,
+            to: tutorEmail,
             subject: `Nueva sesión agendada: ${session.subject.name}`,
             html: htmlContent,
           }),
@@ -405,9 +510,14 @@ export class NotificationsService {
         },
       ]);
 
-      this.logger.log(`[RF-20] Confirmación enviada al tutor ${tutorEmail} — sesión ${session.id}`);
+      this.logger.log(
+        `[RF-20] Confirmación enviada al tutor ${tutorEmail} — sesión ${session.id}`,
+      );
     } catch (error) {
-      this.logger.error(`Error en sendSessionConfirmationTutor: ${(error as Error).message}`, (error as Error).stack);
+      this.logger.error(
+        `Error en sendSessionConfirmationTutor: ${(error as Error).message}`,
+        (error as Error).stack,
+      );
       throw error;
     }
   }
@@ -423,7 +533,10 @@ export class NotificationsService {
   //   pero en StudentParticipateSession la FK es idStudent
   // =====================================================
 
-  async sendSessionRejection(session: Session, studentId: string): Promise<void> {
+  async sendSessionRejection(
+    session: Session,
+    studentId: string,
+  ): Promise<void> {
     try {
       const studentEmail = await this.getUserEmail(studentId);
 
@@ -437,7 +550,9 @@ export class NotificationsService {
       const subjectName = session.subject?.name ?? 'Materia';
 
       const htmlContent = this.renderTemplate('session-rejected', {
-        studentName, tutorName, subjectName,
+        studentName,
+        tutorName,
+        subjectName,
         date: this.formatDate(session.scheduledDate),
         startTime: session.startTime,
         endTime: session.endTime,
@@ -453,7 +568,8 @@ export class NotificationsService {
           label: 'email',
           context: `estudiante=${studentId} sesión=${session.idSession}`,
           promise: this.resend.emails.send({
-            from: this.fromEmail, to: studentEmail,
+            from: this.fromEmail,
+            to: studentEmail,
             subject: `Solicitud no aceptada — ${subjectName}`,
             html: htmlContent,
           }),
@@ -471,9 +587,14 @@ export class NotificationsService {
         },
       ]);
 
-      this.logger.log(`[RF-20] Rechazo enviado a ${studentEmail} — sesión ${session.idSession}`);
+      this.logger.log(
+        `[RF-20] Rechazo enviado a ${studentEmail} — sesión ${session.idSession}`,
+      );
     } catch (error) {
-      this.logger.error(`Error en sendSessionRejection: ${error instanceof Error ? error.message : String(error)}`, error instanceof Error ? error.stack : undefined);
+      this.logger.error(
+        `Error en sendSessionRejection: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       throw error;
     }
   }
@@ -482,7 +603,10 @@ export class NotificationsService {
   // RF-21: CANCELACIÓN DE SESIÓN
   // =====================================================
 
-  async sendSessionCancellation(session: Session, cancelledBy: string): Promise<void> {
+  async sendSessionCancellation(
+    session: Session,
+    cancelledBy: string,
+  ): Promise<void> {
     try {
       const isCancelledByTutor = session.idTutor === cancelledBy;
       const cancelledByRole = isCancelledByTutor ? 'tutor' : 'estudiante';
@@ -501,7 +625,9 @@ export class NotificationsService {
         rescheduleUrl: `${this.frontendUrl}/sessions/schedule`,
       };
 
-      const studentIds = (session.studentParticipateSessions ?? []).map((p) => p.idStudent);
+      const studentIds = (session.studentParticipateSessions ?? []).map(
+        (p) => p.idStudent,
+      );
       const [tutorEmail, studentEmails] = await Promise.all([
         this.getUserEmail(session.idTutor),
         this.getUserEmails(studentIds),
@@ -512,7 +638,8 @@ export class NotificationsService {
           label: 'email',
           context: `tutor=${session.idTutor} sesión=${session.idSession}`,
           promise: this.resend.emails.send({
-            from: this.fromEmail, to: tutorEmail,
+            from: this.fromEmail,
+            to: tutorEmail,
             subject: `Sesión cancelada — ${subjectName}`,
             html: this.renderTemplate('session-cancelled', {
               ...baseData,
@@ -547,7 +674,8 @@ export class NotificationsService {
             label: 'email',
             context: `estudiante=${participation.idStudent} sesión=${session.idSession}`,
             promise: this.resend.emails.send({
-              from: this.fromEmail, to: studentEmail,
+              from: this.fromEmail,
+              to: studentEmail,
               subject: `Sesión cancelada — ${subjectName}`,
               html: this.renderTemplate('session-cancelled', {
                 ...baseData,
@@ -573,9 +701,14 @@ export class NotificationsService {
 
       await this.settleAll(operations);
 
-      this.logger.log(`[RF-21] Emails de cancelación enviados — sesión ${session.idSession}`);
+      this.logger.log(
+        `[RF-21] Emails de cancelación enviados — sesión ${session.idSession}`,
+      );
     } catch (error) {
-      this.logger.error(`Error en sendSessionCancellation: ${(error as Error).message}`, (error as Error).stack);
+      this.logger.error(
+        `Error en sendSessionCancellation: ${(error as Error).message}`,
+        (error as Error).stack,
+      );
       throw error;
     }
   }
@@ -595,16 +728,24 @@ export class NotificationsService {
 
       const changes: string[] = [];
       if (request.newScheduledDate) {
-        changes.push(`Fecha: ${this.formatDate(session.scheduledDate)} → ${this.formatDate(request.newScheduledDate)}`);
+        changes.push(
+          `Fecha: ${this.formatDate(session.scheduledDate)} → ${this.formatDate(request.newScheduledDate)}`,
+        );
       }
       if (request.newStartTime) {
-        changes.push(`Hora de inicio: ${session.startTime} → ${request.newStartTime}`);
+        changes.push(
+          `Hora de inicio: ${session.startTime} → ${request.newStartTime}`,
+        );
       }
       if (request.newModality) {
-        changes.push(`Modalidad: ${this.translateModality(session.modality)} → ${this.translateModality(request.newModality)}`);
+        changes.push(
+          `Modalidad: ${this.translateModality(session.modality)} → ${this.translateModality(request.newModality)}`,
+        );
       }
       if (request.newDurationHours) {
-        changes.push(`Duración: ${this.calculateDurationFromEntity(session)}h → ${request.newDurationHours}h`);
+        changes.push(
+          `Duración: ${this.calculateDurationFromEntity(session)}h → ${request.newDurationHours}h`,
+        );
       }
 
       // El destinatario es la contraparte (quien no propuso)
@@ -624,7 +765,8 @@ export class NotificationsService {
       // Nombre de quien propone, para el mensaje de la notificación
       const requesterName = isTutor
         ? (session.tutor?.user?.name ?? 'El tutor')
-        : (session.studentParticipateSessions?.[0]?.student?.user?.name ?? 'El estudiante');
+        : (session.studentParticipateSessions?.[0]?.student?.user?.name ??
+          'El estudiante');
 
       const htmlContent = this.renderTemplate('session-modification-request', {
         recipientRole: isTutor ? 'estudiante' : 'tutor',
@@ -645,7 +787,8 @@ export class NotificationsService {
           label: 'email',
           context: `destinatario=${recipientId} sesión=${session.idSession}`,
           promise: this.resend.emails.send({
-            from: this.fromEmail, to: recipientEmail,
+            from: this.fromEmail,
+            to: recipientEmail,
             subject: `Propuesta de modificación — ${subjectName}`,
             html: htmlContent,
           }),
@@ -658,14 +801,22 @@ export class NotificationsService {
             type: AppNotificationType.MODIFICATION_REQUEST,
             message: `${requesterName} propuso modificar la sesión de ${subjectName}`,
             // Incluimos requestId para que el frontend construya el link de aceptar/rechazar
-            payload: { sessionId: session.idSession, requestId: request.idRequest },
+            payload: {
+              sessionId: session.idSession,
+              requestId: request.idRequest,
+            },
           }),
         },
       ]);
 
-      this.logger.log(`[RF-22] Propuesta de modificación enviada — sesión ${session.idSession}`);
+      this.logger.log(
+        `[RF-22] Propuesta de modificación enviada — sesión ${session.idSession}`,
+      );
     } catch (error) {
-      this.logger.error(`Error en sendModificationRequest: ${(error as Error).message}`, (error as Error).stack);
+      this.logger.error(
+        `Error en sendModificationRequest: ${(error as Error).message}`,
+        (error as Error).stack,
+      );
       throw error;
     }
   }
@@ -713,7 +864,8 @@ export class NotificationsService {
           label: 'email',
           context: `solicitante=${request.requestedBy} sesión=${session.idSession}`,
           promise: this.resend.emails.send({
-            from: this.fromEmail, to: requesterEmail,
+            from: this.fromEmail,
+            to: requesterEmail,
             subject: accepted
               ? `Modificación aceptada — ${subjectName}`
               : `Modificación rechazada — ${subjectName}`,
@@ -729,15 +881,23 @@ export class NotificationsService {
             message: accepted
               ? `Tu propuesta de modificación para la sesión de ${subjectName} fue aceptada`
               : `Tu propuesta de modificación para la sesión de ${subjectName} fue rechazada`,
-            payload: { sessionId: session.idSession, requestId: request.idRequest },
+            payload: {
+              sessionId: session.idSession,
+              requestId: request.idRequest,
+            },
           }),
         },
       ]);
 
-      this.logger.log(`[RF-22] Respuesta de modificación (${accepted ? 'aceptada' : 'rechazada'}) enviada — sesión ${session.idSession}`);
+      this.logger.log(
+        `[RF-22] Respuesta de modificación (${accepted ? 'aceptada' : 'rechazada'}) enviada — sesión ${session.idSession}`,
+      );
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
-      this.logger.error(`Error en sendModificationResponse: ${err.message}`, err.stack);
+      this.logger.error(
+        `Error en sendModificationResponse: ${err.message}`,
+        err.stack,
+      );
       throw error;
     }
   }
@@ -770,7 +930,9 @@ export class NotificationsService {
       const notifMessage = `Los detalles de tu sesión de ${subjectName} fueron actualizados`;
       const notifPayload = { sessionId: session.idSession };
 
-      const studentIds = (session.studentParticipateSessions ?? []).map((p) => p.idStudent);
+      const studentIds = (session.studentParticipateSessions ?? []).map(
+        (p) => p.idStudent,
+      );
       const [tutorEmail, studentEmails] = await Promise.all([
         this.getUserEmail(session.idTutor),
         this.getUserEmails(studentIds),
@@ -781,8 +943,10 @@ export class NotificationsService {
           label: 'email',
           context: `tutor=${session.idTutor} sesión=${session.idSession}`,
           promise: this.resend.emails.send({
-            from: this.fromEmail, to: tutorEmail,
-            subject: emailSubject, html: htmlContent,
+            from: this.fromEmail,
+            to: tutorEmail,
+            subject: emailSubject,
+            html: htmlContent,
           }),
         },
         {
@@ -806,8 +970,10 @@ export class NotificationsService {
             label: 'email',
             context: `estudiante=${participation.idStudent} sesión=${session.idSession}`,
             promise: this.resend.emails.send({
-              from: this.fromEmail, to: studentEmail,
-              subject: emailSubject, html: htmlContent,
+              from: this.fromEmail,
+              to: studentEmail,
+              subject: emailSubject,
+              html: htmlContent,
             }),
           },
           {
@@ -825,10 +991,15 @@ export class NotificationsService {
 
       await this.settleAll(operations);
 
-      this.logger.log(`[RF-22] Actualización de detalles notificada — sesión ${session.idSession}`);
+      this.logger.log(
+        `[RF-22] Actualización de detalles notificada — sesión ${session.idSession}`,
+      );
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
-      this.logger.error(`Error en sendSessionDetailsUpdate: ${err.message}`, err.stack);
+      this.logger.error(
+        `Error en sendSessionDetailsUpdate: ${err.message}`,
+        err.stack,
+      );
       throw error;
     }
   }
@@ -887,7 +1058,9 @@ export class NotificationsService {
           label: 'email',
           context: `tutor=${session.tutor.id} tipo=${reminderType}`,
           promise: this.resend.emails.send({
-            from: this.fromEmail, to: tutorEmail, subject: reminderSubject,
+            from: this.fromEmail,
+            to: tutorEmail,
+            subject: reminderSubject,
             html: this.renderTemplate('session-reminder', {
               ...baseData,
               recipientName: session.tutor.name,
@@ -917,7 +1090,9 @@ export class NotificationsService {
             label: 'email',
             context: `estudiante=${participant.id} tipo=${reminderType}`,
             promise: this.resend.emails.send({
-              from: this.fromEmail, to: studentEmail, subject: reminderSubject,
+              from: this.fromEmail,
+              to: studentEmail,
+              subject: reminderSubject,
               html: this.renderTemplate('session-reminder', {
                 ...baseData,
                 recipientName: participant.name,
@@ -941,9 +1116,14 @@ export class NotificationsService {
 
       await this.settleAll(operations);
 
-      this.logger.log(`[RF-26] Recordatorio (${reminderType}) enviado — sesión ${session.id}`);
+      this.logger.log(
+        `[RF-26] Recordatorio (${reminderType}) enviado — sesión ${session.id}`,
+      );
     } catch (error) {
-      this.logger.error(`Error en sendSessionReminder: ${error instanceof Error ? error.message : String(error)}`, error instanceof Error ? error.stack : undefined);
+      this.logger.error(
+        `Error en sendSessionReminder: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       throw error;
     }
   }
@@ -976,7 +1156,8 @@ export class NotificationsService {
           label: 'email',
           context: `estudiante=${studentId} sesión=${session.id} isReminder=${isReminder}`,
           promise: this.resend.emails.send({
-            from: this.fromEmail, to: studentEmail,
+            from: this.fromEmail,
+            to: studentEmail,
             subject: isReminder
               ? `Recordatorio: califica tu sesión de ${session.subject.name}`
               : `Califica tu sesión de tutoría — ${session.subject.name}`,
@@ -1006,25 +1187,30 @@ export class NotificationsService {
         },
       ]);
 
-      this.logger.log(`[RF-27] ${isReminder ? 'Recordatorio' : 'Notificación'} de evaluación enviado a ${studentEmail} — sesión ${session.id}`);
+      this.logger.log(
+        `[RF-27] ${isReminder ? 'Recordatorio' : 'Notificación'} de evaluación enviado a ${studentEmail} — sesión ${session.id}`,
+      );
     } catch (error) {
       const err = error as Error;
-      this.logger.error(`Error en sendEvaluationPendingReminder: ${err.message}`, err.stack);
+      this.logger.error(
+        `Error en sendEvaluationPendingReminder: ${err.message}`,
+        err.stack,
+      );
       throw error;
     }
   }
 
   /**
- * Notifica a un estudiante que el tutor registró su inasistencia a la sesión.
- *
- * @param sessionId   ID de la sesión (Session.idSession)
- * @param studentId   ID del estudiante ausente (StudentParticipateSession.idStudent)
- * @param studentName Nombre del estudiante (participation.student.user.name)
- * @param tutorName   Nombre del tutor (session.tutor?.user?.name, o cargado aparte)
- * @param subjectName Nombre de la materia (session.subject?.name)
- * @param sessionDate Fecha de la sesión (session.scheduledDate)
- * @param startTime   Hora de inicio (session.startTime)
- */
+   * Notifica a un estudiante que el tutor registró su inasistencia a la sesión.
+   *
+   * @param sessionId   ID de la sesión (Session.idSession)
+   * @param studentId   ID del estudiante ausente (StudentParticipateSession.idStudent)
+   * @param studentName Nombre del estudiante (participation.student.user.name)
+   * @param tutorName   Nombre del tutor (session.tutor?.user?.name, o cargado aparte)
+   * @param subjectName Nombre de la materia (session.subject?.name)
+   * @param sessionDate Fecha de la sesión (session.scheduledDate)
+   * @param startTime   Hora de inicio (session.startTime)
+   */
   async sendSessionAbsentNotification(
     sessionId: string,
     studentId: string,
@@ -1074,7 +1260,8 @@ export class NotificationsService {
         `[Attendance] Notificación de inasistencia enviada a ${studentEmail} — sesión ${sessionId}`,
       );
     } catch (error) {
-      const normalizedError = error instanceof Error ? error : new Error(String(error));
+      const normalizedError =
+        error instanceof Error ? error : new Error(String(error));
       this.logger.error(
         `Error en sendSessionAbsentNotification: ${normalizedError.message}`,
         normalizedError.stack,
@@ -1114,11 +1301,14 @@ export class NotificationsService {
         SLOT_DELETED: 'Cambio en disponibilidad',
       };
 
-      const notifMessageMap = (affected: typeof affectedSessions[0]): string => ({
-        CANCELLED: `Tu sesión de ${affected.subjectName} con ${tutorName} fue cancelada por cambio de disponibilidad`,
-        MODIFIED: `Tu sesión de ${affected.subjectName} con ${tutorName} fue modificada por cambio de disponibilidad`,
-        SLOT_DELETED: `La disponibilidad de ${tutorName} para tu sesión de ${affected.subjectName} fue eliminada`,
-      }[affected.changeType]);
+      const notifMessageMap = (
+        affected: (typeof affectedSessions)[0],
+      ): string =>
+        ({
+          CANCELLED: `Tu sesión de ${affected.subjectName} con ${tutorName} fue cancelada por cambio de disponibilidad`,
+          MODIFIED: `Tu sesión de ${affected.subjectName} con ${tutorName} fue modificada por cambio de disponibilidad`,
+          SLOT_DELETED: `La disponibilidad de ${tutorName} para tu sesión de ${affected.subjectName} fue eliminada`,
+        })[affected.changeType];
 
       const operations: LabeledOperation[] = [];
 
@@ -1144,7 +1334,8 @@ export class NotificationsService {
             label: 'email',
             context: `estudiante=${affected.studentId} sesión=${affected.sessionId} changeType=${affected.changeType}`,
             promise: this.resend.emails.send({
-              from: this.fromEmail, to: affected.studentEmail,
+              from: this.fromEmail,
+              to: affected.studentEmail,
               subject: `${subjectMap[affected.changeType]} — ${affected.subjectName}`,
               html: htmlContent,
             }),
@@ -1164,9 +1355,14 @@ export class NotificationsService {
 
       await this.settleAll(operations);
 
-      this.logger.log(`[RF-28] Notificaciones de cambio de disponibilidad enviadas — ${affectedSessions.length} sesiones afectadas`);
+      this.logger.log(
+        `[RF-28] Notificaciones de cambio de disponibilidad enviadas — ${affectedSessions.length} sesiones afectadas`,
+      );
     } catch (error) {
-      this.logger.error(`Error en sendAvailabilityChangeNotification: ${error instanceof Error ? error.message : String(error)}`, error instanceof Error ? error.stack : undefined);
+      this.logger.error(
+        `Error en sendAvailabilityChangeNotification: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       throw error;
     }
   }
@@ -1191,9 +1387,16 @@ export class NotificationsService {
       let alertLevel: '80_PERCENT' | '95_PERCENT' | '100_PERCENT';
       let urgencyLevel: 'warning' | 'urgent' | 'critical';
 
-      if (usagePercentage >= 100) { alertLevel = '100_PERCENT'; urgencyLevel = 'critical'; }
-      else if (usagePercentage >= 95) { alertLevel = '95_PERCENT'; urgencyLevel = 'urgent'; }
-      else { alertLevel = '80_PERCENT'; urgencyLevel = 'warning'; }
+      if (usagePercentage >= 100) {
+        alertLevel = '100_PERCENT';
+        urgencyLevel = 'critical';
+      } else if (usagePercentage >= 95) {
+        alertLevel = '95_PERCENT';
+        urgencyLevel = 'urgent';
+      } else {
+        alertLevel = '80_PERCENT';
+        urgencyLevel = 'warning';
+      }
 
       const htmlContent = this.renderTemplate('hour-limit-alert', {
         tutorName,
@@ -1201,7 +1404,8 @@ export class NotificationsService {
         hoursUsed: hoursUsed.toFixed(1),
         hoursRemaining: hoursRemaining.toFixed(1),
         usagePercentage: usagePercentage.toFixed(0),
-        alertLevel, urgencyLevel,
+        alertLevel,
+        urgencyLevel,
         is80Percent: alertLevel === '80_PERCENT',
         is95Percent: alertLevel === '95_PERCENT',
         is100Percent: alertLevel === '100_PERCENT',
@@ -1211,7 +1415,8 @@ export class NotificationsService {
       });
 
       const subjectMap: Record<string, string> = {
-        '100_PERCENT': 'Límite semanal alcanzado — no puedes aceptar más sesiones',
+        '100_PERCENT':
+          'Límite semanal alcanzado — no puedes aceptar más sesiones',
         '95_PERCENT': 'Casi alcanzas tu límite semanal de horas',
         '80_PERCENT': 'Aviso: estás cerca de tu límite semanal',
       };
@@ -1227,7 +1432,8 @@ export class NotificationsService {
           label: 'email',
           context: `tutor=${tutorId} alertLevel=${alertLevel}`,
           promise: this.resend.emails.send({
-            from: this.fromEmail, to: tutorEmail,
+            from: this.fromEmail,
+            to: tutorEmail,
             subject: subjectMap[alertLevel],
             html: htmlContent,
           }),
@@ -1244,10 +1450,15 @@ export class NotificationsService {
         },
       ]);
 
-      this.logger.log(`[RF-29] Alerta de límite de horas (${alertLevel}) enviada al tutor ${tutorEmail}`);
+      this.logger.log(
+        `[RF-29] Alerta de límite de horas (${alertLevel}) enviada al tutor ${tutorEmail}`,
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Error en sendHourLimitAlert: ${message}`, error instanceof Error ? error.stack : undefined);
+      this.logger.error(
+        `Error en sendHourLimitAlert: ${message}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       throw error;
     }
   }
@@ -1262,7 +1473,9 @@ export class NotificationsService {
     interestedStudentEmails: string[],
   ): Promise<void> {
     if (!interestedStudentEmails.length) {
-      this.logger.warn(`No hay estudiantes interesados para la sesión colaborativa ${session.id}`);
+      this.logger.warn(
+        `No hay estudiantes interesados para la sesión colaborativa ${session.id}`,
+      );
       return;
     }
 
@@ -1283,12 +1496,15 @@ export class NotificationsService {
     for (const email of interestedStudentEmails) {
       try {
         await this.resend.emails.send({
-          from: this.fromEmail, to: email,
+          from: this.fromEmail,
+          to: email,
           subject: `Nueva sesión colaborativa disponible: ${session.subject.name}`,
           html: htmlContent,
         });
       } catch (err) {
-        this.logger.error(`Error enviando anuncio colaborativo a ${email}: ${err instanceof Error ? err.message : String(err)}`);
+        this.logger.error(
+          `Error enviando anuncio colaborativo a ${email}: ${err instanceof Error ? err.message : String(err)}`,
+        );
       }
     }
 
@@ -1314,7 +1530,9 @@ export class NotificationsService {
    * si llega al catch, fue el email lo que falló, no la BD.
    */
   private async settleAll(operations: LabeledOperation[]): Promise<void> {
-    const results = await Promise.allSettled(operations.map((op) => op.promise));
+    const results = await Promise.allSettled(
+      operations.map((op) => op.promise),
+    );
 
     let emailFailed = false;
     let emailFailedReason: any;
@@ -1364,7 +1582,9 @@ export class NotificationsService {
 
     for (const id of userIds) {
       if (!emailMap.has(id)) {
-        this.logger.warn(`Usuario con ID ${id} no encontrado al resolver emails en batch`);
+        this.logger.warn(
+          `Usuario con ID ${id} no encontrado al resolver emails en batch`,
+        );
       }
     }
 
@@ -1374,66 +1594,74 @@ export class NotificationsService {
   private renderTemplate(templateName: string, data: any): string {
     try {
       const templatePath = path.join(
-        process.cwd(), 'src', 'modules', 'notifications', 'templates', `${templateName}.hbs`,
+        process.cwd(),
+        'src',
+        'modules',
+        'notifications',
+        'templates',
+        `${templateName}.hbs`,
       );
       const templateContent = fs.readFileSync(templatePath, 'utf-8');
       return Handlebars.compile(templateContent)(data);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Error al renderizar template "${templateName}": ${message}`);
+      this.logger.error(
+        `Error al renderizar template "${templateName}": ${message}`,
+      );
       return this.generatePlainTextFallback(templateName, data);
     }
   }
 
   //Refactor: Se cambia el método formatDate para que siempre trate la fecha como UTC, evitando problemas de zona horaria al formatear
   private formatDate(date: Date | string): string {
-  const dateStr =
-    typeof date === 'string'
-      ? date
-      : date.toISOString().split('T')[0];
+    const dateStr =
+      typeof date === 'string' ? date : date.toISOString().split('T')[0];
 
-  const [year, month, day] = dateStr.split('-').map(Number);
+    const [year, month, day] = dateStr.split('-').map(Number);
 
-  return new Intl.DateTimeFormat('es-CO', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    timeZone: 'UTC', // CLAVE
-  }).format(new Date(Date.UTC(year, month - 1, day)));
-}
-
-  private formatDateTime(date: Date | string): string {
-  let dateObj: Date;
-
-  if (typeof date === 'string') {
-    dateObj = new Date(date);
-  } else {
-    dateObj = date;
+    return new Intl.DateTimeFormat('es-CO', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      timeZone: 'UTC', // CLAVE
+    }).format(new Date(Date.UTC(year, month - 1, day)));
   }
 
-  const isoStr = dateObj.toISOString();
-  const [datePart, timePart] = isoStr.split('T');
-  const [year, month, day] = datePart.split('-').map(Number);
-  const [hour, minute] = timePart.split(':').map(Number);
+  private formatDateTime(date: Date | string): string {
+    let dateObj: Date;
 
-  return new Intl.DateTimeFormat('es-CO', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'UTC',
-  }).format(new Date(Date.UTC(year, month - 1, day, hour, minute)));
-}
+    if (typeof date === 'string') {
+      dateObj = new Date(date);
+    } else {
+      dateObj = date;
+    }
+
+    const isoStr = dateObj.toISOString();
+    const [datePart, timePart] = isoStr.split('T');
+    const [year, month, day] = datePart.split('-').map(Number);
+    const [hour, minute] = timePart.split(':').map(Number);
+
+    return new Intl.DateTimeFormat('es-CO', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'UTC',
+    }).format(new Date(Date.UTC(year, month - 1, day, hour, minute)));
+  }
 
   private translateModality(modality: string): string {
     return modality === 'PRES' ? 'Presencial' : 'Virtual';
   }
 
   private calculateDurationFromEntity(session: Session): number {
-    const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+    const toMin = (t: string) => {
+      const [h, m] = t.split(':').map(Number);
+      return h * 60 + m;
+    };
     return (toMin(session.endTime) - toMin(session.startTime)) / 60;
   }
 
@@ -1441,7 +1669,7 @@ export class NotificationsService {
     if (!request.newStartTime || !request.newDurationHours) return '';
     const [h, m] = request.newStartTime.split(':').map(Number);
     const total = h * 60 + m + request.newDurationHours * 60;
-    return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+    return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
   }
 
   private generatePlainTextFallback(templateName: string, data: any): string {

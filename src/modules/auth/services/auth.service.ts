@@ -38,12 +38,12 @@ export class AuthService {
     private readonly passwordResetService: PasswordResetService,
     private readonly emailVerificationService: EmailVerificationService,
     private readonly emailService: NotificationsService,
-  ) { }
+  ) {}
 
   // =====================================================
   // REGISTRO DE ESTUDIANTE
   // =====================================================
-  
+
   async register(dto: RegisterDto): Promise<{ message: string }> {
     // 1. Validar que las contraseñas coincidan
     if (dto.password !== dto.confirmPassword) {
@@ -70,9 +70,10 @@ export class AuthService {
     await this.studentService.createFromUser(savedUser.idUser);
 
     // 5. Generar token de verificación de email
-    const verificationToken =
-      await this.emailVerificationService.createToken(savedUser.idUser);
-      console.log('Verification token generated:', verificationToken); // Log del token generado para pruebas (quitar después)
+    const verificationToken = await this.emailVerificationService.createToken(
+      savedUser.idUser,
+    );
+    console.log('Verification token generated:', verificationToken); // Log del token generado para pruebas (quitar después)
 
     // 6. Enviar email de confirmación
     try {
@@ -99,7 +100,6 @@ export class AuthService {
         'Registration successful. Please check your email to verify your account.',
     };
   }
-    
 
   // =====================================================
   // CONFIRMAR EMAIL
@@ -291,7 +291,7 @@ export class AuthService {
       userAgent,
     );
 
-    // Fragmento comentado pues dependía de servicio de tutor-profile, que aún no se ha implementado por completo  
+    // Fragmento comentado pues dependía de servicio de tutor-profile, que aún no se ha implementado por completo
 
     // 10. Verificar si es tutor y necesita acciones adicionales
     let requiresPasswordChange = false;
@@ -306,8 +306,6 @@ export class AuthService {
         user.idUser,
       ));
     }
-
-    
 
     return {
       accessToken,
@@ -420,9 +418,7 @@ export class AuthService {
     }
 
     // 2. Generar token de reset
-    const resetToken = await this.passwordResetService.createToken(
-      user.idUser,
-    );
+    const resetToken = await this.passwordResetService.createToken(user.idUser);
 
     // 3. Enviar email con enlace
     try {
@@ -602,68 +598,68 @@ export class AuthService {
       })),
     };
   }
-  
+
   // =====================================================
-  // OBTENER USUARIO ACTUAL (VALIDAR ACCESS TOKEN) 
+  // OBTENER USUARIO ACTUAL (VALIDAR ACCESS TOKEN)
   // =====================================================
 
   // src/auth/services/auth.service.ts
 
-// =====================================================
-// OBTENER USUARIO ACTUAL (VALIDAR ACCESS TOKEN)
-// =====================================================
-async getCurrentUser(userId: string): Promise<{
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    role: UserRole;
-    emailVerified: boolean;
-    status: UserStatus;
-  };
-  requiresPasswordChange?: boolean;
-  requiresProfileCompletion?: boolean;
-}> {
-  // 1. Buscar usuario
-  const user = await this.userService.findById(userId);
-
-  if (!user) {
-    throw new UnauthorizedException('User not found');
-  }
-
-  // 2. Verificar que el usuario siga activo
-  if (user.status !== UserStatus.ACTIVE) {
-    throw new UnauthorizedException('Account is not active');
-  }
-
-  // 3. Verificar si es tutor y necesita acciones adicionales
-  let requiresPasswordChange = false;
-  let requiresProfileCompletion = false;
-
-  if (user.role === UserRole.TUTOR) {
-    requiresPasswordChange = await this.userService.hasTemporaryPassword(
-      user.idUser,
-    );
-    requiresProfileCompletion = !(await this.tutorService.isProfileComplete(
-      user.idUser,
-    ));
-  }
-
-  return {
+  // =====================================================
+  // OBTENER USUARIO ACTUAL (VALIDAR ACCESS TOKEN)
+  // =====================================================
+  async getCurrentUser(userId: string): Promise<{
     user: {
-      id: user.idUser,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      emailVerified: !!user.email_verified_at,
-      status: user.status,
-    },
-    ...(user.role === UserRole.TUTOR && {
-      requiresPasswordChange,
-      requiresProfileCompletion,
-    }),
-  };
-}
+      id: string;
+      name: string;
+      email: string;
+      role: UserRole;
+      emailVerified: boolean;
+      status: UserStatus;
+    };
+    requiresPasswordChange?: boolean;
+    requiresProfileCompletion?: boolean;
+  }> {
+    // 1. Buscar usuario
+    const user = await this.userService.findById(userId);
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    // 2. Verificar que el usuario siga activo
+    if (user.status !== UserStatus.ACTIVE) {
+      throw new UnauthorizedException('Account is not active');
+    }
+
+    // 3. Verificar si es tutor y necesita acciones adicionales
+    let requiresPasswordChange = false;
+    let requiresProfileCompletion = false;
+
+    if (user.role === UserRole.TUTOR) {
+      requiresPasswordChange = await this.userService.hasTemporaryPassword(
+        user.idUser,
+      );
+      requiresProfileCompletion = !(await this.tutorService.isProfileComplete(
+        user.idUser,
+      ));
+    }
+
+    return {
+      user: {
+        id: user.idUser,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        emailVerified: !!user.email_verified_at,
+        status: user.status,
+      },
+      ...(user.role === UserRole.TUTOR && {
+        requiresPasswordChange,
+        requiresProfileCompletion,
+      }),
+    };
+  }
 
   // =====================================================
   // HELPERS PRIVADOS

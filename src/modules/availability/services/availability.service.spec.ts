@@ -1,4 +1,8 @@
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { AvailabilityService } from './availability.service';
 import { DayOfWeek } from '../enums/day-of-week.enum';
 import { Modality } from '../enums/modality.enum';
@@ -59,7 +63,11 @@ describe('AvailabilityService', () => {
     );
 
     availabilityRepository.manager.transaction.mockImplementation(
-      async (callback: (manager: { getRepository: (entity: unknown) => any }) => Promise<unknown>) =>
+      async (
+        callback: (manager: {
+          getRepository: (entity: unknown) => any;
+        }) => Promise<unknown>,
+      ) =>
         callback({
           getRepository: (entity: unknown) => {
             if ((entity as any).name === 'Availability') {
@@ -77,7 +85,9 @@ describe('AvailabilityService', () => {
       firstQueryBuilder.getCount
         .mockResolvedValueOnce(0)
         .mockResolvedValueOnce(0);
-      tutorHaveAvailabilityRepository.createQueryBuilder.mockReturnValue(firstQueryBuilder);
+      tutorHaveAvailabilityRepository.createQueryBuilder.mockReturnValue(
+        firstQueryBuilder,
+      );
 
       availabilityRepository.findOne
         .mockResolvedValueOnce(null)
@@ -135,9 +145,7 @@ describe('AvailabilityService', () => {
 
     it('throws CONFLICT_01 when the tutor already has overlapping slots', async () => {
       const qb = createQueryBuilderMock();
-      qb.getCount
-        .mockResolvedValueOnce(0)
-        .mockResolvedValueOnce(1);
+      qb.getCount.mockResolvedValueOnce(0).mockResolvedValueOnce(1);
       tutorHaveAvailabilityRepository.createQueryBuilder.mockReturnValue(qb);
 
       await expect(
@@ -152,9 +160,7 @@ describe('AvailabilityService', () => {
 
     it('throws VALIDATION_01 when the daily slot limit is exceeded', async () => {
       const qb = createQueryBuilderMock();
-      qb.getCount
-        .mockResolvedValueOnce(7)
-        .mockResolvedValueOnce(0);
+      qb.getCount.mockResolvedValueOnce(7).mockResolvedValueOnce(0);
       tutorHaveAvailabilityRepository.createQueryBuilder.mockReturnValue(qb);
 
       await expect(
