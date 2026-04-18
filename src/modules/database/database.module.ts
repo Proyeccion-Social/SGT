@@ -81,7 +81,7 @@ const entities = [
             password: configService.get<string>('LOCAL_DB_PASSWORD') || '',
             database: configService.get<string>('LOCAL_DB_NAME'),
             entities,
-            synchronize: true,
+            synchronize: false,
             logging: true,
           };
         }
