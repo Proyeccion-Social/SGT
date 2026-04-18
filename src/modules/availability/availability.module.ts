@@ -12,7 +12,10 @@ import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Availability, TutorHaveAvailability,ScheduledSession], 'local'),
+    TypeOrmModule.forFeature(
+      [Availability, TutorHaveAvailability, ScheduledSession],
+      'local',
+    ),
     SubjectsModule,
     TutorModule,
     AuthModule, //Para usar JwtAuthGuard en el controller y RolesGuard
@@ -21,4 +24,4 @@ import { AuthModule } from '../auth/auth.module';
   controllers: [AvailabilityController],
   exports: [TypeOrmModule, AvailabilityService],
 })
-export class AvailabilityModule { }
+export class AvailabilityModule {}

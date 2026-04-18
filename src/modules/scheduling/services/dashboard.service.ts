@@ -26,7 +26,7 @@ export class DashboardService {
     private readonly participationRepository: Repository<StudentParticipateSession>,
 
     private readonly tutorService: TutorService,
-  ) { }
+  ) {}
 
   // ========================================
   // STUDENT DASHBOARD
@@ -70,7 +70,8 @@ export class DashboardService {
   // ========================================
 
   async getTutorDashboard(tutorId: string): Promise<TutorDashboardResponseDto> {
-    const weeklyHoursLimit = await this.tutorService.getWeeklyHoursLimit(tutorId);
+    const weeklyHoursLimit =
+      await this.tutorService.getWeeklyHoursLimit(tutorId);
 
     const { weeklyHoursUsed, weeklyHoursRemaining } =
       await this.calculateWeeklyHours(tutorId, weeklyHoursLimit);
@@ -99,10 +100,12 @@ export class DashboardService {
     tutorId: string,
     weeklyHoursLimit: number,
   ): Promise<{ weeklyHoursUsed: number; weeklyHoursRemaining: number }> {
-
     const today = new Date();
 
-    const weekStart = format(startOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+    const weekStart = format(
+      startOfWeek(today, { weekStartsOn: 1 }),
+      'yyyy-MM-dd',
+    );
     const weekEnd = format(endOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd');
 
     const weekSessions = await this.sessionRepository.find({
@@ -124,7 +127,10 @@ export class DashboardService {
       return sum + duration;
     }, 0);
 
-    const weeklyHoursRemaining = Math.max(0, weeklyHoursLimit - weeklyHoursUsed);
+    const weeklyHoursRemaining = Math.max(
+      0,
+      weeklyHoursLimit - weeklyHoursUsed,
+    );
 
     return {
       weeklyHoursUsed: parseFloat(weeklyHoursUsed.toFixed(1)),
@@ -137,8 +143,6 @@ export class DashboardService {
     role: 'student' | 'tutor',
   ): Promise<SessionCardDto[]> {
     const now = new Date();
-
-
 
     let sessions: Session[] = [];
 
@@ -161,12 +165,7 @@ export class DashboardService {
             SessionStatus.PENDING_MODIFICATION,
           ],
         })
-        .select([
-          'session',
-          'tutor.idUser',
-          'tutor.user',
-          'subject',
-        ])
+        .select(['session', 'tutor.idUser', 'tutor.user', 'subject'])
         .orderBy('session.scheduledDate', 'ASC')
         .addOrderBy('session.startTime', 'ASC')
         .take(5)
@@ -181,19 +180,12 @@ export class DashboardService {
           .innerJoin('session.subject', 'subject')
           .where('participation.idStudent = :userId', { userId })
           .andWhere('session.status = :status', {
-            status:
-              SessionStatus.COMPLETED,
+            status: SessionStatus.COMPLETED,
             //SessionStatus.CANCELLED_BY_STUDENT, //Considerar sólo sesiones completadas en el historial
             //SessionStatus.CANCELLED_BY_TUTOR,
             //SessionStatus.REJECTED_BY_TUTOR,
-
           })
-          .select([
-            'session',
-            'tutor.idUser',
-            'tutor.user',
-            'subject',
-          ])
+          .select(['session', 'tutor.idUser', 'tutor.user', 'subject'])
           .orderBy('session.scheduledDate', 'DESC')
           .addOrderBy('session.startTime', 'DESC')
           .take(5)
@@ -218,18 +210,11 @@ export class DashboardService {
             SessionStatus.PENDING_MODIFICATION,
           ],
         })
-        .select([
-          'session',
-          'student.idUser',
-          'student.user',
-          'subject',
-        ])
+        .select(['session', 'student.idUser', 'student.user', 'subject'])
         .orderBy('session.scheduledDate', 'ASC')
         .addOrderBy('session.startTime', 'ASC')
         .take(5)
         .getMany();
-
-
 
       if (sessions.length === 0) {
         sessions = await this.sessionRepository
@@ -240,18 +225,12 @@ export class DashboardService {
           .innerJoin('session.subject', 'subject')
           .where('session.idTutor = :userId', { userId })
           .andWhere('session.status = :status', {
-            status:
-              SessionStatus.COMPLETED,
+            status: SessionStatus.COMPLETED,
             //SessionStatus.CANCELLED_BY_TUTOR,
             //SessionStatus.CANCELLED_BY_STUDENT,
             //SessionStatus.REJECTED_BY_TUTOR,
           })
-          .select([
-            'session',
-            'student.idUser',
-            'student.user',
-            'subject',
-          ])
+          .select(['session', 'student.idUser', 'student.user', 'subject'])
           .orderBy('session.scheduledDate', 'DESC')
           .addOrderBy('session.startTime', 'DESC')
           .take(5)
@@ -263,37 +242,37 @@ export class DashboardService {
   }
 
   private mapToSessionCard(
-  session: Session,
-  role: 'student' | 'tutor',
-): SessionCardDto {
-  let otherPersonName: string;
-  let otherPersonImage: string;
+    session: Session,
+    role: 'student' | 'tutor',
+  ): SessionCardDto {
+    let otherPersonName: string;
+    let otherPersonImage: string;
 
-  if (role === 'student') {
-    otherPersonName = session.tutor?.user?.name || 'Tutor';
-    otherPersonImage = session.tutor?.urlImage || '/default-avatar.png';
-  } else {
-    const participation = session.studentParticipateSessions?.[0];
-    const student = participation?.student;
-    otherPersonName = student?.user?.name || 'Estudiante';
-    otherPersonImage = '/default-avatar.png';
+    if (role === 'student') {
+      otherPersonName = session.tutor?.user?.name || 'Tutor';
+      otherPersonImage = session.tutor?.urlImage || '/default-avatar.png';
+    } else {
+      const participation = session.studentParticipateSessions?.[0];
+      const student = participation?.student;
+      otherPersonName = student?.user?.name || 'Estudiante';
+      otherPersonImage = '/default-avatar.png';
+    }
+
+    return {
+      id: session.idSession,
+      title: session.title,
+      description: session.description,
+      otherPersonName,
+      otherPersonImage,
+      subjectName: session.subject?.name || 'Materia',
+      sessionType: session.type,
+      modality: session.modality,
+      scheduledDate: session.scheduledDate ?? '', // refactor
+      startTime: session.startTime,
+      endTime: session.endTime,
+      status: session.status,
+    };
   }
-
-  return {
-    id: session.idSession,
-    title: session.title,
-    description: session.description,
-    otherPersonName,
-    otherPersonImage,
-    subjectName: session.subject?.name || 'Materia',
-    sessionType: session.type,
-    modality: session.modality,
-    scheduledDate: session.scheduledDate ?? '', // refactor
-    startTime: session.startTime,
-    endTime: session.endTime,
-    status: session.status,
-  };
-}
 
   private async getTotalStudentsReached(tutorId: string): Promise<number> {
     const semesterStart = new Date('2026-01-01');

@@ -14,7 +14,8 @@ export class CreateSlotRangeDto {
     message: 'Formato de hora inválido. Use HH:mm',
   })
   @IsThirtyMinuteIncrement({
-    message: 'La hora de inicio debe estar en incrementos de 30 minutos (00 o 30)',
+    message:
+      'La hora de inicio debe estar en incrementos de 30 minutos (00 o 30)',
   })
   startTime!: string;
 

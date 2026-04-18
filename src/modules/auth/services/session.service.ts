@@ -60,10 +60,7 @@ export class SessionService {
     const updateData: Partial<Session> = {};
 
     if (data.refresh_token) {
-      updateData.refresh_token_hash = await bcrypt.hash(
-        data.refresh_token,
-        10,
-      );
+      updateData.refresh_token_hash = await bcrypt.hash(data.refresh_token, 10);
     }
 
     if (data.last_activity_at) {

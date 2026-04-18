@@ -5,11 +5,10 @@ import { UsersModule } from '../users/users.module';
 import { NotificationsController } from './controllers/notifications.controller';
 import { AppNotificationsModule } from '../app-notification/app-notification.module';
 
-
 @Module({
-  imports: [ConfigModule, UsersModule,AppNotificationsModule],
+  imports: [ConfigModule, UsersModule, AppNotificationsModule],
   providers: [NotificationsService],
   controllers: [NotificationsController],
   exports: [NotificationsService],
 })
-export class NotificationsModule { }
+export class NotificationsModule {}

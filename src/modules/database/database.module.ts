@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 
 // User entities
@@ -48,12 +48,11 @@ const entities = [
   ScheduledSession,
   SessionModificationRequest,
   StudentParticipateSession,
-  
+
   Question,
   Answer,
 
   AppNotification,
-
 
   //Nuevas entidades de Auth
   AuthSession,
@@ -65,43 +64,38 @@ const entities = [
 
 @Module({
   imports: [
-    // Local PostgreSQL (DEV)
     TypeOrmModule.forRootAsync({
       name: 'local',
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        host: configService.get<string>('LOCAL_DB_HOST'),
-        port: configService.get<number>('LOCAL_DB_PORT'),
-        username: configService.get<string>('LOCAL_DB_USER'),
-        password: configService.get<string>('LOCAL_DB_PASSWORD') || '',
-        database: configService.get<string>('LOCAL_DB_NAME'),
-        entities,
-        synchronize: false,
-        logging: configService.get('NODE_ENV') === 'development',
-      }),
-    }),
+      useFactory: (configService: ConfigService): TypeOrmModuleOptions => {
+        const isDevelopment =
+          configService.get<string>('NODE_ENV') === 'development';
 
-    /*
-    // Neon PostgreSQL (PROD ONLY)
-    ...(process.env.NODE_ENV === 'production'
-      ? [
-          TypeOrmModule.forRootAsync({
-            name: 'neon',
-            imports: [ConfigModule],
-            inject: [ConfigService],
-            useFactory: (configService: ConfigService) => ({
-              type: 'postgres',
-              url: configService.get<string>('NEON_DATABASE_URL'),
-              entities,
-              synchronize: false,
-              ssl: { rejectUnauthorized: false },
-            }),
-          }),
-        ]
-      : []),
-      */
+        if (isDevelopment) {
+          return {
+            type: 'postgres',
+            host: configService.get<string>('LOCAL_DB_HOST'),
+            port: configService.get<number>('LOCAL_DB_PORT'),
+            username: configService.get<string>('LOCAL_DB_USER'),
+            password: configService.get<string>('LOCAL_DB_PASSWORD') || '',
+            database: configService.get<string>('LOCAL_DB_NAME'),
+            entities,
+            synchronize: false,
+            logging: true,
+          };
+        }
+
+        return {
+          type: 'postgres',
+          url: configService.get<string>('NEON_DATABASE_URL'),
+          entities,
+          synchronize: false,
+          logging: false,
+          ssl: { rejectUnauthorized: false },
+        };
+      },
+    }),
   ],
 })
-export class DatabaseModule { }
+export class DatabaseModule {}

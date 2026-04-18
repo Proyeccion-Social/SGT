@@ -26,7 +26,7 @@ export interface CreateTutorUserData {
 @Injectable()
 export class UserService {
   constructor(
-    @InjectRepository(User,'local')
+    @InjectRepository(User, 'local')
     private readonly userRepository: Repository<User>,
   ) {}
 
@@ -104,9 +104,9 @@ export class UserService {
   }
 
   async findByIds(ids: string[]): Promise<User[]> {
-  if (!ids.length) return [];
-  return this.userRepository.findBy({ idUser: In(ids) });
-}
+    if (!ids.length) return [];
+    return this.userRepository.findBy({ idUser: In(ids) });
+  }
 
   /**
    * Verificar si existe un usuario con ese email
