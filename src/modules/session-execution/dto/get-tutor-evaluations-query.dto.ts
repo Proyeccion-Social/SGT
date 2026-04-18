@@ -1,11 +1,4 @@
-import {
-  IsOptional,
-  IsUUID,
-  IsDateString,
-  IsNumber,
-  Min,
-  Max,
-} from 'class-validator';
+import { IsOptional, IsUUID, IsDateString, IsNumber, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class GetTutorEvaluationsQueryDto {

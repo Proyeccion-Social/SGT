@@ -9,7 +9,7 @@ import {
   MinLength,
   IsIn,
 } from 'class-validator';
-import { Modality } from '../../availability/enums';
+import { Modality } from 'src/modules/availability/enums';
 
 export class CreateIndividualSessionDto {
   @IsUUID('4', { message: 'tutorId debe ser un UUID válido' })
@@ -37,9 +37,7 @@ export class CreateIndividualSessionDto {
   title: string;
 
   @IsString()
-  @MinLength(10, {
-    message: 'La descripción debe tener al menos 10 caracteres',
-  })
+  @MinLength(10, { message: 'La descripción debe tener al menos 10 caracteres' })
   @MaxLength(500, { message: 'La descripción no puede superar 500 caracteres' })
   description: string;
 }

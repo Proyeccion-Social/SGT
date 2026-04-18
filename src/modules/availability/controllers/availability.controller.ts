@@ -24,16 +24,15 @@ import { NotFoundException } from '@nestjs/common';
 import { FilterTutorsDto } from '../dto/filter-tutors.dto';
 import { ManageSlotDto } from '../dto/manage-slot.dto';
 import { CreateSlotDto } from '../dto/create-slot.dto';
-import { UpdateWeeklyHoursLimitDto } from '../dto/update-weekly-hours-limit.dto';
 import { CreateSlotRangeDto } from '../dto/create-slot-range.dto';
 import { UpdateSlotDto } from '../dto/update-slot.dto';
 import { DeleteSlotDto } from '../dto/delete-slot.dto';
 import { SlotAction } from '../enums/slot-action.enum';
-import { SubjectsService } from '../../subjects/services/subjects.service';
-import { TutorService } from '../../tutor/services/tutor.service';
+import { SubjectsService } from 'src/modules/subjects/services/subjects.service';
+import { TutorService } from 'src/modules/tutor/services/tutor.service';
 import { AvailabilityService } from '../services/availability.service';
 import { GetAvailabilityQueryDto } from '../dto/GetAvailabilityQueryDto';
-import { buildPaginatedResponse } from '../../common/helpers/pagination.helper';
+import { buildPaginatedResponse } from 'src/modules/common/helpers/pagination.helper';
 
 @Controller('availability')
 export class AvailabilityController {
@@ -43,92 +42,71 @@ export class AvailabilityController {
     private readonly availabilityService: AvailabilityService,
   ) {}
 
+
   //====================================================
   // GET /api/v1/availability/tutors/me
   // Visualizar mi disponibilidad como tutor
   //====================================================
   @Get('tutors/me')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @UsePipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  )
   @Roles(UserRole.TUTOR)
   async getMyAvailability(
-    @CurrentUser() user: User,
-    @Query() query: GetAvailabilityQueryDto,
+    @CurrentUser() user: User
+
   ) {
+
     const tutor = await this.tutorService.findByUserId(user.idUser);
 
     if (!tutor) {
-      throw new NotFoundException('Tutor profile not found');
-    }
-
-    return await this.availabilityService.getTutorAvailability(tutor.idUser, {
-      weekStart: query.weekStart,
-    });
+    throw new NotFoundException('Tutor profile not found');
   }
+
+    return await this.availabilityService.getTutorAvailability(tutor.idUser, {});
+  }
+
 
   //====================================================
   // GET /api/v1/availability/tutors/subject
   // RF-14: Visualizar tutores por materia (Código o Nombre) con su disponibilidad
   //====================================================
   @Get('tutors/subject')
-  @UsePipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  )
   async getTutorsBySubject(@Query() filters: FilterTutorsDto) {
-    if (!filters.subjectId && !filters.subjectName) {
-      throw new BadRequestException(
-        'Debe proporcionar subjectId o subjectName',
-      );
-    }
-
-    let subject;
-    if (filters.subjectId) {
-      subject = await this.subjectsService.findById(filters.subjectId);
-    } else if (filters.subjectName) {
-      subject = await this.subjectsService.findByName(filters.subjectName);
-    }
-
-    if (!subject) {
-      throw new NotFoundException(
-        `Subject not found with ${filters.subjectId ? 'ID' : 'name'}: ${filters.subjectId || filters.subjectName}`,
-      );
-    }
-
-    const { tutors, total } =
-      await this.availabilityService.getTutorsBySubjectWithAvailability(
-        subject.idSubject,
-        {
-          onlyAvailable: filters.onlyAvailable,
-          modality: filters.modality,
-          page: filters.page,
-          limit: filters.limit,
-        },
-      );
-
-    return {
-      success: true,
-      subject: {
-        id: subject.idSubject,
-        name: subject.name,
-      },
-      ...buildPaginatedResponse(
-        tutors,
-        total,
-        filters.page ?? 1,
-        filters.limit ?? 10,
-      ),
-    };
+  if (!filters.subjectId && !filters.subjectName) {
+    throw new BadRequestException('Debe proporcionar subjectId o subjectName');
   }
+
+  let subject;
+  if (filters.subjectId) {
+    subject = await this.subjectsService.findById(filters.subjectId);
+  } else if (filters.subjectName) {
+    subject = await this.subjectsService.findByName(filters.subjectName);
+  }
+
+  if (!subject) {
+    throw new NotFoundException(
+      `Subject not found with ${filters.subjectId ? 'ID' : 'name'}: ${filters.subjectId || filters.subjectName}`,
+    );
+  }
+
+  const { tutors, total } = await this.availabilityService.getTutorsBySubjectWithAvailability(
+    subject.idSubject,
+    {
+      onlyAvailable: filters.onlyAvailable,
+      modality: filters.modality,
+      page: filters.page,
+      limit: filters.limit,
+    },
+  );
+
+  return {
+    success: true,
+    subject: {
+      id: subject.idSubject,
+      name: subject.name,
+    },
+    ...buildPaginatedResponse(tutors, total, filters.page ?? 1, filters.limit ?? 10),
+  };
+}
 
   /**
    * POST /api/v1/availability/tutor/slots
@@ -137,13 +115,6 @@ export class AvailabilityController {
    */
   @Post('tutor/slots')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @UsePipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  )
   @Roles(UserRole.TUTOR)
   async manageSlot(
     @CurrentUser() user: User,
@@ -153,14 +124,9 @@ export class AvailabilityController {
 
     // Enrutar según la acción solicitada
     switch (manageSlotDto.action) {
-      case SlotAction.CREATE: {
+      case SlotAction.CREATE:
         const createData = manageSlotDto.data as CreateSlotDto;
-        if (
-          !createData ||
-          !createData.dayOfWeek ||
-          !createData.startTime ||
-          !createData.modality
-        ) {
+        if (!createData || !createData.dayOfWeek || !createData.startTime || !createData.modality) {
           throw new BadRequestException(
             'Para CREATE se requieren: dayOfWeek, startTime, modality',
           );
@@ -174,9 +140,8 @@ export class AvailabilityController {
           message: 'Franja de disponibilidad creada exitosamente',
           slot: createdSlot,
         };
-      }
 
-      case SlotAction.UPDATE: {
+      case SlotAction.UPDATE:
         const updateData = manageSlotDto.data as UpdateSlotDto;
         if (!updateData || !updateData.slotId) {
           throw new BadRequestException('Para UPDATE se requiere: slotId');
@@ -190,9 +155,8 @@ export class AvailabilityController {
           message: 'Franja de disponibilidad actualizada exitosamente',
           slot: updatedSlot,
         };
-      }
 
-      case SlotAction.DELETE: {
+      case SlotAction.DELETE:
         const deleteData = manageSlotDto.data as DeleteSlotDto;
         if (!deleteData || !deleteData.slotId) {
           throw new BadRequestException('Para DELETE se requiere: slotId');
@@ -205,48 +169,10 @@ export class AvailabilityController {
           statusCode: HttpStatus.OK,
           ...result,
         };
-      }
 
       default:
         throw new BadRequestException('Acción no válida');
     }
-  }
-
-  //====================================================
-  // PATCH /api/v1/availability/tutor/me/limits
-  // Actualizar límite semanal máximo agendable (solo TUTOR autenticado)
-  //====================================================
-  @Patch('tutor/me/limits')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @UsePipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  )
-  @Roles(UserRole.TUTOR)
-  @HttpCode(HttpStatus.OK)
-  async updateMyWeeklyHoursLimit(
-    @CurrentUser() user: User,
-    @Body(
-      new ValidationPipe({
-        whitelist: true,
-        forbidNonWhitelisted: true,
-        transform: true,
-        exceptionFactory: () =>
-          new BadRequestException({
-            errorCode: 'VALIDATION_01',
-            message: 'Datos de entrada inválidos',
-          }),
-      }),
-    )
-    dto: UpdateWeeklyHoursLimitDto,
-  ) {
-    return this.tutorService.updateWeeklyHoursLimit(
-      user.idUser,
-      dto.maxWeeklyHours,
-    );
   }
 
   /**
@@ -256,22 +182,13 @@ export class AvailabilityController {
   @Post('tutor/slots/range')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.TUTOR)
-  @UsePipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  )
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
   @HttpCode(HttpStatus.CREATED)
   async createSlotsInRange(
     @CurrentUser() user: User,
     @Body() dto: CreateSlotRangeDto,
   ) {
-    const slots = await this.availabilityService.createSlotsInRange(
-      user.idUser,
-      dto,
-    );
+    const slots = await this.availabilityService.createSlotsInRange(user.idUser, dto);
 
     return {
       statusCode: HttpStatus.CREATED,
@@ -287,22 +204,13 @@ export class AvailabilityController {
   @Patch('tutor/slots/range')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.TUTOR)
-  @UsePipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  )
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
   @HttpCode(HttpStatus.OK)
   async updateSlotsInRange(
     @CurrentUser() user: User,
     @Body() dto: CreateSlotRangeDto,
   ) {
-    const slots = await this.availabilityService.updateSlotsInRange(
-      user.idUser,
-      dto,
-    );
+    const slots = await this.availabilityService.updateSlotsInRange(user.idUser, dto);
 
     return {
       statusCode: HttpStatus.OK,
@@ -318,22 +226,13 @@ export class AvailabilityController {
   @Delete('tutor/slots/range')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.TUTOR)
-  @UsePipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  )
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
   @HttpCode(HttpStatus.OK)
   async deleteSlotsInRange(
     @CurrentUser() user: User,
     @Body() dto: CreateSlotRangeDto,
   ) {
-    const result = await this.availabilityService.deleteSlotsInRange(
-      user.idUser,
-      dto,
-    );
+    const result = await this.availabilityService.deleteSlotsInRange(user.idUser, dto);
 
     return {
       statusCode: HttpStatus.OK,
@@ -345,20 +244,13 @@ export class AvailabilityController {
   /**
    * GET /api/availability/tutors/:tutorId
    * RF16:Ver disponibilidad de un tutor específico (público/estudiantes)
-   *
+   * 
    * Query params opcionales:
    * - onlyAvailable: true/false (solo slots sin reserva)
    * - onlyFuture: true/false (solo slots futuros)
    * - modality: PRES/VIRT (filtrar por modalidad)
    */
   @Get('tutors/:tutorId/slots')
-  @UsePipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  )
   async getTutorAvailability(
     @Param('tutorId', ParseUUIDPipe) tutorId: string,
     @Query() query: GetAvailabilityQueryDto,
@@ -367,7 +259,6 @@ export class AvailabilityController {
       onlyAvailable: query.onlyAvailable,
       onlyFuture: query.onlyFuture,
       modality: query.modality,
-      weekStart: query.weekStart, // NUEVO
     });
   }
 
@@ -377,17 +268,12 @@ export class AvailabilityController {
    * Útil para mostrar un directorio de tutores disponibles
    */
   @Get('tutors/slots')
-  @UsePipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  )
   async getAllAvailableTutors(@Query() query: GetAvailabilityQueryDto) {
     return await this.availabilityService.getAllAvailableTutors({
       modality: query.modality,
       onlyAvailable: query.onlyAvailable,
     });
   }
+
+
 }

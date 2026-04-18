@@ -33,19 +33,20 @@ export class AuthController {
   constructor(
     private authService: AuthService,
     private auditService: AuditService,
-  ) {}
+  ) { }
 
   // =====================================================
   // POST /api/v1/auth/register
   // Registrar estudiante
   // =====================================================
-
+  
   @Public()
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   async register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
   }
+  
 
   // =====================================================
   // POST /api/v1/auth/confirm-email
@@ -216,6 +217,7 @@ export class AuthController {
     };
   }
 
+
   // =====================================================
   //GET api/v1/auth/me
   //Valida el accessToken y retorna la info del usuario actual
@@ -251,4 +253,6 @@ export class AuthController {
       content: csv,
     };
   }
+
+
 }

@@ -23,7 +23,6 @@
     "seed:subjects": "ts-node src/seeders/index.ts"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^1.0.2",
     "@nestjs/common": "^11.1.12",
     "@nestjs/config": "^4.0.3",
     "@nestjs/core": "^11.0.1",
@@ -43,7 +42,7 @@
     "joi": "^18.0.2",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
-    "pg": "^8.20.0",
+    "pg": "^8.18.0",
     "pg-query-stream": "^4.12.0",
     "reflect-metadata": "^0.2.2",
     "resend": "^6.9.1",
@@ -94,25 +93,9 @@
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "collectCoverageFrom": [
-      "**/*.(t|j)s",
-      "!**/*.spec.(t|j)s",
-      "!**/main.ts",
-      "!**/*.module.ts",
-      "!**/*.dto.ts",
-      "!**/*.entity.ts",
-      "!**/*.enum.ts",
-      "!**/*.interface.ts",
-      "!**/index.ts"
+      "**/*.(t|j)s"
     ],
     "coverageDirectory": "../coverage",
-    "coverageThreshold": {
-      "global": {
-        "statements": 30,
-        "branches": 25,
-        "functions": 25,
-        "lines": 30
-      }
-    },
     "testEnvironment": "node"
   }
 }

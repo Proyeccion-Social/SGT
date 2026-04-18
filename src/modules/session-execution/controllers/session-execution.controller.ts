@@ -51,10 +51,7 @@ export class SessionExecutionController {
     sessionId: string,
     @CurrentUser() user: User,
   ) {
-    return this.attendanceService.registerCompletedSession(
-      sessionId,
-      user.idUser,
-    );
+    return this.attendanceService.registerCompletedSession(sessionId, user.idUser);
   }
 
   @Patch('sessions/:sessionId/attendance')
@@ -329,4 +326,5 @@ export class SessionExecutionController {
       query.subjectId,
     );
   }
+
 }

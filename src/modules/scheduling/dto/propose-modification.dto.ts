@@ -7,7 +7,7 @@ import {
   IsNumber,
   IsIn,
 } from 'class-validator';
-import { Modality } from '../../availability/enums/modality.enum';
+import { Modality } from 'src/modules/availability/enums/modality.enum';
 
 export class ProposeModificationDto {
   @IsOptional()

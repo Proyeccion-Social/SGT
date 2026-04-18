@@ -12,11 +12,7 @@ import { Availability } from '../../availability/entities/availability.entity';
 import { Tutor } from '../../tutor/entities/tutor.entity';
 
 @Entity('scheduled_sessions')
-@Unique('UQ_tutor_availability_date', [
-  'idTutor',
-  'idAvailability',
-  'scheduledDate',
-])
+@Unique('UQ_tutor_availability_date', ['idTutor', 'idAvailability', 'scheduledDate'])
 export class ScheduledSession {
   @Column({ name: 'id_tutor', type: 'uuid' })
   idTutor: string;

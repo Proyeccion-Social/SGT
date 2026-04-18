@@ -24,7 +24,7 @@ export class CompleteTutorProfileDto {
 
   @IsInt()
   @Min(1, { message: 'Debe agendar mínimo 1 hora semanal' })
-  @Max(8, { message: 'Máximo 8 horas semanales' })
+  @Max(40, { message: 'Máximo 40 horas semanales' })
   max_weekly_hours!: number;
 
   @IsArray()

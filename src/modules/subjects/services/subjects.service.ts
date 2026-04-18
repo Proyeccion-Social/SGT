@@ -1,23 +1,20 @@
 // src/subjects/services/subject.service.ts
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Subject } from '../entities/subjects.entity';
 import { TutorImpartSubject } from '../entities/tutor-subject.entity';
-import { buildPaginatedResponse } from '../../common/helpers/pagination.helper';
+import { buildPaginatedResponse } from 'src/modules/common/helpers/pagination.helper';
 
 @Injectable()
 export class SubjectsService {
+
   constructor(
     @InjectRepository(Subject, 'local')
     private readonly subjectRepository: Repository<Subject>,
     @InjectRepository(TutorImpartSubject, 'local')
     private readonly tutorImpartSubjectRepository: Repository<TutorImpartSubject>,
-  ) {}
+  ) { }
 
   // =====================================================
   // CRUD BÁSICO DE SUBJECTS
@@ -61,19 +58,19 @@ export class SubjectsService {
    * Obtener todas las materias activas
    */
   async findAll(page: number = 1, limit: number = 10) {
-    const [subjects, total] = await this.subjectRepository.findAndCount({
-      order: { name: 'ASC' },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+  const [subjects, total] = await this.subjectRepository.findAndCount({
+    order: { name: 'ASC' },
+    skip: (page - 1) * limit,
+    take: limit,
+  });
 
-    return buildPaginatedResponse(
-      subjects.map((s) => ({ id: s.idSubject, name: s.name })),
-      total,
-      page,
-      limit,
-    );
-  }
+  return buildPaginatedResponse(
+    subjects.map((s) => ({ id: s.idSubject, name: s.name })),
+    total,
+    page,
+    limit,
+  );
+}
 
   /**
    * Verificar si una materia existe
@@ -96,7 +93,7 @@ export class SubjectsService {
     tutorId: string,
     subjectIds: string[],
   ): Promise<void> {
-    //Validación de límite de materias
+    //Validación de límite de materias 
     if (subjectIds.length < 1) {
       throw new BadRequestException('Debe asignar al menos una materia');
     }

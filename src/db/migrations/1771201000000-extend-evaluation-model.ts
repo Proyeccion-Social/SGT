@@ -51,12 +51,8 @@ export class ExtendEvaluationModel1771201000000 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(
-      `DROP INDEX "public"."IDX_answers_session_student"`,
-    );
-    await queryRunner.query(
-      `DROP INDEX "public"."IDX_questions_version_order"`,
-    );
+    await queryRunner.query(`DROP INDEX "public"."IDX_answers_session_student"`);
+    await queryRunner.query(`DROP INDEX "public"."IDX_questions_version_order"`);
 
     await queryRunner.query(
       `ALTER TABLE "answers" DROP COLUMN "questionnaire_version"`,

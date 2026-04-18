@@ -37,12 +37,7 @@ export class Question {
   @Column({ name: 'max_score', type: 'smallint', default: 5 })
   maxScore: number;
 
-  @Column({
-    name: 'questionnaire_version',
-    type: 'varchar',
-    length: 20,
-    default: '1.0',
-  })
+  @Column({ name: 'questionnaire_version', type: 'varchar', length: 20, default: '1.0' })
   questionnaireVersion: string;
 
   @Column({ name: 'is_active', type: 'boolean', default: true })
