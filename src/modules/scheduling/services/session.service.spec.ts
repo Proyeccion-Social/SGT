@@ -720,7 +720,9 @@ describe('SessionService', () => {
 
       const result = await service.confirmSession('tutor-1', 'session-1', {});
 
-      expect(session.status).toBe(SessionStatus.SCHEDULED);
+      expect(session.status).toBe(
+        SessionStatus.SCHEDULED,
+      );
       expect(session.tutorConfirmed).toBe(true);
       expect(result.autoRejectedCount).toBe(0);
       expect(queryRunnerMock.commitTransaction).toHaveBeenCalled();
