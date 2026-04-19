@@ -135,6 +135,13 @@ export class SessionService {
         dto.durationHours,
       );
 
+      // No supera el límite diario del tutor (máximo 4 horas por día)
+      await this.validationService.validateDailyHoursLimit(
+        dto.tutorId,
+        dto.scheduledDate,
+        dto.durationHours,
+      );
+
       // ── 2. Verificación de concurrencia con lock pesimista ────────────────
       //
       // Aquí solo bloqueamos si hay OTRA sesión CONFIRMADA (SCHEDULED) en el
@@ -664,6 +671,16 @@ export class SessionService {
         newDuration,
         session.idSession,
       );
+
+      // ========================================
+      // VALIDACIÓN DE LÍMITE DIARIO
+      // ========================================
+      await this.validationService.validateDailyHoursLimit(
+        session.idTutor,
+        newDate,
+        newDuration,
+        session.idSession,
+      );
     }
 
     // ========================================
@@ -834,6 +851,14 @@ export class SessionService {
         session.idTutor,
         newDate,
         newStartTime,
+        newDuration,
+        session.idSession,
+      );
+
+      // Re-validar límite diario antes de aceptar la modificación
+      await this.validationService.validateDailyHoursLimit(
+        session.idTutor,
+        newDate,
         newDuration,
         session.idSession,
       );

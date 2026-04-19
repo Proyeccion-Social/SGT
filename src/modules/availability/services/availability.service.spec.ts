@@ -565,14 +565,22 @@ describe('AvailabilityService', () => {
           idTutor: 'tutor-1',
           idAvailability: 10,
           modality: Modality.PRES,
-          availability: { idAvailability: 10, dayOfWeek: 0, startTime: '08:00' },
+          availability: {
+            idAvailability: 10,
+            dayOfWeek: 0,
+            startTime: '08:00',
+          },
           tutor: { user: { name: 'John Tutor' } },
         },
         {
           idTutor: 'tutor-1',
           idAvailability: 11,
           modality: Modality.PRES,
-          availability: { idAvailability: 11, dayOfWeek: 0, startTime: '08:30' },
+          availability: {
+            idAvailability: 11,
+            dayOfWeek: 0,
+            startTime: '08:30',
+          },
           tutor: { user: { name: 'John Tutor' } },
         },
       ];
@@ -614,7 +622,11 @@ describe('AvailabilityService', () => {
           idTutor: 'tutor-1',
           idAvailability: 10,
           modality: Modality.PRES,
-          availability: { idAvailability: 10, dayOfWeek: 0, startTime: '08:00' },
+          availability: {
+            idAvailability: 10,
+            dayOfWeek: 0,
+            startTime: '08:00',
+          },
           tutor: { user: { name: 'John Tutor' } },
         },
       ];
@@ -646,14 +658,22 @@ describe('AvailabilityService', () => {
           idTutor: 'tutor-1',
           idAvailability: 10,
           modality: Modality.PRES,
-          availability: { idAvailability: 10, dayOfWeek: 0, startTime: '08:00' },
+          availability: {
+            idAvailability: 10,
+            dayOfWeek: 0,
+            startTime: '08:00',
+          },
           tutor: { user: { name: 'John Tutor' } },
         },
         {
           idTutor: 'tutor-1',
           idAvailability: 11,
           modality: Modality.PRES,
-          availability: { idAvailability: 11, dayOfWeek: 0, startTime: '08:30' },
+          availability: {
+            idAvailability: 11,
+            dayOfWeek: 0,
+            startTime: '08:30',
+          },
           tutor: { user: { name: 'John Tutor' } },
         },
       ];
@@ -920,14 +940,22 @@ describe('AvailabilityService', () => {
           idAvailability: 10,
           modality: Modality.PRES,
           availability: { dayOfWeek: 0, startTime: '08:00' },
-          tutor: { isActive: true, profile_completed: true, user: { name: 'John Tutor' } },
+          tutor: {
+            isActive: true,
+            profile_completed: true,
+            user: { name: 'John Tutor' },
+          },
         },
         {
           idTutor: 'tutor-1',
           idAvailability: 11,
           modality: Modality.PRES,
           availability: { dayOfWeek: 0, startTime: '08:30' },
-          tutor: { isActive: true, profile_completed: true, user: { name: 'John Tutor' } },
+          tutor: {
+            isActive: true,
+            profile_completed: true,
+            user: { name: 'John Tutor' },
+          },
         },
       ]);
 
@@ -935,7 +963,9 @@ describe('AvailabilityService', () => {
 
       const scheduledQb = createQueryBuilderMock();
       scheduledQb.getMany.mockResolvedValue([]);
-      scheduledSessionRepository.createQueryBuilder.mockReturnValue(scheduledQb);
+      scheduledSessionRepository.createQueryBuilder.mockReturnValue(
+        scheduledQb,
+      );
 
       const result = await service.getAllAvailableTutors();
 
@@ -957,7 +987,11 @@ describe('AvailabilityService', () => {
           idAvailability: 10,
           modality: Modality.PRES,
           availability: { dayOfWeek: 0, startTime: '08:00' },
-          tutor: { isActive: true, profile_completed: true, user: { name: 'John Tutor' } },
+          tutor: {
+            isActive: true,
+            profile_completed: true,
+            user: { name: 'John Tutor' },
+          },
         },
       ]);
 
@@ -965,7 +999,9 @@ describe('AvailabilityService', () => {
 
       const scheduledQb = createQueryBuilderMock();
       scheduledQb.getMany.mockResolvedValue([]);
-      scheduledSessionRepository.createQueryBuilder.mockReturnValue(scheduledQb);
+      scheduledSessionRepository.createQueryBuilder.mockReturnValue(
+        scheduledQb,
+      );
 
       const result = await service.getAllAvailableTutors({
         modality: Modality.PRES,
@@ -983,14 +1019,22 @@ describe('AvailabilityService', () => {
           idAvailability: 10,
           modality: Modality.PRES,
           availability: { dayOfWeek: 0, startTime: '08:00' },
-          tutor: { isActive: true, profile_completed: true, user: { name: 'John Tutor' } },
+          tutor: {
+            isActive: true,
+            profile_completed: true,
+            user: { name: 'John Tutor' },
+          },
         },
         {
           idTutor: 'tutor-2',
           idAvailability: 20,
           modality: Modality.VIRT,
           availability: { dayOfWeek: 0, startTime: '09:00' },
-          tutor: { isActive: true, profile_completed: true, user: { name: 'Jane Tutor' } },
+          tutor: {
+            isActive: true,
+            profile_completed: true,
+            user: { name: 'Jane Tutor' },
+          },
         },
       ]);
 
@@ -1008,7 +1052,9 @@ describe('AvailabilityService', () => {
         ]) // tutor-1 has occupied slot
         .mockResolvedValueOnce([]); // tutor-2 has available slots
 
-      scheduledSessionRepository.createQueryBuilder.mockReturnValue(scheduledQb);
+      scheduledSessionRepository.createQueryBuilder.mockReturnValue(
+        scheduledQb,
+      );
 
       const result = await service.getAllAvailableTutors({
         onlyAvailable: true,
@@ -1033,7 +1079,11 @@ describe('AvailabilityService', () => {
           idTutor: 'tutor-1',
           idAvailability: 10,
           modality: Modality.PRES,
-          availability: { dayOfWeek: 0, startTime: '08:00', idAvailability: 10 },
+          availability: {
+            dayOfWeek: 0,
+            startTime: '08:00',
+            idAvailability: 10,
+          },
           tutor: { user: { name: 'John Tutor' } },
         },
       ]);
@@ -1045,9 +1095,12 @@ describe('AvailabilityService', () => {
 
       const scheduledQb = createQueryBuilderMock();
       scheduledQb.getMany.mockResolvedValue([]);
-      scheduledSessionRepository.createQueryBuilder.mockReturnValue(scheduledQb);
+      scheduledSessionRepository.createQueryBuilder.mockReturnValue(
+        scheduledQb,
+      );
 
-      const result = await service.getTutorsBySubjectWithAvailability('subject-1');
+      const result =
+        await service.getTutorsBySubjectWithAvailability('subject-1');
 
       expect(result).toEqual(
         expect.objectContaining({
@@ -1081,7 +1134,9 @@ describe('AvailabilityService', () => {
 
       const scheduledQb = createQueryBuilderMock();
       scheduledQb.getMany.mockResolvedValue([]);
-      scheduledSessionRepository.createQueryBuilder.mockReturnValue(scheduledQb);
+      scheduledSessionRepository.createQueryBuilder.mockReturnValue(
+        scheduledQb,
+      );
 
       const result = await service.getTutorsBySubjectWithAvailability(
         'subject-1',
@@ -1100,9 +1155,8 @@ describe('AvailabilityService', () => {
         eligibleQb,
       );
 
-      const result = await service.getTutorsBySubjectWithAvailability(
-        'subject-999',
-      );
+      const result =
+        await service.getTutorsBySubjectWithAvailability('subject-999');
 
       expect(result).toEqual({
         tutors: [],
@@ -1133,7 +1187,9 @@ describe('AvailabilityService', () => {
 
       const scheduledQb = createQueryBuilderMock();
       scheduledQb.getMany.mockResolvedValue([]);
-      scheduledSessionRepository.createQueryBuilder.mockReturnValue(scheduledQb);
+      scheduledSessionRepository.createQueryBuilder.mockReturnValue(
+        scheduledQb,
+      );
 
       const result = await service.getTutorsBySubjectWithAvailability(
         'subject-1',
