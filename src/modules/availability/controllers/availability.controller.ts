@@ -36,6 +36,13 @@ import { GetAvailabilityQueryDto } from '../dto/GetAvailabilityQueryDto';
 import { buildPaginatedResponse } from '../../common/helpers/pagination.helper';
 
 @Controller('availability')
+@UsePipes(
+  new ValidationPipe({
+    whitelist: true,
+    forbidNonWhitelisted: true,
+    transform: true,
+  })
+)
 export class AvailabilityController {
   constructor(
     private readonly subjectsService: SubjectsService,
@@ -48,14 +55,6 @@ export class AvailabilityController {
   // Visualizar mi disponibilidad como tutor
   //====================================================
   @Get('tutors/me')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @UsePipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  )
   @Roles(UserRole.TUTOR)
   async getMyAvailability(
     @CurrentUser() user: User,
@@ -77,13 +76,6 @@ export class AvailabilityController {
   // RF-14: Visualizar tutores por materia (Código o Nombre) con su disponibilidad
   //====================================================
   @Get('tutors/subject')
-  @UsePipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  )
   async getTutorsBySubject(@Query() filters: FilterTutorsDto) {
     if (!filters.subjectId && !filters.subjectName) {
       throw new BadRequestException(
@@ -136,14 +128,6 @@ export class AvailabilityController {
    * Solo accesible para usuarios con rol TUTOR
    */
   @Post('tutor/slots')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @UsePipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  )
   @Roles(UserRole.TUTOR)
   async manageSlot(
     @CurrentUser() user: User,
@@ -217,14 +201,6 @@ export class AvailabilityController {
   // Actualizar límite semanal máximo agendable (solo TUTOR autenticado)
   //====================================================
   @Patch('tutor/me/limits')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @UsePipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  )
   @Roles(UserRole.TUTOR)
   @HttpCode(HttpStatus.OK)
   async updateMyWeeklyHoursLimit(
@@ -254,15 +230,6 @@ export class AvailabilityController {
    * Crea múltiples slots de 30 minutos en un rango horario para el tutor autenticado.
    */
   @Post('tutor/slots/range')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.TUTOR)
-  @UsePipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  )
   @HttpCode(HttpStatus.CREATED)
   async createSlotsInRange(
     @CurrentUser() user: User,
@@ -285,15 +252,6 @@ export class AvailabilityController {
    * Actualiza la modalidad de las franjas dentro de un rango para el tutor autenticado.
    */
   @Patch('tutor/slots/range')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.TUTOR)
-  @UsePipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  )
   @HttpCode(HttpStatus.OK)
   async updateSlotsInRange(
     @CurrentUser() user: User,
@@ -316,15 +274,6 @@ export class AvailabilityController {
    * Elimina las franjas dentro de un rango para el tutor autenticado.
    */
   @Delete('tutor/slots/range')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.TUTOR)
-  @UsePipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  )
   @HttpCode(HttpStatus.OK)
   async deleteSlotsInRange(
     @CurrentUser() user: User,
@@ -352,13 +301,6 @@ export class AvailabilityController {
    * - modality: PRES/VIRT (filtrar por modalidad)
    */
   @Get('tutors/:tutorId/slots')
-  @UsePipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  )
   async getTutorAvailability(
     @Param('tutorId', ParseUUIDPipe) tutorId: string,
     @Query() query: GetAvailabilityQueryDto,
@@ -377,13 +319,6 @@ export class AvailabilityController {
    * Útil para mostrar un directorio de tutores disponibles
    */
   @Get('tutors/slots')
-  @UsePipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  )
   async getAllAvailableTutors(@Query() query: GetAvailabilityQueryDto) {
     return await this.availabilityService.getAllAvailableTutors({
       modality: query.modality,

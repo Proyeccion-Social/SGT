@@ -8,7 +8,7 @@ async function bootstrap() {
   app.setGlobalPrefix('api/v1');
 
   // Validar DTOs globalmente
-  app.useGlobalPipes(
+  /*app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true, // Elimina propiedades no definidas en el DTO
       forbidNonWhitelisted: true, // Lanza error si hay propiedades extra
@@ -18,6 +18,7 @@ async function bootstrap() {
       },
     }),
   );
+  */
 
   await app.listen(process.env.PORT ?? 3000);
 }
