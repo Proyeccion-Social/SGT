@@ -663,7 +663,12 @@ describe('AvailabilityService', () => {
     });
 
     it('throws NotFoundException if tutor has no availability configured', async () => {
+      // Ensure mocks are properly reset and set up for this test
       tutorHaveAvailabilityRepository.find.mockResolvedValue([]);
+      // Also ensure scheduledSessionRepository is mocked if getTutorAvailability uses it
+      const qb = createQueryBuilderMock();
+      qb.getMany.mockResolvedValue([]);
+      scheduledSessionRepository.createQueryBuilder.mockReturnValue(qb);
 
       await expect(
         service.getTutorAvailability('tutor-1'),

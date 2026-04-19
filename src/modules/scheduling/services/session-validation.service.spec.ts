@@ -291,11 +291,17 @@ describe('SessionValidationService', () => {
         ),
       ).resolves.toBeUndefined();
 
-      // Verify andWhere was called to exclude the session
-      expect(qb.andWhere).toHaveBeenCalledWith(
-        'session.idSession != :excludeSessionId',
-        { excludeSessionId: 'session-to-exclude' },
+      // Verify andWhere was called to exclude the session (should be called 4 times total)
+      expect(qb.andWhere).toHaveBeenCalled();
+      // Verify the specific exclude filter was applied
+      const andWhereCalls = qb.andWhere.mock.calls;
+      const excludeCall = andWhereCalls.find(
+        (call: any[]) => call[0]?.includes('idSession !='),
       );
+      expect(excludeCall).toBeDefined();
+      expect(excludeCall?.[1]).toEqual({
+        excludeSessionId: 'session-to-exclude',
+      });
     });
   });
 

@@ -714,8 +714,9 @@ describe('SessionService', () => {
         }) // scheduledSession
         .mockResolvedValueOnce({ idStudent: 'student-1' }); // confirmedParticipation
 
-      // getSessionById call after commit needs sessionRepository
+      // Post-transaction mock setup
       sessionRepository.findOne.mockResolvedValue(mockSession());
+      managerMock.save.mockResolvedValue({ ...session, status: SessionStatus.SCHEDULED });
 
       const result = await service.confirmSession('tutor-1', 'session-1', {});
 
