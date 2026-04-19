@@ -344,14 +344,37 @@ export class SessionService {
         );
       }
 
-      // Validar que la confirmación no cause que se exceda el límite diario
+      // Validar que la confirmación no cause que se exceda el límite diario.
+      // Esta validación debe hacerse dentro de la misma transacción y con lock
+      // sobre las sesiones del tutor en el día para evitar carreras entre
+      // confirmaciones concurrentes de distintas franjas del mismo día.
       const sessionDuration = this.calcDuration(session);
-      await this.validationService.validateDailyHoursLimit(
-        tutorId,
-        session.scheduledDate,
-        sessionDuration,
-        sessionId, // excluir esta sesión de la cuenta
-      );
+      const daySessions = await queryRunner.manager
+        .createQueryBuilder(ScheduledSession, 'ss')
+        .innerJoinAndSelect('ss.session', 'daySession')
+        .where('ss.idTutor = :tutorId', { tutorId })
+        .andWhere('ss.scheduledDate = :scheduledDate', {
+          scheduledDate: scheduledSession.scheduledDate,
+        })
+        .orderBy('ss.idSession', 'ASC')
+        .setLock('pessimistic_write')
+        .getMany();
+      const alreadyScheduledMinutes = daySessions.reduce((total, dayScheduled) => {
+        if (
+          dayScheduled.idSession === sessionId ||
+          !dayScheduled.session ||
+          dayScheduled.session.status !== SessionStatus.SCHEDULED
+        ) {
+          return total;
+        }
+        return total + this.calcDuration(dayScheduled.session);
+      }, 0);
+      const maxDailyMinutes = 4 * 60;
+      if (alreadyScheduledMinutes + sessionDuration > maxDailyMinutes) {
+        throw new BadRequestException(
+          'La confirmación excede el límite diario de 4 horas para el tutor.',
+        );
+      }
 
       // Confirmar
       session.status = SessionStatus.SCHEDULED;
