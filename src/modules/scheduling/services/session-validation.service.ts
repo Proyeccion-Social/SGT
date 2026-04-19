@@ -220,6 +220,56 @@ export class SessionValidationService {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // HU-19.1.4 — Límite diario del tutor
+  //
+  // Valida que las horas AGENDADAS en un día específico no excedan el límite
+  // diario (máximo 4 horas). Solo cuenta sesiones SCHEDULED + PENDING_MODIFICATION
+  // ─────────────────────────────────────────────────────────────────────────
+
+  async validateDailyHoursLimit(
+    tutorId: string,
+    scheduledDate: string, // 'YYYY-MM-DD'
+    durationHours: number,
+    excludeSessionId?: string,
+  ): Promise<void> {
+    const qb = this.sessionRepository
+      .createQueryBuilder('session')
+      .where('session.idTutor = :tutorId', { tutorId })
+      .andWhere('DATE(session.scheduledDate) = :scheduledDate', {
+        scheduledDate,
+      })
+      .andWhere('session.status IN (:...activeStatuses)', {
+        activeStatuses: [
+          SessionStatus.SCHEDULED,
+          SessionStatus.PENDING_MODIFICATION,
+        ],
+      });
+
+    if (excludeSessionId) {
+      qb.andWhere('session.idSession != :excludeSessionId', {
+        excludeSessionId,
+      });
+    }
+
+    const sessions = await qb.getMany();
+
+    const hoursThisDay = sessions.reduce(
+      (sum, s) => sum + this.calcDurationFromTimes(s.startTime, s.endTime),
+      0,
+    );
+
+    const DAILY_HOURS_LIMIT = 4; // Máximo 4 horas por día
+
+    if (hoursThisDay + durationHours > DAILY_HOURS_LIMIT) {
+      throw new BadRequestException(
+        `El tutor ha alcanzado su límite diario de ${DAILY_HOURS_LIMIT}h ` +
+          `(${hoursThisDay}h usadas + ${durationHours}h solicitadas = ` +
+          `${hoursThisDay + durationHours}h).`,
+      );
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   // HU-19.1.4 — Límite semanal del tutor
   //
   // Usamos parseISO (date-fns) para construir el Date de referencia desde

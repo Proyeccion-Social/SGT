@@ -77,7 +77,6 @@ interface OccupiedRange {
 @Injectable()
 export class AvailabilityService {
   private readonly SLOT_DURATION_MINUTES = 30;
-  private readonly MAX_SLOTS_PER_DAY = 8;
 
   constructor(
     @InjectRepository(Availability, 'local')
@@ -97,7 +96,6 @@ export class AvailabilityService {
   async createSlot(tutorId: string, dto: CreateSlotDto) {
     const dayOfWeekNumber = DayOfWeekToNumber[dto.dayOfWeek];
     await this.validateNoOverlap(tutorId, dayOfWeekNumber, dto.startTime);
-    await this.validateDailyHoursLimit(tutorId, dayOfWeekNumber);
 
     let availability = await this.availabilityRepository.findOne({
       where: { dayOfWeek: dayOfWeekNumber, startTime: dto.startTime },
@@ -160,14 +158,6 @@ export class AvailabilityService {
           .where('tha.idTutor = :tutorId', { tutorId })
           .andWhere('a.dayOfWeek = :dayOfWeek', { dayOfWeek: dayOfWeekNumber })
           .getCount();
-
-        if (existingSlotsInDay + slotTimes.length > this.MAX_SLOTS_PER_DAY) {
-          throw new BadRequestException({
-            errorCode: 'VALIDATION_01',
-            message:
-              'Excede el máximo diario de 4 horas. Ya tienes slots registrados para este día.',
-          });
-        }
 
         const overlappingSlots = await tutorHaveAvailabilityRepository
           .createQueryBuilder('tha')
@@ -1263,33 +1253,6 @@ export class AvailabilityService {
       throw new ConflictException(
         'Ya existe otra franja en ese horario para este día',
       );
-    }
-  }
-
-  private async validateDailyHoursLimit(
-    tutorId: string,
-    dayOfWeek: number,
-  ): Promise<void> {
-    const slotsInDay = await this.tutorHaveAvailabilityRepository
-      .createQueryBuilder('tha')
-      .innerJoin('tha.availability', 'a')
-      .where('tha.idTutor = :tutorId', { tutorId })
-      .andWhere('a.dayOfWeek = :dayOfWeek', { dayOfWeek })
-      .getCount();
-
-    if (slotsInDay >= this.MAX_SLOTS_PER_DAY) {
-      const daysWithSlots = await this.tutorHaveAvailabilityRepository
-        .createQueryBuilder('tha')
-        .innerJoin('tha.availability', 'a')
-        .select('DISTINCT a.dayOfWeek', 'day')
-        .where('tha.idTutor = :tutorId', { tutorId })
-        .getRawMany();
-
-      if (daysWithSlots.length > 1) {
-        throw new BadRequestException(
-          'Excede el máximo diario de 4 horas. Ya tienes 8 slots (4 horas) en este día.',
-        );
-      }
     }
   }
 }
