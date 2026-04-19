@@ -6,10 +6,6 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 @Module({
   imports: [TypeOrmModule.forFeature([Student], 'local')],
   providers: [StudentService],
-  exports: [StudentService,TypeOrmModule], //  Exportar para que otros módulos lo usen
+  exports: [StudentService, TypeOrmModule], //  Exportar para que otros módulos lo usen
 })
 export class StudentModule {}
-
-
-
-

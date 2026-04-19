@@ -7,7 +7,7 @@ import { Student } from '../entities/student.entity';
 @Injectable()
 export class StudentService {
   constructor(
-    @InjectRepository(Student,'local')
+    @InjectRepository(Student, 'local')
     private readonly studentRepository: Repository<Student>,
   ) {}
 

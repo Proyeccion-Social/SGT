@@ -33,10 +33,8 @@ import { AppNotificationsController } from './modules/app-notification/controlle
     SchedulingModule,
     SessionExecutionModule,
     AppNotificationsModule,
-
-
   ],
   providers: [AppNotificationsService],
   controllers: [AppNotificationsController],
 })
-export class AppModule { }
+export class AppModule {}

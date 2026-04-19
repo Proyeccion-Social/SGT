@@ -19,13 +19,13 @@ export class IsThirtyMinuteIncrementConstraint implements ValidatorConstraintInt
     // Validar formato HH:mm
     const timeRegex = /^([01]?[0-9]|2[0-3]):([0-5][0-9])$/;
     const match = time.match(timeRegex);
-    
+
     if (!match) {
       return false;
     }
 
     const minutes = parseInt(match[2], 10);
-    
+
     // Los minutos deben ser 00 o 30
     return minutes === 0 || minutes === 30;
   }

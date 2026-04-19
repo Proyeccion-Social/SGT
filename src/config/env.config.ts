@@ -32,24 +32,22 @@ export const envValidationSchema = Joi.object({
   }),
 
   // Database Neon
-  NEON_DATABASE_URL: Joi.string().uri().when('NODE_ENV', {
-    is: Joi.valid('production', 'test'),
-    then: Joi.string().uri().required(),
-    otherwise: Joi.string().uri().optional(),
-  }),
+  NEON_DATABASE_URL: Joi.string()
+    .uri()
+    .when('NODE_ENV', {
+      is: Joi.valid('production', 'test'),
+      then: Joi.string().uri().required(),
+      otherwise: Joi.string().uri().optional(),
+    }),
 
-  //Resend
-  RESEND_API_KEY: Joi.string().required(),
-  RESEND_FROM_EMAIL: Joi.string().email().required(),
+  //Resend — optional outside production; Vercel preview deployments can run
+  // without email credentials (features that send email will silently fail).
+  RESEND_API_KEY: Joi.string().default('dummy-resend-key'),
+  RESEND_FROM_EMAIL: Joi.string().email().default('dev@noreply.local'),
 
   // JWT Config
   JWT_SECRET: Joi.string().min(32).required(),
   JWT_EXPIRES_IN: Joi.string().default('15m'),
   JWT_REFRESH_SECRET: Joi.string().min(32).required(),
   JWT_REFRESH_EXPIRES_IN: Joi.string().default('7d'),
-
 });
-
-
-
-

@@ -48,12 +48,11 @@ const entities = [
   ScheduledSession,
   SessionModificationRequest,
   StudentParticipateSession,
-  
+
   Question,
   Answer,
 
   AppNotification,
-
 
   //Nuevas entidades de Auth
   AuthSession,
@@ -70,7 +69,8 @@ const entities = [
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService): TypeOrmModuleOptions => {
-        const isDevelopment = configService.get<string>('NODE_ENV') === 'development';
+        const isDevelopment =
+          configService.get<string>('NODE_ENV') === 'development';
 
         if (isDevelopment) {
           return {
@@ -81,7 +81,7 @@ const entities = [
             password: configService.get<string>('LOCAL_DB_PASSWORD') || '',
             database: configService.get<string>('LOCAL_DB_NAME'),
             entities,
-            synchronize: true,
+            synchronize: false,
             logging: true,
           };
         }
@@ -98,4 +98,4 @@ const entities = [
     }),
   ],
 })
-export class DatabaseModule { }
+export class DatabaseModule {}
