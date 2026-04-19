@@ -359,16 +359,19 @@ export class SessionService {
         .orderBy('ss.idSession', 'ASC')
         .setLock('pessimistic_write')
         .getMany();
-      const alreadyScheduledMinutes = daySessions.reduce((total, dayScheduled) => {
-        if (
-          dayScheduled.idSession === sessionId ||
-          !dayScheduled.session ||
-          dayScheduled.session.status !== SessionStatus.SCHEDULED
-        ) {
-          return total;
-        }
-        return total + this.calcDuration(dayScheduled.session);
-      }, 0);
+      const alreadyScheduledMinutes = daySessions.reduce(
+        (total, dayScheduled) => {
+          if (
+            dayScheduled.idSession === sessionId ||
+            !dayScheduled.session ||
+            dayScheduled.session.status !== SessionStatus.SCHEDULED
+          ) {
+            return total;
+          }
+          return total + this.calcDuration(dayScheduled.session);
+        },
+        0,
+      );
       const maxDailyMinutes = 4 * 60;
       if (alreadyScheduledMinutes + sessionDuration > maxDailyMinutes) {
         throw new BadRequestException(

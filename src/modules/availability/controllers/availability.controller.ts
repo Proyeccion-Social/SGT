@@ -41,7 +41,7 @@ import { buildPaginatedResponse } from '../../common/helpers/pagination.helper';
     whitelist: true,
     forbidNonWhitelisted: true,
     transform: true,
-  })
+  }),
 )
 export class AvailabilityController {
   constructor(
