@@ -135,12 +135,32 @@ export class SessionService {
         dto.durationHours,
       );
 
-      // No supera el límite diario del tutor (máximo 4 horas por día)
-      await this.validationService.validateDailyHoursLimit(
-        dto.tutorId,
-        dto.scheduledDate,
-        dto.durationHours,
-      );
+      // No supera el límite diario del tutor (máximo 4 horas por día).
+      // Esta validación debe correr dentro de la misma transacción y tomando
+      // lock sobre las sesiones del tutor en la fecha para evitar carreras
+      // entre requests concurrentes en slots distintos del mismo día.
+      const dailyHoursRaw = await queryRunner.manager
+        .createQueryBuilder(ScheduledSession, 'ss')
+        .innerJoin('ss.session', 'session')
+        .select('COALESCE(SUM(session.durationHours), 0)', 'totalHours')
+        .where('ss.idTutor = :tutorId', { tutorId: dto.tutorId })
+        .andWhere('ss.scheduledDate = :scheduledDate', {
+          scheduledDate: new Date(dto.scheduledDate),
+        })
+        .andWhere('session.status IN (:...statuses)', {
+          statuses: [
+            SessionStatus.SCHEDULED,
+            SessionStatus.PENDING_MODIFICATION,
+          ],
+        })
+        .setLock('pessimistic_write')
+        .getRawOne<{ totalHours: string }>();
+      const existingDailyHours = Number(dailyHoursRaw?.totalHours ?? 0);
+      if (existingDailyHours + dto.durationHours > 4) {
+        throw new BadRequestException(
+          'El tutor no puede superar 4 horas de sesiones en un mismo día.',
+        );
+      }
 
       // ── 2. Verificación de concurrencia con lock pesimista ────────────────
       //
