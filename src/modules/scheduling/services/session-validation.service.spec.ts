@@ -295,9 +295,8 @@ describe('SessionValidationService', () => {
       expect(qb.andWhere).toHaveBeenCalled();
       // Verify the specific exclude filter was applied
       const andWhereCalls = qb.andWhere.mock.calls;
-      const excludeCall = andWhereCalls.find(
-        (call: any[]) =>
-          call[0]?.includes('idSession !='),
+      const excludeCall = andWhereCalls.find((call: any[]) =>
+        call[0]?.includes('idSession !='),
       );
       expect(excludeCall).toBeDefined();
       expect(excludeCall?.[1]).toEqual({

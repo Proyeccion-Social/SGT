@@ -716,13 +716,14 @@ describe('SessionService', () => {
 
       // Post-transaction mock setup
       sessionRepository.findOne.mockResolvedValue(mockSession());
-      managerMock.save.mockResolvedValue({ ...session, status: SessionStatus.SCHEDULED });
+      managerMock.save.mockResolvedValue({
+        ...session,
+        status: SessionStatus.SCHEDULED,
+      });
 
       const result = await service.confirmSession('tutor-1', 'session-1', {});
 
-      expect(session.status).toBe(
-        SessionStatus.SCHEDULED,
-      );
+      expect(session.status).toBe(SessionStatus.SCHEDULED);
       expect(session.tutorConfirmed).toBe(true);
       expect(result.autoRejectedCount).toBe(0);
       expect(queryRunnerMock.commitTransaction).toHaveBeenCalled();
