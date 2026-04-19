@@ -324,6 +324,15 @@ export class SessionService {
         );
       }
 
+      // Validar que la confirmación no cause que se exceda el límite diario
+      const sessionDuration = this.calcDuration(session);
+      await this.validationService.validateDailyHoursLimit(
+        tutorId,
+        session.scheduledDate,
+        sessionDuration,
+        sessionId, // excluir esta sesión de la cuenta
+      );
+
       // Confirmar
       session.status = SessionStatus.SCHEDULED;
       session.tutorConfirmed = true;
