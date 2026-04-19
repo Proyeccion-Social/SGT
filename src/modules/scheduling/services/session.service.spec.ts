@@ -11,7 +11,7 @@ import { ParticipationStatus } from '../enums/participation-status.enum';
 // ─── QueryBuilder factory ─────────────────────────────────────────────────────
 // Returns a chainable QB mock; terminalFn is the method that resolves with value.
 const makeQb = (
-  terminalFn: 'getOne' | 'getMany' | 'getCount' | 'getManyAndCount',
+  terminalFn: 'getOne' | 'getMany' | 'getCount' | 'getManyAndCount' | 'getRawOne' | 'getRawMany',
   value: any,
 ) => {
   const qb: any = {
@@ -30,6 +30,8 @@ const makeQb = (
     getMany: jest.fn().mockResolvedValue([]),
     getCount: jest.fn().mockResolvedValue(0),
     getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+    getRawOne: jest.fn().mockResolvedValue(null),
+    getRawMany: jest.fn().mockResolvedValue([]),
   };
   qb[terminalFn].mockResolvedValue(value);
   return qb;
