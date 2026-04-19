@@ -138,6 +138,7 @@ describe('SessionService', () => {
         .mockResolvedValue(undefined),
       validateNoTimeConflict: jest.fn().mockResolvedValue(undefined),
       validateWeeklyHoursLimit: jest.fn().mockResolvedValue(undefined),
+      validateDailyHoursLimit: jest.fn().mockResolvedValue(undefined),
       validateCancellationTime: jest.fn().mockReturnValue(true),
       calculateEndTime: jest.fn().mockReturnValue('10:00'),
     };

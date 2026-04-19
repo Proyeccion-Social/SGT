@@ -391,7 +391,7 @@ describe('AvailabilityService', () => {
       tutorHaveAvailabilityRepository.findOne
         .mockResolvedValueOnce(tutorAvailability)
         .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce(null);
+        .mockResolvedValueOnce({ idAvailability: 6, idTutor: 'tutor-1' });
 
       const qb = createQueryBuilderMock();
       qb.getCount.mockResolvedValue(0);
@@ -468,15 +468,17 @@ describe('AvailabilityService', () => {
         availability: { dayOfWeek: 0, startTime: '08:00', idAvailability: 5 },
       };
 
+      // First findOne: returns existing tutor availability for the slot being updated
       tutorHaveAvailabilityRepository.findOne
         .mockResolvedValueOnce(tutorAvailability)
-        .mockResolvedValueOnce(null)
+        // Third findOne: returns conflicting assignment at new time
         .mockResolvedValueOnce({ idAvailability: 6, idTutor: 'tutor-1' });
 
       const qb = createQueryBuilderMock();
       qb.getCount.mockResolvedValue(0);
       tutorHaveAvailabilityRepository.createQueryBuilder.mockReturnValue(qb);
 
+      // Second findOne: availabilityRepository finds the availability at new time
       availabilityRepository.findOne.mockResolvedValue({
         idAvailability: 6,
         dayOfWeek: 0,

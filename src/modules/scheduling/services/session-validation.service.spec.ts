@@ -7,11 +7,16 @@ describe('SessionValidationService', () => {
   let availabilityService: any;
   let tutorService: any;
 
-  const createQueryBuilderMock = () => ({
-    where: jest.fn().mockReturnThis(),
-    andWhere: jest.fn().mockReturnThis(),
-    getMany: jest.fn(),
-  });
+  const createQueryBuilderMock = () => {
+    const qb: any = {
+      where: jest.fn(),
+      andWhere: jest.fn(),
+      getMany: jest.fn(),
+    };
+    qb.where.mockReturnValue(qb);
+    qb.andWhere.mockReturnValue(qb);
+    return qb;
+  };
 
   beforeEach(() => {
     sessionRepository = {
