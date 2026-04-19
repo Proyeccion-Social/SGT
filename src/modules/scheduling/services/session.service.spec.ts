@@ -11,7 +11,13 @@ import { ParticipationStatus } from '../enums/participation-status.enum';
 // ─── QueryBuilder factory ─────────────────────────────────────────────────────
 // Returns a chainable QB mock; terminalFn is the method that resolves with value.
 const makeQb = (
-  terminalFn: 'getOne' | 'getMany' | 'getCount' | 'getManyAndCount' | 'getRawOne' | 'getRawMany',
+  terminalFn:
+    | 'getOne'
+    | 'getMany'
+    | 'getCount'
+    | 'getManyAndCount'
+    | 'getRawOne'
+    | 'getRawMany',
   value: any,
 ) => {
   const qb: any = {
