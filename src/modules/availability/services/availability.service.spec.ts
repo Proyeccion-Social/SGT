@@ -174,25 +174,6 @@ describe('AvailabilityService', () => {
         }),
       ).rejects.toBeInstanceOf(ConflictException);
     });
-
-    it('throws VALIDATION_01 when the daily slot limit is exceeded', async () => {
-      const qb = createQueryBuilderMock();
-      qb.getCount.mockResolvedValueOnce(7).mockResolvedValueOnce(0);
-      tutorHaveAvailabilityRepository.createQueryBuilder.mockReturnValue(qb);
-
-      await expect(
-        service.createSlotsInRange('tutor-1', {
-          dayOfWeek: DayOfWeek.MONDAY,
-          startTime: '08:00',
-          endTime: '09:00',
-          modality: Modality.PRES,
-        }),
-      ).rejects.toMatchObject({
-        response: {
-          errorCode: 'VALIDATION_01',
-        },
-      });
-    });
   });
 
   describe('updateSlotsInRange', () => {
@@ -395,20 +376,6 @@ describe('AvailabilityService', () => {
           modality: Modality.PRES,
         }),
       ).rejects.toBeInstanceOf(ConflictException);
-    });
-
-    it('throws BadRequestException when daily hours limit is exceeded', async () => {
-      const qb = createQueryBuilderMock();
-      qb.getCount.mockResolvedValueOnce(8).mockResolvedValueOnce(1);
-      tutorHaveAvailabilityRepository.createQueryBuilder.mockReturnValue(qb);
-
-      await expect(
-        service.createSlot('tutor-1', {
-          dayOfWeek: DayOfWeek.MONDAY,
-          startTime: '08:00',
-          modality: Modality.PRES,
-        }),
-      ).rejects.toBeInstanceOf(BadRequestException);
     });
   });
 

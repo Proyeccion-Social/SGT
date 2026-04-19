@@ -212,6 +212,88 @@ describe('SessionValidationService', () => {
     });
   });
 
+  // ─── validateDailyHoursLimit ──────────────────────────────────────────────────
+
+  describe('validateDailyHoursLimit', () => {
+    it('resolves when total daily hours remain below the daily limit', async () => {
+      const qb = createQueryBuilderMock();
+      qb.getMany.mockResolvedValue([{ startTime: '09:00', endTime: '10:00' }]); // 1h used
+      sessionRepository.createQueryBuilder.mockReturnValue(qb);
+
+      await expect(
+        service.validateDailyHoursLimit('tutor-1', '2025-04-07', 2), // 1+2=3 ≤ 4
+      ).resolves.toBeUndefined();
+    });
+
+    it('resolves when total daily hours exactly equal the daily limit', async () => {
+      const qb = createQueryBuilderMock();
+      qb.getMany.mockResolvedValue([{ startTime: '09:00', endTime: '12:00' }]); // 3h used
+      sessionRepository.createQueryBuilder.mockReturnValue(qb);
+
+      await expect(
+        service.validateDailyHoursLimit('tutor-1', '2025-04-07', 1), // 3+1=4 = 4 (not > 4)
+      ).resolves.toBeUndefined();
+    });
+
+    it('throws BadRequestException when adding hours would exceed the daily limit', async () => {
+      const qb = createQueryBuilderMock();
+      qb.getMany.mockResolvedValue([{ startTime: '09:00', endTime: '12:00' }]); // 3h used
+      sessionRepository.createQueryBuilder.mockReturnValue(qb);
+
+      await expect(
+        service.validateDailyHoursLimit('tutor-1', '2025-04-07', 1.5), // 3+1.5=4.5 > 4
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('accumulates hours from multiple existing sessions correctly', async () => {
+      const qb = createQueryBuilderMock();
+      qb.getMany.mockResolvedValue([
+        { startTime: '09:00', endTime: '10:00' }, // 1h
+        { startTime: '14:00', endTime: '16:00' }, // 2h — total 3h
+      ]);
+      sessionRepository.createQueryBuilder.mockReturnValue(qb);
+
+      await expect(
+        service.validateDailyHoursLimit('tutor-1', '2025-04-07', 2), // 3+2=5 > 4
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('resolves when there are no existing sessions on that date', async () => {
+      const qb = createQueryBuilderMock();
+      qb.getMany.mockResolvedValue([]); // No sessions
+      sessionRepository.createQueryBuilder.mockReturnValue(qb);
+
+      await expect(
+        service.validateDailyHoursLimit('tutor-1', '2025-04-07', 3), // 0+3=3 ≤ 4
+      ).resolves.toBeUndefined();
+    });
+
+    it('excludes specified session when checking for hours accumulation', async () => {
+      const qb = createQueryBuilderMock();
+      qb.getMany.mockResolvedValue([
+        { startTime: '09:00', endTime: '12:00' }, // 3h (but will be excluded)
+        { startTime: '14:00', endTime: '15:00' }, // 1h
+      ]);
+      sessionRepository.createQueryBuilder.mockReturnValue(qb);
+
+      // When we exclude the 3h session, only 1h is counted, so 1+2=3 ≤ 4
+      await expect(
+        service.validateDailyHoursLimit(
+          'tutor-1',
+          '2025-04-07',
+          2,
+          'session-to-exclude',
+        ),
+      ).resolves.toBeUndefined();
+
+      // Verify andWhere was called to exclude the session
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        'session.idSession != :excludeSessionId',
+        { excludeSessionId: 'session-to-exclude' },
+      );
+    });
+  });
+
   // ─── validateCancellationTime ─────────────────────────────────────────────────
 
   describe('validateCancellationTime', () => {
