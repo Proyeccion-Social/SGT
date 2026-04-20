@@ -8,6 +8,8 @@ import {
   HttpStatus,
   Param,
   ParseUUIDPipe,
+  UsePipes,
+  ValidationPipe,
 } from '@nestjs/common';
 import { StudentService } from '../services/student.service';
 import {
@@ -20,6 +22,13 @@ import { Roles } from '../../auth/decorators/roles.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { User, UserRole } from '../../users/entities/user.entity';
 
+@UsePipes(
+  new ValidationPipe({
+    whitelist: true,
+    forbidNonWhitelisted: true,
+    transform: true,
+  }),
+)
 @Controller('students')
 export class StudentsController {
   constructor(private readonly studentService: StudentService) {}
