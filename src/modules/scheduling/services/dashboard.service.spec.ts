@@ -109,7 +109,11 @@ describe('DashboardService', () => {
       tutorService.getWeeklyHoursLimit.mockResolvedValue(10);
       // calculateWeeklyHours uses sessionRepository.find
       sessionRepository.find.mockResolvedValue([
-        { startTime: '09:00', endTime: '11:00', status: SessionStatus.COMPLETED }, // 2h
+        {
+          startTime: '09:00',
+          endTime: '11:00',
+          status: SessionStatus.COMPLETED,
+        }, // 2h
       ]);
       // Upcoming sessions QB
       const upcomingQb = makeQb('getMany', [mockSessionCard]);
@@ -140,8 +144,16 @@ describe('DashboardService', () => {
     it('calculates weekly hours from multiple sessions correctly', async () => {
       tutorService.getWeeklyHoursLimit.mockResolvedValue(10);
       sessionRepository.find.mockResolvedValue([
-        { startTime: '09:00', endTime: '10:30', status: SessionStatus.COMPLETED }, // 1.5h
-        { startTime: '14:00', endTime: '16:00', status: SessionStatus.COMPLETED }, // 2h
+        {
+          startTime: '09:00',
+          endTime: '10:30',
+          status: SessionStatus.COMPLETED,
+        }, // 1.5h
+        {
+          startTime: '14:00',
+          endTime: '16:00',
+          status: SessionStatus.COMPLETED,
+        }, // 2h
       ]);
       const upcomingQb = makeQb('getMany', []);
       const historyQb = makeQb('getMany', []);
@@ -170,7 +182,11 @@ describe('DashboardService', () => {
     it('clamps weeklyHoursRemaining to 0 when hours exceed the limit', async () => {
       tutorService.getWeeklyHoursLimit.mockResolvedValue(2);
       sessionRepository.find.mockResolvedValue([
-        { startTime: '09:00', endTime: '14:00', status: SessionStatus.COMPLETED }, // 5h > limit of 2
+        {
+          startTime: '09:00',
+          endTime: '14:00',
+          status: SessionStatus.COMPLETED,
+        }, // 5h > limit of 2
       ]);
       const upcomingQb = makeQb('getMany', []);
       const historyQb = makeQb('getMany', []);

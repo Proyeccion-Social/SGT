@@ -112,7 +112,7 @@ export class DashboardService {
       where: {
         idTutor: tutorId,
         scheduledDate: Between(weekStart, weekEnd),
-        status: SessionStatus.COMPLETED, // Solo se cuentan las horas de sesiones completadas 
+        status: SessionStatus.COMPLETED, // Solo se cuentan las horas de sesiones completadas
       },
     });
 
