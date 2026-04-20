@@ -137,6 +137,55 @@ export class StudentService {
   }
 
   /**
+   * Obtener preferencias del estudiante por su ID (para otros usuarios)
+   * Usado por admin/tutores para ver información de estudiantes
+   */
+  async getPreferencesById(
+    studentId: string,
+  ): Promise<StudentPreferencesResponseDto> {
+    const student = await this.studentRepository.findOne({
+      where: { idUser: studentId },
+    });
+
+    if (!student) {
+      throw new NotFoundException('Estudiante no encontrado');
+    }
+
+    return {
+      career: student.career,
+      preferredModality: student.preferredModality,
+    };
+  }
+
+  /**
+   * Obtener materias de interés del estudiante por su ID (para otros usuarios)
+   * Usado por admin/tutores para ver información de estudiantes
+   */
+  async getInterestedSubjectsById(
+    studentId: string,
+  ): Promise<StudentInterestedSubjectsResponseDto> {
+    const student = await this.studentRepository.findOne({
+      where: { idUser: studentId },
+    });
+
+    if (!student) {
+      throw new NotFoundException('Estudiante no encontrado');
+    }
+
+    const interestedSubjects = await this.studentInterestedSubjectRepository.find({
+      where: { idStudent: studentId },
+      relations: ['subject'],
+    });
+
+    return {
+      subjects: interestedSubjects.map((item) => ({
+        id: item.idSubject,
+        name: item.subject.name,
+      })),
+    };
+  }
+
+  /**
    * Actualizar materias de interés del estudiante
    * Reemplaza completamente la lista anterior
    */

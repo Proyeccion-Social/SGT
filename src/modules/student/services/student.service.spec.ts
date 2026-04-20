@@ -1,8 +1,11 @@
 import { StudentService } from './student.service';
+import { NotFoundException } from '@nestjs/common';
 
 describe('StudentService', () => {
   let service: StudentService;
   let studentRepository: any;
+  let studentInterestedSubjectRepository: any;
+  let subjectsService: any;
 
   beforeEach(() => {
     studentRepository = {
@@ -11,7 +14,21 @@ describe('StudentService', () => {
       save: jest.fn(),
     };
 
-    service = new StudentService(studentRepository);
+    studentInterestedSubjectRepository = {
+      find: jest.fn(),
+      delete: jest.fn(),
+      save: jest.fn(),
+    };
+
+    subjectsService = {
+      validateSubjectsExist: jest.fn(),
+    };
+
+    service = new StudentService(
+      studentRepository,
+      studentInterestedSubjectRepository,
+      subjectsService,
+    );
   });
 
   // ─── createFromUser ───────────────────────────────────────────────────────────
