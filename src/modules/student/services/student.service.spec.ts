@@ -194,6 +194,10 @@ describe('StudentService', () => {
         preferredModality: PreferredModality.VIRT,
       };
       studentRepository.findOne.mockResolvedValue(student);
+      studentRepository.save.mockResolvedValue({
+        ...student,
+        career: 'Biology',
+      });
 
       await service.updatePreferences('user-1', { career: 'Biology' });
 
@@ -313,6 +317,9 @@ describe('StudentService', () => {
     it('throws NotFoundException when subject does not exist', async () => {
       studentRepository.findOne.mockResolvedValue({ idUser: 'user-1' });
       subjectsService.validateSubjectsExist.mockResolvedValue(false);
+      studentInterestedSubjectRepository.delete.mockResolvedValue({
+        affected: 0,
+      });
 
       await expect(
         service.updateInterestedSubjects('user-1', {
@@ -323,6 +330,9 @@ describe('StudentService', () => {
 
     it('throws BadRequestException when there are duplicate subject IDs', async () => {
       studentRepository.findOne.mockResolvedValue({ idUser: 'user-1' });
+      studentInterestedSubjectRepository.delete.mockResolvedValue({
+        affected: 0,
+      });
 
       await expect(
         service.updateInterestedSubjects('user-1', {
@@ -333,6 +343,9 @@ describe('StudentService', () => {
 
     it('throws NotFoundException when student does not exist', async () => {
       studentRepository.findOne.mockResolvedValue(null);
+      studentInterestedSubjectRepository.delete.mockResolvedValue({
+        affected: 0,
+      });
 
       await expect(
         service.updateInterestedSubjects('nonexistent', { subjectIds: [] }),
