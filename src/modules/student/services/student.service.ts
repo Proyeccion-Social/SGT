@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Student, PreferredModality } from '../entities/student.entity';
+import { Student } from '../entities/student.entity';
 import { StudentInterestedSubject } from '../../subjects/entities/student-subject.entity';
 import { SubjectsService } from '../../subjects/services/subjects.service';
 import {
