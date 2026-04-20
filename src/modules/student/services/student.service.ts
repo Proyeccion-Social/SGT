@@ -62,9 +62,7 @@ export class StudentService {
   /**
    * Obtener preferencias del estudiante (carrera y modalidad preferida)
    */
-  async getPreferences(
-    userId: string,
-  ): Promise<StudentPreferencesResponseDto> {
+  async getPreferences(userId: string): Promise<StudentPreferencesResponseDto> {
     const student = await this.studentRepository.findOne({
       where: { idUser: userId },
     });
@@ -123,10 +121,11 @@ export class StudentService {
       throw new NotFoundException('Estudiante no encontrado');
     }
 
-    const interestedSubjects = await this.studentInterestedSubjectRepository.find({
-      where: { idStudent: userId },
-      relations: ['subject'],
-    });
+    const interestedSubjects =
+      await this.studentInterestedSubjectRepository.find({
+        where: { idStudent: userId },
+        relations: ['subject'],
+      });
 
     return {
       subjects: interestedSubjects.map((item) => ({
@@ -172,10 +171,11 @@ export class StudentService {
       throw new NotFoundException('Estudiante no encontrado');
     }
 
-    const interestedSubjects = await this.studentInterestedSubjectRepository.find({
-      where: { idStudent: studentId },
-      relations: ['subject'],
-    });
+    const interestedSubjects =
+      await this.studentInterestedSubjectRepository.find({
+        where: { idStudent: studentId },
+        relations: ['subject'],
+      });
 
     return {
       subjects: interestedSubjects.map((item) => ({
@@ -217,9 +217,7 @@ export class StudentService {
     // Validar que no haya duplicados
     const uniqueIds = new Set(dto.subjectIds);
     if (uniqueIds.size !== dto.subjectIds.length) {
-      throw new BadRequestException(
-        'No se pueden agregar materias duplicadas',
-      );
+      throw new BadRequestException('No se pueden agregar materias duplicadas');
     }
 
     // Eliminar asignaciones existentes
