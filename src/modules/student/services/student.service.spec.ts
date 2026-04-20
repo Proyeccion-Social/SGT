@@ -269,7 +269,9 @@ describe('StudentService', () => {
     it('updates interested subjects successfully', async () => {
       studentRepository.findOne.mockResolvedValue({ idUser: 'user-1' });
       subjectsService.validateSubjectsExist.mockResolvedValue(true);
-      studentInterestedSubjectRepository.delete.mockResolvedValue({ affected: 0 });
+      studentInterestedSubjectRepository.delete.mockResolvedValue({
+        affected: 0,
+      });
       studentInterestedSubjectRepository.save.mockResolvedValue([]);
 
       await service.updateInterestedSubjects('user-1', {
@@ -295,7 +297,9 @@ describe('StudentService', () => {
 
     it('handles empty array of subject IDs', async () => {
       studentRepository.findOne.mockResolvedValue({ idUser: 'user-1' });
-      studentInterestedSubjectRepository.delete.mockResolvedValue({ affected: 2 });
+      studentInterestedSubjectRepository.delete.mockResolvedValue({
+        affected: 2,
+      });
 
       await service.updateInterestedSubjects('user-1', { subjectIds: [] });
 
