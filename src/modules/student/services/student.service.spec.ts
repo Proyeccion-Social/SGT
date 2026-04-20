@@ -269,6 +269,8 @@ describe('StudentService', () => {
     it('updates interested subjects successfully', async () => {
       studentRepository.findOne.mockResolvedValue({ idUser: 'user-1' });
       subjectsService.validateSubjectsExist.mockResolvedValue(true);
+      studentInterestedSubjectRepository.delete.mockResolvedValue({ affected: 0 });
+      studentInterestedSubjectRepository.save.mockResolvedValue([]);
 
       await service.updateInterestedSubjects('user-1', {
         subjectIds: ['subject-1', 'subject-2'],
@@ -277,22 +279,31 @@ describe('StudentService', () => {
       expect(studentInterestedSubjectRepository.delete).toHaveBeenCalledWith({
         idStudent: 'user-1',
       });
-      expect(studentInterestedSubjectRepository.save).toHaveBeenCalled();
+      expect(studentInterestedSubjectRepository.save).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            idStudent: 'user-1',
+            idSubject: 'subject-1',
+          }),
+          expect.objectContaining({
+            idStudent: 'user-1',
+            idSubject: 'subject-2',
+          }),
+        ]),
+      );
     });
 
     it('handles empty array of subject IDs', async () => {
       studentRepository.findOne.mockResolvedValue({ idUser: 'user-1' });
+      studentInterestedSubjectRepository.delete.mockResolvedValue({ affected: 2 });
 
       await service.updateInterestedSubjects('user-1', { subjectIds: [] });
 
       expect(studentInterestedSubjectRepository.delete).toHaveBeenCalledWith({
         idStudent: 'user-1',
       });
-      // Should not call save with empty array
-      const saveCall = studentInterestedSubjectRepository.save.mock.calls;
-      if (saveCall.length > 0) {
-        expect(saveCall[saveCall.length - 1][0]).toEqual([]);
-      }
+      // Should NOT call save when array is empty
+      expect(studentInterestedSubjectRepository.save).not.toHaveBeenCalled();
     });
 
     it('throws NotFoundException when subject does not exist', async () => {
