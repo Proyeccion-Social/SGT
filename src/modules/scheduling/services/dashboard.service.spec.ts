@@ -109,7 +109,11 @@ describe('DashboardService', () => {
       tutorService.getWeeklyHoursLimit.mockResolvedValue(10);
       // calculateWeeklyHours uses sessionRepository.find
       sessionRepository.find.mockResolvedValue([
-        { startTime: '09:00', endTime: '11:00' }, // 2h
+        {
+          startTime: '09:00',
+          endTime: '11:00',
+          status: SessionStatus.COMPLETED,
+        }, // 2h
       ]);
       // Upcoming sessions QB
       const upcomingQb = makeQb('getMany', [mockSessionCard]);
@@ -127,13 +131,29 @@ describe('DashboardService', () => {
       expect(result.weeklyHoursRemaining).toBe(8);
       expect(result.upcomingSessions).toHaveLength(1);
       expect(result.totalStudentsReached).toBe(5);
+      // Verify that sessionRepository.find was called with COMPLETED status
+      expect(sessionRepository.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: SessionStatus.COMPLETED,
+          }),
+        }),
+      );
     });
 
     it('calculates weekly hours from multiple sessions correctly', async () => {
       tutorService.getWeeklyHoursLimit.mockResolvedValue(10);
       sessionRepository.find.mockResolvedValue([
-        { startTime: '09:00', endTime: '10:30' }, // 1.5h
-        { startTime: '14:00', endTime: '16:00' }, // 2h
+        {
+          startTime: '09:00',
+          endTime: '10:30',
+          status: SessionStatus.COMPLETED,
+        }, // 1.5h
+        {
+          startTime: '14:00',
+          endTime: '16:00',
+          status: SessionStatus.COMPLETED,
+        }, // 2h
       ]);
       const upcomingQb = makeQb('getMany', []);
       const historyQb = makeQb('getMany', []);
@@ -149,12 +169,24 @@ describe('DashboardService', () => {
 
       expect(result.weeklyHoursUsed).toBe(3.5);
       expect(result.weeklyHoursRemaining).toBe(6.5);
+      // Verify that only COMPLETED sessions are counted
+      expect(sessionRepository.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: SessionStatus.COMPLETED,
+          }),
+        }),
+      );
     });
 
     it('clamps weeklyHoursRemaining to 0 when hours exceed the limit', async () => {
       tutorService.getWeeklyHoursLimit.mockResolvedValue(2);
       sessionRepository.find.mockResolvedValue([
-        { startTime: '09:00', endTime: '14:00' }, // 5h > limit of 2
+        {
+          startTime: '09:00',
+          endTime: '14:00',
+          status: SessionStatus.COMPLETED,
+        }, // 5h > limit of 2
       ]);
       const upcomingQb = makeQb('getMany', []);
       const historyQb = makeQb('getMany', []);
@@ -169,6 +201,14 @@ describe('DashboardService', () => {
       const result = await service.getTutorDashboard('tutor-1');
 
       expect(result.weeklyHoursRemaining).toBe(0);
+      // Verify that only COMPLETED sessions are counted
+      expect(sessionRepository.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: SessionStatus.COMPLETED,
+          }),
+        }),
+      );
     });
 
     it('returns 0 totalStudentsReached when getRawOne returns null', async () => {
@@ -187,6 +227,14 @@ describe('DashboardService', () => {
       const result = await service.getTutorDashboard('tutor-1');
 
       expect(result.totalStudentsReached).toBe(0);
+      // Verify that sessionRepository.find was called with COMPLETED status
+      expect(sessionRepository.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: SessionStatus.COMPLETED,
+          }),
+        }),
+      );
     });
   });
 });
