@@ -423,8 +423,14 @@ export class AvailabilityService {
       },
     );
 
-    if (tutorAvailabilities.length === 0) {
-      throw new NotFoundException('Tutor no tiene disponibilidad configurada');
+    // Obtener nombre del tutor
+    let tutorName: string;
+    if (tutorAvailabilities.length > 0) {
+      tutorName = tutorAvailabilities[0].tutor.user.name;
+    } else {
+      // Si no hay slots, usa un nombre por defecto
+      // (no hay forma de obtener el nombre si no existe ningún registro de disponibilidad)
+      tutorName = 'Tutor';
     }
 
     // Obtener sesiones activas del tutor con su duración real
@@ -467,7 +473,7 @@ export class AvailabilityService {
 
     return {
       tutorId,
-      tutorName: tutorAvailabilities[0].tutor.user.name,
+      tutorName,
       weekReference: weekStartStr,
       totalSlots: slots.length,
       availableSlots: slots.filter((s) => s.isAvailable),

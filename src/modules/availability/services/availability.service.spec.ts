@@ -663,17 +663,26 @@ describe('AvailabilityService', () => {
       expect(result.availableSlots).toHaveLength(2);
     });
 
-    it('throws NotFoundException if tutor has no availability configured', async () => {
+    it('returns empty slots when tutor has no availability configured', async () => {
       // Ensure mocks are properly reset and set up for this test
       tutorHaveAvailabilityRepository.find.mockResolvedValue([]);
+      tutorHaveAvailabilityRepository.findOne.mockResolvedValue(null);
       // Also ensure scheduledSessionRepository is mocked if getTutorAvailability uses it
       const qb = createQueryBuilderMock();
       qb.getMany.mockResolvedValue([]);
       scheduledSessionRepository.createQueryBuilder.mockReturnValue(qb);
 
-      await expect(
-        service.getTutorAvailability('tutor-1'),
-      ).rejects.toBeInstanceOf(NotFoundException);
+      const result = await service.getTutorAvailability('tutor-1');
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          tutorId: 'tutor-1',
+          tutorName: 'Tutor',
+          totalSlots: 0,
+          availableSlots: [],
+          groupedByDay: {},
+        }),
+      );
     });
   });
 
