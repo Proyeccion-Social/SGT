@@ -24,6 +24,6 @@ export class ProposeModificationDto {
 
   @IsOptional()
   @IsNumber()
-  @IsIn([1, 1.5, 2])
+  @IsIn([0.5, 1, 1.5, 2], { message: 'durationHours debe ser 0.5, 1, 1.5 o 2' })
   newDurationHours?: number; // Para calcular nuevo endTime
 }

@@ -10,6 +10,7 @@ import {
   IsIn,
 } from 'class-validator';
 import { Modality } from '../../availability/enums';
+import { IsThirtyMinuteIncrement } from '../../availability/validators';
 
 export class CreateIndividualSessionDto {
   @IsUUID('4', { message: 'tutorId debe ser un UUID válido' })
@@ -28,7 +29,10 @@ export class CreateIndividualSessionDto {
   modality: Modality;
 
   @IsNumber()
-  @IsIn([1, 1.5, 2], { message: 'durationHours debe ser 1, 1.5 o 2' })
+  @IsIn([0.5, 1, 1.5, 2], { message: 'durationHours debe ser 0.5, 1, 1.5 o 2' })
+  //@IsThirtyMinuteIncrement({
+  //  message: 'durationHours debe estar en incrementos de 0.5 horas (30 minutos)',
+  //})
   durationHours: number; // Se usa para calcular endTime, no se guarda
 
   @IsString()

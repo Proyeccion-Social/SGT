@@ -7,11 +7,16 @@ describe('SessionValidationService', () => {
   let availabilityService: any;
   let tutorService: any;
 
-  const createQueryBuilderMock = () => ({
-    where: jest.fn().mockReturnThis(),
-    andWhere: jest.fn().mockReturnThis(),
-    getMany: jest.fn(),
-  });
+  const createQueryBuilderMock = () => {
+    const qb: any = {
+      where: jest.fn(),
+      andWhere: jest.fn(),
+      getMany: jest.fn(),
+    };
+    qb.where.mockReturnValue(qb);
+    qb.andWhere.mockReturnValue(qb);
+    return qb;
+  };
 
   beforeEach(() => {
     sessionRepository = {
@@ -209,6 +214,94 @@ describe('SessionValidationService', () => {
       await expect(
         service.validateWeeklyHoursLimit('tutor-1', '2025-04-07', 2), // 5+2=7 > 6
       ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  // ─── validateDailyHoursLimit ──────────────────────────────────────────────────
+
+  describe('validateDailyHoursLimit', () => {
+    it('resolves when total daily hours remain below the daily limit', async () => {
+      const qb = createQueryBuilderMock();
+      qb.getMany.mockResolvedValue([{ startTime: '09:00', endTime: '10:00' }]); // 1h used
+      sessionRepository.createQueryBuilder.mockReturnValue(qb);
+
+      await expect(
+        service.validateDailyHoursLimit('tutor-1', '2025-04-07', 2), // 1+2=3 ≤ 4
+      ).resolves.toBeUndefined();
+    });
+
+    it('resolves when total daily hours exactly equal the daily limit', async () => {
+      const qb = createQueryBuilderMock();
+      qb.getMany.mockResolvedValue([{ startTime: '09:00', endTime: '12:00' }]); // 3h used
+      sessionRepository.createQueryBuilder.mockReturnValue(qb);
+
+      await expect(
+        service.validateDailyHoursLimit('tutor-1', '2025-04-07', 1), // 3+1=4 = 4 (not > 4)
+      ).resolves.toBeUndefined();
+    });
+
+    it('throws BadRequestException when adding hours would exceed the daily limit', async () => {
+      const qb = createQueryBuilderMock();
+      qb.getMany.mockResolvedValue([{ startTime: '09:00', endTime: '12:00' }]); // 3h used
+      sessionRepository.createQueryBuilder.mockReturnValue(qb);
+
+      await expect(
+        service.validateDailyHoursLimit('tutor-1', '2025-04-07', 1.5), // 3+1.5=4.5 > 4
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('accumulates hours from multiple existing sessions correctly', async () => {
+      const qb = createQueryBuilderMock();
+      qb.getMany.mockResolvedValue([
+        { startTime: '09:00', endTime: '10:00' }, // 1h
+        { startTime: '14:00', endTime: '16:00' }, // 2h — total 3h
+      ]);
+      sessionRepository.createQueryBuilder.mockReturnValue(qb);
+
+      await expect(
+        service.validateDailyHoursLimit('tutor-1', '2025-04-07', 2), // 3+2=5 > 4
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('resolves when there are no existing sessions on that date', async () => {
+      const qb = createQueryBuilderMock();
+      qb.getMany.mockResolvedValue([]); // No sessions
+      sessionRepository.createQueryBuilder.mockReturnValue(qb);
+
+      await expect(
+        service.validateDailyHoursLimit('tutor-1', '2025-04-07', 3), // 0+3=3 ≤ 4
+      ).resolves.toBeUndefined();
+    });
+
+    it('excludes specified session when checking for hours accumulation', async () => {
+      const qb = createQueryBuilderMock();
+      // The DB applies the andWhere filter — mock returns only the non-excluded session
+      qb.getMany.mockResolvedValue([
+        { startTime: '14:00', endTime: '15:00' }, // 1h (3h session is excluded by DB query)
+      ]);
+      sessionRepository.createQueryBuilder.mockReturnValue(qb);
+
+      // When we exclude the 3h session, only 1h is counted, so 1+2=3 ≤ 4
+      await expect(
+        service.validateDailyHoursLimit(
+          'tutor-1',
+          '2025-04-07',
+          2,
+          'session-to-exclude',
+        ),
+      ).resolves.toBeUndefined();
+
+      // Verify andWhere was called to exclude the session (should be called 4 times total)
+      expect(qb.andWhere).toHaveBeenCalled();
+      // Verify the specific exclude filter was applied
+      const andWhereCalls = qb.andWhere.mock.calls;
+      const excludeCall = andWhereCalls.find((call: any[]) =>
+        call[0]?.includes('idSession !='),
+      );
+      expect(excludeCall).toBeDefined();
+      expect(excludeCall?.[1]).toEqual({
+        excludeSessionId: 'session-to-exclude',
+      });
     });
   });
 

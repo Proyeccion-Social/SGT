@@ -135,6 +135,33 @@ export class SessionService {
         dto.durationHours,
       );
 
+      // No supera el límite diario del tutor (máximo 4 horas por día).
+      // Esta validación debe correr dentro de la misma transacción y tomando
+      // lock sobre las sesiones del tutor en la fecha para evitar carreras
+      // entre requests concurrentes en slots distintos del mismo día.
+      const dailyHoursRaw = await queryRunner.manager
+        .createQueryBuilder(ScheduledSession, 'ss')
+        .innerJoin('ss.session', 'session')
+        .select('COALESCE(SUM(session.durationHours), 0)', 'totalHours')
+        .where('ss.idTutor = :tutorId', { tutorId: dto.tutorId })
+        .andWhere('ss.scheduledDate = :scheduledDate', {
+          scheduledDate: new Date(dto.scheduledDate),
+        })
+        .andWhere('session.status IN (:...statuses)', {
+          statuses: [
+            SessionStatus.SCHEDULED,
+            SessionStatus.PENDING_MODIFICATION,
+          ],
+        })
+        .setLock('pessimistic_write')
+        .getRawOne<{ totalHours: string }>();
+      const existingDailyHours = Number(dailyHoursRaw?.totalHours ?? 0);
+      if (existingDailyHours + dto.durationHours > 4) {
+        throw new BadRequestException(
+          'El tutor no puede superar 4 horas de sesiones en un mismo día.',
+        );
+      }
+
       // ── 2. Verificación de concurrencia con lock pesimista ────────────────
       //
       // Aquí solo bloqueamos si hay OTRA sesión CONFIRMADA (SCHEDULED) en el
@@ -314,6 +341,41 @@ export class SessionService {
       if (conflicting) {
         throw new BadRequestException(
           'Esta franja ya fue confirmada para otro estudiante.',
+        );
+      }
+
+      // Validar que la confirmación no cause que se exceda el límite diario.
+      // Esta validación debe hacerse dentro de la misma transacción y con lock
+      // sobre las sesiones del tutor en el día para evitar carreras entre
+      // confirmaciones concurrentes de distintas franjas del mismo día.
+      const sessionDuration = this.calcDuration(session);
+      const daySessions = await queryRunner.manager
+        .createQueryBuilder(ScheduledSession, 'ss')
+        .innerJoinAndSelect('ss.session', 'daySession')
+        .where('ss.idTutor = :tutorId', { tutorId })
+        .andWhere('ss.scheduledDate = :scheduledDate', {
+          scheduledDate: scheduledSession.scheduledDate,
+        })
+        .orderBy('ss.idSession', 'ASC')
+        .setLock('pessimistic_write')
+        .getMany();
+      const alreadyScheduledMinutes = daySessions.reduce(
+        (total, dayScheduled) => {
+          if (
+            dayScheduled.idSession === sessionId ||
+            !dayScheduled.session ||
+            dayScheduled.session.status !== SessionStatus.SCHEDULED
+          ) {
+            return total;
+          }
+          return total + this.calcDuration(dayScheduled.session);
+        },
+        0,
+      );
+      const maxDailyMinutes = 4 * 60;
+      if (alreadyScheduledMinutes + sessionDuration > maxDailyMinutes) {
+        throw new BadRequestException(
+          'La confirmación excede el límite diario de 4 horas para el tutor.',
         );
       }
 
@@ -664,6 +726,16 @@ export class SessionService {
         newDuration,
         session.idSession,
       );
+
+      // ========================================
+      // VALIDACIÓN DE LÍMITE DIARIO
+      // ========================================
+      await this.validationService.validateDailyHoursLimit(
+        session.idTutor,
+        newDate,
+        newDuration,
+        session.idSession,
+      );
     }
 
     // ========================================
@@ -834,6 +906,14 @@ export class SessionService {
         session.idTutor,
         newDate,
         newStartTime,
+        newDuration,
+        session.idSession,
+      );
+
+      // Re-validar límite diario antes de aceptar la modificación
+      await this.validationService.validateDailyHoursLimit(
+        session.idTutor,
+        newDate,
         newDuration,
         session.idSession,
       );
