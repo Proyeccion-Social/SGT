@@ -1,5 +1,6 @@
 import { StudentService } from './student.service';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
+import { PreferredModality } from '../entities/student.entity';
 
 describe('StudentService', () => {
   let service: StudentService;
@@ -121,14 +122,14 @@ describe('StudentService', () => {
       studentRepository.findOne.mockResolvedValue({
         idUser: 'user-1',
         career: 'Physics',
-        preferredModality: 'VIRT',
+        preferredModality: PreferredModality.VIRT,
       });
 
       const result = await service.getPreferences('user-1');
 
       expect(result).toEqual({
         career: 'Physics',
-        preferredModality: 'VIRT',
+        preferredModality: PreferredModality.VIRT,
       });
     });
 
@@ -169,19 +170,19 @@ describe('StudentService', () => {
       studentRepository.save.mockResolvedValue({
         ...student,
         career: 'Math',
-        preferredModality: 'PRES',
+        preferredModality: PreferredModality.PRES,
       });
 
       const result = await service.updatePreferences('user-1', {
         career: 'Math',
-        preferredModality: 'PRES',
+        preferredModality: PreferredModality.PRES,
       });
 
       expect(result.message).toContain('exitosamente');
       expect(studentRepository.save).toHaveBeenCalledWith(
         expect.objectContaining({
           career: 'Math',
-          preferredModality: 'PRES',
+          preferredModality: PreferredModality.PRES,
         }),
       );
     });
@@ -190,7 +191,7 @@ describe('StudentService', () => {
       const student = {
         idUser: 'user-1',
         career: null,
-        preferredModality: 'VIRT',
+        preferredModality: PreferredModality.VIRT,
       };
       studentRepository.findOne.mockResolvedValue(student);
 
@@ -199,7 +200,7 @@ describe('StudentService', () => {
       expect(studentRepository.save).toHaveBeenCalledWith(
         expect.objectContaining({
           career: 'Biology',
-          preferredModality: 'VIRT',
+          preferredModality: PreferredModality.VIRT,
         }),
       );
     });
@@ -331,14 +332,14 @@ describe('StudentService', () => {
       studentRepository.findOne.mockResolvedValue({
         idUser: 'student-1',
         career: 'Computer Science',
-        preferredModality: 'VIRT',
+        preferredModality: PreferredModality.VIRT,
       });
 
       const result = await service.getPreferencesById('student-1');
 
       expect(result).toEqual({
         career: 'Computer Science',
-        preferredModality: 'VIRT',
+        preferredModality: PreferredModality.VIRT,
       });
     });
 

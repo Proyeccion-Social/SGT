@@ -1,6 +1,7 @@
 import { HttpStatus } from '@nestjs/common';
 import { StudentsController } from './student.controller';
 import { UserRole } from '../../users/entities/user.entity';
+import { PreferredModality } from '../entities/student.entity';
 
 describe('StudentsController', () => {
   let controller: StudentsController;
@@ -26,7 +27,7 @@ describe('StudentsController', () => {
       const user = { idUser: 'user-1', role: UserRole.STUDENT } as any;
       const mockPreferences = {
         career: 'Physics',
-        preferredModality: 'VIRT',
+        preferredModality: PreferredModality.VIRT,
       };
 
       studentService.getPreferences.mockResolvedValue(mockPreferences);
@@ -59,15 +60,20 @@ describe('StudentsController', () => {
       const user = { idUser: 'user-1', role: UserRole.STUDENT } as any;
       const dto = {
         career: 'Mathematics',
-        preferredModality: 'PRES',
+        preferredModality: PreferredModality.PRES,
       };
-      const mockResponse = { message: 'Preferencias actualizadas exitosamente' };
+      const mockResponse = {
+        message: 'Preferencias actualizadas exitosamente',
+      };
 
       studentService.updatePreferences.mockResolvedValue(mockResponse);
 
       const result = await controller.updatePreferences(user, dto);
 
-      expect(studentService.updatePreferences).toHaveBeenCalledWith('user-1', dto);
+      expect(studentService.updatePreferences).toHaveBeenCalledWith(
+        'user-1',
+        dto,
+      );
       expect(result.message).toContain('exitosamente');
     });
 
@@ -81,7 +87,10 @@ describe('StudentsController', () => {
 
       await controller.updatePreferences(user, dto);
 
-      expect(studentService.updatePreferences).toHaveBeenCalledWith('user-1', dto);
+      expect(studentService.updatePreferences).toHaveBeenCalledWith(
+        'user-1',
+        dto,
+      );
     });
   });
 
@@ -101,7 +110,9 @@ describe('StudentsController', () => {
 
       const result = await controller.getInterestedSubjects(user);
 
-      expect(studentService.getInterestedSubjects).toHaveBeenCalledWith('user-1');
+      expect(studentService.getInterestedSubjects).toHaveBeenCalledWith(
+        'user-1',
+      );
       expect(result.subjects).toHaveLength(2);
     });
 
@@ -164,7 +175,7 @@ describe('StudentsController', () => {
       const studentId = '123e4567-e89b-12d3-a456-426614174000';
       const mockPreferences = {
         career: 'Computer Science',
-        preferredModality: 'VIRT',
+        preferredModality: PreferredModality.VIRT,
       };
 
       studentService.getPreferencesById.mockResolvedValue(mockPreferences);
@@ -271,14 +282,14 @@ describe('StudentsController', () => {
 
       const updated = await controller.updatePreferences(user, {
         career: 'Physics',
-        preferredModality: 'VIRT',
+        preferredModality: PreferredModality.VIRT,
       });
       expect(updated.message).toContain('exitosamente');
 
       // 3. Get updated preferences
       studentService.getPreferences.mockResolvedValueOnce({
         career: 'Physics',
-        preferredModality: 'VIRT',
+        preferredModality: PreferredModality.VIRT,
       });
 
       const retrieved = await controller.getPreferences(user);
