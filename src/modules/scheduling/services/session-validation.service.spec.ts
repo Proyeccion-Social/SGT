@@ -275,9 +275,9 @@ describe('SessionValidationService', () => {
 
     it('excludes specified session when checking for hours accumulation', async () => {
       const qb = createQueryBuilderMock();
+      // The DB applies the andWhere filter — mock returns only the non-excluded session
       qb.getMany.mockResolvedValue([
-        { startTime: '09:00', endTime: '12:00' }, // 3h (but will be excluded)
-        { startTime: '14:00', endTime: '15:00' }, // 1h
+        { startTime: '14:00', endTime: '15:00' }, // 1h (3h session is excluded by DB query)
       ]);
       sessionRepository.createQueryBuilder.mockReturnValue(qb);
 

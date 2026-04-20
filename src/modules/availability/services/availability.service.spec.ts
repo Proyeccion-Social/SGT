@@ -39,6 +39,7 @@ describe('AvailabilityService', () => {
     };
 
     tutorHaveAvailabilityRepository = {
+      find: jest.fn(),
       findOne: jest.fn(),
       create: jest.fn((value) => value),
       save: jest.fn(),

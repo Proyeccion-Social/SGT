@@ -706,6 +706,7 @@ describe('SessionService', () => {
       managerMock.createQueryBuilder
         .mockReturnValueOnce(makeQb('getOne', session)) // get session
         .mockReturnValueOnce(makeQb('getOne', null)) // no conflicting
+        .mockReturnValueOnce(makeQb('getMany', [])) // daySessions (daily hours check)
         .mockReturnValueOnce(makeQb('getMany', [])); // no other pending
       managerMock.findOne
         .mockResolvedValueOnce({
@@ -751,6 +752,7 @@ describe('SessionService', () => {
       managerMock.createQueryBuilder
         .mockReturnValueOnce(makeQb('getOne', session)) // get session
         .mockReturnValueOnce(makeQb('getOne', null)) // no conflicting
+        .mockReturnValueOnce(makeQb('getMany', [])) // daySessions (daily hours check)
         .mockReturnValueOnce(makeQb('getMany', [competitor1, competitor2])); // 2 competing
 
       managerMock.findOne
@@ -793,8 +795,9 @@ describe('SessionService', () => {
     };
 
     const setupHappyPath = () => {
-      // No confirmed session in slot, 0 pending
+      // Daily hours check, no confirmed session in slot, 0 pending
       managerMock.createQueryBuilder
+        .mockReturnValueOnce(makeQb('getRawOne', { totalHours: '0' })) // daily hours
         .mockReturnValueOnce(makeQb('getOne', null)) // confirmedInSlot
         .mockReturnValueOnce(makeQb('getCount', 0)); // pendingCount
 
@@ -824,9 +827,9 @@ describe('SessionService', () => {
     });
 
     it('throws BadRequestException when slot is already confirmed (pessimistic lock)', async () => {
-      managerMock.createQueryBuilder.mockReturnValueOnce(
-        makeQb('getOne', { idSession: 'other-session' }),
-      ); // confirmedInSlot
+      managerMock.createQueryBuilder
+        .mockReturnValueOnce(makeQb('getRawOne', { totalHours: '0' })) // daily hours
+        .mockReturnValueOnce(makeQb('getOne', { idSession: 'other-session' })); // confirmedInSlot
 
       await expect(
         service.createIndividualSession('student-1', dto),
@@ -836,6 +839,7 @@ describe('SessionService', () => {
 
     it('throws BadRequestException on DB unique constraint violation (code 23505)', async () => {
       managerMock.createQueryBuilder
+        .mockReturnValueOnce(makeQb('getRawOne', { totalHours: '0' })) // daily hours
         .mockReturnValueOnce(makeQb('getOne', null)) // no confirmed
         .mockReturnValueOnce(makeQb('getCount', 0)); // pendingCount
 
@@ -864,6 +868,7 @@ describe('SessionService', () => {
 
     it('includes pending request count in message when slot already has pending requests', async () => {
       managerMock.createQueryBuilder
+        .mockReturnValueOnce(makeQb('getRawOne', { totalHours: '0' })) // daily hours
         .mockReturnValueOnce(makeQb('getOne', null)) // no confirmed
         .mockReturnValueOnce(makeQb('getCount', 2)); // 2 other pending
 
