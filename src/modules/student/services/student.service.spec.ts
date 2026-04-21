@@ -15,10 +15,12 @@ describe('StudentService', () => {
       save: jest.fn(),
     };
 
+    // ✅ CORREGIDO: Agregar el método 'create' al mock
     studentInterestedSubjectRepository = {
       find: jest.fn(),
       delete: jest.fn(),
       save: jest.fn(),
+      create: jest.fn().mockImplementation((entity) => entity), // ← ESTA ES LA LÍNEA CLAVE
     };
 
     subjectsService = {
@@ -30,6 +32,11 @@ describe('StudentService', () => {
       studentInterestedSubjectRepository,
       subjectsService,
     );
+  });
+
+  // Limpiar mocks entre tests para evitar interferencias
+  afterEach(() => {
+    jest.clearAllMocks();
   });
 
   // ─── createFromUser ───────────────────────────────────────────────────────────
@@ -276,7 +283,16 @@ describe('StudentService', () => {
       studentInterestedSubjectRepository.delete.mockResolvedValue({
         affected: 0,
       });
-      studentInterestedSubjectRepository.save.mockResolvedValue([]);
+      
+      // ✅ Configurar el mock de create para que devuelva las entidades esperadas
+      studentInterestedSubjectRepository.create
+        .mockReturnValueOnce({ idStudent: 'user-1', idSubject: 'subject-1' })
+        .mockReturnValueOnce({ idStudent: 'user-1', idSubject: 'subject-2' });
+      
+      studentInterestedSubjectRepository.save.mockResolvedValue([
+        { idStudent: 'user-1', idSubject: 'subject-1' },
+        { idStudent: 'user-1', idSubject: 'subject-2' },
+      ]);
 
       await service.updateInterestedSubjects('user-1', {
         subjectIds: ['subject-1', 'subject-2'],
@@ -285,6 +301,7 @@ describe('StudentService', () => {
       expect(studentInterestedSubjectRepository.delete).toHaveBeenCalledWith({
         idStudent: 'user-1',
       });
+      expect(studentInterestedSubjectRepository.create).toHaveBeenCalledTimes(2);
       expect(studentInterestedSubjectRepository.save).toHaveBeenCalledWith(
         expect.arrayContaining([
           expect.objectContaining({
@@ -310,10 +327,11 @@ describe('StudentService', () => {
       expect(studentInterestedSubjectRepository.delete).toHaveBeenCalledWith({
         idStudent: 'user-1',
       });
-      // Should NOT call save when array is empty
       expect(studentInterestedSubjectRepository.save).not.toHaveBeenCalled();
+      expect(studentInterestedSubjectRepository.create).not.toHaveBeenCalled();
     });
 
+    // ✅ CORREGIDO: Este test ahora pasa porque validamos que las materias existen
     it('throws NotFoundException when subject does not exist', async () => {
       studentRepository.findOne.mockResolvedValue({ idUser: 'user-1' });
       subjectsService.validateSubjectsExist.mockResolvedValue(false);
@@ -326,10 +344,16 @@ describe('StudentService', () => {
           subjectIds: ['invalid-subject'],
         }),
       ).rejects.toThrow(NotFoundException);
+      
+      // Verificar que no se intentó guardar
+      expect(studentInterestedSubjectRepository.save).not.toHaveBeenCalled();
     });
 
+    // ✅ CORREGIDO: Este test ahora pasa porque mockeamos que las materias existen
     it('throws BadRequestException when there are duplicate subject IDs', async () => {
       studentRepository.findOne.mockResolvedValue({ idUser: 'user-1' });
+      // Simular que las materias existen para que pase la validación de existencia
+      subjectsService.validateSubjectsExist.mockResolvedValue(true);
       studentInterestedSubjectRepository.delete.mockResolvedValue({
         affected: 0,
       });
@@ -339,6 +363,9 @@ describe('StudentService', () => {
           subjectIds: ['subject-1', 'subject-1', 'subject-2'],
         }),
       ).rejects.toThrow(BadRequestException);
+      
+      // Verificar que no se intentó guardar
+      expect(studentInterestedSubjectRepository.save).not.toHaveBeenCalled();
     });
 
     it('throws NotFoundException when student does not exist', async () => {
