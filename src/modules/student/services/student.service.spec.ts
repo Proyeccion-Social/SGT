@@ -283,12 +283,12 @@ describe('StudentService', () => {
       studentInterestedSubjectRepository.delete.mockResolvedValue({
         affected: 0,
       });
-      
+
       // ✅ Configurar el mock de create para que devuelva las entidades esperadas
       studentInterestedSubjectRepository.create
         .mockReturnValueOnce({ idStudent: 'user-1', idSubject: 'subject-1' })
         .mockReturnValueOnce({ idStudent: 'user-1', idSubject: 'subject-2' });
-      
+
       studentInterestedSubjectRepository.save.mockResolvedValue([
         { idStudent: 'user-1', idSubject: 'subject-1' },
         { idStudent: 'user-1', idSubject: 'subject-2' },
@@ -301,7 +301,9 @@ describe('StudentService', () => {
       expect(studentInterestedSubjectRepository.delete).toHaveBeenCalledWith({
         idStudent: 'user-1',
       });
-      expect(studentInterestedSubjectRepository.create).toHaveBeenCalledTimes(2);
+      expect(studentInterestedSubjectRepository.create).toHaveBeenCalledTimes(
+        2,
+      );
       expect(studentInterestedSubjectRepository.save).toHaveBeenCalledWith(
         expect.arrayContaining([
           expect.objectContaining({
@@ -344,7 +346,7 @@ describe('StudentService', () => {
           subjectIds: ['invalid-subject'],
         }),
       ).rejects.toThrow(NotFoundException);
-      
+
       // Verificar que no se intentó guardar
       expect(studentInterestedSubjectRepository.save).not.toHaveBeenCalled();
     });
@@ -363,7 +365,7 @@ describe('StudentService', () => {
           subjectIds: ['subject-1', 'subject-1', 'subject-2'],
         }),
       ).rejects.toThrow(BadRequestException);
-      
+
       // Verificar que no se intentó guardar
       expect(studentInterestedSubjectRepository.save).not.toHaveBeenCalled();
     });
