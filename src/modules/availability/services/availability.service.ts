@@ -591,6 +591,40 @@ export class AvailabilityService {
     total: number;
     weekReference: string;
   }> {
+    return this.getTutorsBySubjectsWithAvailability([subjectId], options);
+  }
+
+  /**
+   * Obtiene tutores disponibles filtrados por una o más materias.
+   * Útil para mostrar tutores según las preferencias de materia del estudiante.
+   * @param subjectIds Array de IDs de materias
+   * @param options Filtros: onlyAvailable, modality, paginación (page, limit), weekStart
+   */
+  async getTutorsBySubjectsWithAvailability(
+    subjectIds: string[],
+    options?: {
+      onlyAvailable?: boolean;
+      modality?: Modality;
+      page?: number;
+      limit?: number;
+      weekStart?: string; //'YYYY-MM-DD' (lunes de la semana a consultar)
+    },
+  ): Promise<{
+    tutors: {
+      tutorId: string;
+      tutorName: string;
+      totalSlots: number;
+      availableSlots: number;
+      modalities: Modality[];
+      availability: TutorAvailabilityPublic;
+    }[];
+    total: number;
+    weekReference: string;
+  }> {
+    if (!subjectIds || subjectIds.length === 0) {
+      return { tutors: [], total: 0, weekReference: this.resolveWeekRange(options?.weekStart).weekStartStr };
+    }
+
     const page = options?.page ?? 1;
     const limit = options?.limit ?? 10;
     const offset = (page - 1) * limit;
@@ -598,7 +632,7 @@ export class AvailabilityService {
       options?.weekStart,
     );
 
-    // 1. IDs elegibles
+    // 1. IDs elegibles - filtrar por una o más materias
     const eligibleTutorsQuery = this.tutorHaveAvailabilityRepository
       .createQueryBuilder('tha')
       .select('DISTINCT tha.id_tutor', 'tutorId')
@@ -606,7 +640,7 @@ export class AvailabilityService {
       .innerJoin('tutor.tutorImpartSubjects', 'tis')
       .where('tutor.isActive = :isActive', { isActive: true })
       .andWhere('tutor.profile_completed = :completed', { completed: true })
-      .andWhere('tis.idSubject = :subjectId', { subjectId });
+      .andWhere('tis.idSubject IN (:...subjectIds)', { subjectIds });
 
     if (options?.modality) {
       eligibleTutorsQuery.andWhere('tha.modality = :modality', {

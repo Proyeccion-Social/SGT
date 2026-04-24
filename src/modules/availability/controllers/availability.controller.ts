@@ -22,6 +22,7 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { UserRole, User } from '../../users/entities/user.entity';
 import { NotFoundException } from '@nestjs/common';
 import { FilterTutorsDto } from '../dto/filter-tutors.dto';
+import { FilterTutorsBySubjectsDto } from '../dto/filter-tutors-by-subjects.dto';
 import { ManageSlotDto } from '../dto/manage-slot.dto';
 import { CreateSlotDto } from '../dto/create-slot.dto';
 import { UpdateWeeklyHoursLimitDto } from '../dto/update-weekly-hours-limit.dto';
@@ -116,6 +117,40 @@ export class AvailabilityController {
         id: subject.idSubject,
         name: subject.name,
       },
+      ...buildPaginatedResponse(
+        tutors,
+        total,
+        filters.page ?? 1,
+        filters.limit ?? 10,
+      ),
+    };
+  }
+
+  //====================================================
+  // GET /api/v1/availability/tutors/subjects
+  // Visualizar tutores por múltiples materias con su disponibilidad
+  // Útil para preferencias de estudiante
+  //====================================================
+  @Get('tutors/subjects')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.STUDENT, UserRole.TUTOR, UserRole.ADMIN)
+  async getTutorsBySubjects(@Query() filters: FilterTutorsBySubjectsDto) {
+    const { tutors, total, weekReference } =
+      await this.availabilityService.getTutorsBySubjectsWithAvailability(
+        filters.subjectIds,
+        {
+          onlyAvailable: filters.onlyAvailable,
+          modality: filters.modality,
+          page: filters.page,
+          limit: filters.limit,
+          weekStart: filters.weekStart,
+        },
+      );
+
+    return {
+      success: true,
+      subjectIds: filters.subjectIds,
+      weekReference,
       ...buildPaginatedResponse(
         tutors,
         total,
