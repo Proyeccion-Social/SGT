@@ -916,7 +916,7 @@ describe('AvailabilityService', () => {
   });
 
   describe('getAllAvailableTutors', () => {
-    it('returns all tutors with their availability slots', async () => {
+    it('returns all tutors with their availability slots with pagination', async () => {
       const qb = createQueryBuilderMock();
       qb.getMany.mockResolvedValue([
         {
@@ -951,16 +951,82 @@ describe('AvailabilityService', () => {
         scheduledQb,
       );
 
-      const result = await service.getAllAvailableTutors();
+      const result = await service.getAllAvailableTutors({
+        page: 1,
+        limit: 10,
+      });
 
-      expect(result).toEqual([
+      expect(result).toEqual(
         expect.objectContaining({
-          tutorId: 'tutor-1',
-          tutorName: 'John Tutor',
-          totalSlots: 2,
-          availableSlots: 2,
+          tutors: expect.arrayContaining([
+            expect.objectContaining({
+              tutorId: 'tutor-1',
+              tutorName: 'John Tutor',
+              totalSlots: 2,
+              availableSlots: 2,
+            }),
+          ]),
+          total: expect.any(Number),
+          weekReference: expect.any(String),
         }),
+      );
+    });
+
+    it('respects pagination with page and limit parameters', async () => {
+      const qb = createQueryBuilderMock();
+      qb.getMany.mockResolvedValue([
+        {
+          idTutor: 'tutor-1',
+          idAvailability: 10,
+          modality: Modality.PRES,
+          availability: { dayOfWeek: 0, startTime: '08:00' },
+          tutor: {
+            isActive: true,
+            profile_completed: true,
+            user: { name: 'Tutor 1' },
+          },
+        },
+        {
+          idTutor: 'tutor-2',
+          idAvailability: 20,
+          modality: Modality.PRES,
+          availability: { dayOfWeek: 0, startTime: '09:00' },
+          tutor: {
+            isActive: true,
+            profile_completed: true,
+            user: { name: 'Tutor 2' },
+          },
+        },
+        {
+          idTutor: 'tutor-3',
+          idAvailability: 30,
+          modality: Modality.PRES,
+          availability: { dayOfWeek: 0, startTime: '10:00' },
+          tutor: {
+            isActive: true,
+            profile_completed: true,
+            user: { name: 'Tutor 3' },
+          },
+        },
       ]);
+
+      tutorHaveAvailabilityRepository.createQueryBuilder.mockReturnValue(qb);
+
+      const scheduledQb = createQueryBuilderMock();
+      scheduledQb.getMany.mockResolvedValue([]);
+      scheduledSessionRepository.createQueryBuilder.mockReturnValue(
+        scheduledQb,
+      );
+
+      // Request page 2 with limit 1
+      const result = await service.getAllAvailableTutors({
+        page: 2,
+        limit: 1,
+      });
+
+      expect(result.total).toBe(3); // Total of 3 tutors
+      expect(result.tutors).toHaveLength(1); // But only 1 on this page
+      expect(result.tutors[0].tutorId).toBe('tutor-2'); // Second tutor
     });
 
     it('filters tutors by modality', async () => {
@@ -989,10 +1055,11 @@ describe('AvailabilityService', () => {
 
       const result = await service.getAllAvailableTutors({
         modality: Modality.PRES,
+        page: 1,
+        limit: 10,
       });
 
-      expect(result).toHaveLength(1);
-      expect(result[0].modalities).toContain(Modality.PRES);
+      expect(result.tutors[0].modalities).toContain(Modality.PRES);
     });
 
     it('filters to only available tutors with onlyAvailable option', async () => {
@@ -1042,10 +1109,31 @@ describe('AvailabilityService', () => {
 
       const result = await service.getAllAvailableTutors({
         onlyAvailable: true,
+        page: 1,
+        limit: 10,
       });
 
-      expect(result).toHaveLength(1);
-      expect(result[0].tutorId).toBe('tutor-2');
+      expect(result.tutors).toHaveLength(1);
+      expect(result.tutors[0].tutorId).toBe('tutor-2');
+      expect(result.total).toBe(1);
+    });
+
+    it('returns empty result if no tutors available', async () => {
+      const qb = createQueryBuilderMock();
+      qb.getMany.mockResolvedValue([]);
+
+      tutorHaveAvailabilityRepository.createQueryBuilder.mockReturnValue(qb);
+
+      const result = await service.getAllAvailableTutors({
+        page: 1,
+        limit: 10,
+      });
+
+      expect(result).toEqual({
+        tutors: [],
+        total: 0,
+        weekReference: expect.any(String),
+      });
     });
   });
 
@@ -1181,6 +1269,244 @@ describe('AvailabilityService', () => {
       );
 
       expect(result.tutors[0]?.modalities).toContain(Modality.PRES);
+    });
+  });
+
+  describe('getTutorsBySubjectsWithAvailability', () => {
+    it('returns tutors with multiple subject expertise and their availability', async () => {
+      const eligibleQb = createQueryBuilderMock();
+      eligibleQb.getRawMany.mockResolvedValue([
+        { tutorId: 'tutor-1' },
+        { tutorId: 'tutor-2' },
+      ]);
+
+      const slotsQb = createQueryBuilderMock();
+      slotsQb.getMany.mockResolvedValue([
+        {
+          idTutor: 'tutor-1',
+          idAvailability: 10,
+          modality: Modality.PRES,
+          availability: {
+            dayOfWeek: 0,
+            startTime: '08:00',
+            idAvailability: 10,
+          },
+          tutor: { user: { name: 'John Tutor' } },
+        },
+      ]);
+
+      tutorHaveAvailabilityRepository.createQueryBuilder
+        .mockReturnValueOnce(eligibleQb)
+        .mockReturnValueOnce(slotsQb)
+        .mockReturnValueOnce(slotsQb);
+
+      const scheduledQb = createQueryBuilderMock();
+      scheduledQb.getMany.mockResolvedValue([]);
+      scheduledSessionRepository.createQueryBuilder.mockReturnValue(
+        scheduledQb,
+      );
+
+      const result = await service.getTutorsBySubjectsWithAvailability([
+        'subject-1',
+        'subject-2',
+      ]);
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          tutors: expect.arrayContaining([
+            expect.objectContaining({
+              tutorId: 'tutor-1',
+              tutorName: 'John Tutor',
+            }),
+          ]),
+          total: expect.any(Number),
+          weekReference: expect.any(String),
+        }),
+      );
+    });
+
+    it('supports pagination with page and limit options', async () => {
+      const eligibleQb = createQueryBuilderMock();
+      eligibleQb.getRawMany.mockResolvedValue([
+        { tutorId: 'tutor-1' },
+        { tutorId: 'tutor-2' },
+        { tutorId: 'tutor-3' },
+      ]);
+
+      const slotsQb = createQueryBuilderMock();
+      slotsQb.getMany.mockResolvedValue([]);
+
+      tutorHaveAvailabilityRepository.createQueryBuilder
+        .mockReturnValueOnce(eligibleQb)
+        .mockReturnValueOnce(slotsQb)
+        .mockReturnValueOnce(slotsQb);
+
+      const scheduledQb = createQueryBuilderMock();
+      scheduledQb.getMany.mockResolvedValue([]);
+      scheduledSessionRepository.createQueryBuilder.mockReturnValue(
+        scheduledQb,
+      );
+
+      const result = await service.getTutorsBySubjectsWithAvailability(
+        ['subject-1', 'subject-2'],
+        { page: 1, limit: 2 },
+      );
+
+      expect(result.total).toBe(3);
+      expect(result.tutors).toHaveLength(0); // No slots to show for second query
+    });
+
+    it('returns empty result if no subject IDs provided', async () => {
+      const result = await service.getTutorsBySubjectsWithAvailability([]);
+
+      expect(result).toEqual({
+        tutors: [],
+        total: 0,
+        weekReference: expect.any(String),
+      });
+    });
+
+    it('returns empty result if no eligible tutors found for subjects', async () => {
+      const eligibleQb = createQueryBuilderMock();
+      eligibleQb.getRawMany.mockResolvedValue([]);
+
+      tutorHaveAvailabilityRepository.createQueryBuilder.mockReturnValue(
+        eligibleQb,
+      );
+
+      const result = await service.getTutorsBySubjectsWithAvailability([
+        'subject-999',
+      ]);
+
+      expect(result).toEqual({
+        tutors: [],
+        total: 0,
+        weekReference: expect.any(String),
+      });
+    });
+
+    it('filters tutors by modality if provided', async () => {
+      const eligibleQb = createQueryBuilderMock();
+      eligibleQb.getRawMany.mockResolvedValue([{ tutorId: 'tutor-1' }]);
+
+      const slotsQb = createQueryBuilderMock();
+      slotsQb.getMany.mockResolvedValue([
+        {
+          idTutor: 'tutor-1',
+          idAvailability: 10,
+          modality: Modality.PRES,
+          availability: { dayOfWeek: 0, startTime: '08:00' },
+          tutor: { user: { name: 'John Tutor' } },
+        },
+      ]);
+
+      tutorHaveAvailabilityRepository.createQueryBuilder
+        .mockReturnValueOnce(eligibleQb)
+        .mockReturnValueOnce(slotsQb)
+        .mockReturnValueOnce(slotsQb);
+
+      const scheduledQb = createQueryBuilderMock();
+      scheduledQb.getMany.mockResolvedValue([]);
+      scheduledSessionRepository.createQueryBuilder.mockReturnValue(
+        scheduledQb,
+      );
+
+      const result = await service.getTutorsBySubjectsWithAvailability(
+        ['subject-1', 'subject-2'],
+        { modality: Modality.PRES },
+      );
+
+      expect(result.tutors[0]?.modalities).toContain(Modality.PRES);
+    });
+
+    it('filters to only available tutors with onlyAvailable option', async () => {
+      const eligibleQb = createQueryBuilderMock();
+      eligibleQb.getRawMany.mockResolvedValue([
+        { tutorId: 'tutor-1' },
+        { tutorId: 'tutor-2' },
+      ]);
+
+      const slotsQb = createQueryBuilderMock();
+      slotsQb.getMany.mockResolvedValue([
+        {
+          idTutor: 'tutor-1',
+          idAvailability: 10,
+          modality: Modality.PRES,
+          availability: { dayOfWeek: 0, startTime: '08:00' },
+          tutor: { user: { name: 'John Tutor' } },
+        },
+        {
+          idTutor: 'tutor-2',
+          idAvailability: 20,
+          modality: Modality.VIRT,
+          availability: { dayOfWeek: 0, startTime: '09:00' },
+          tutor: { user: { name: 'Jane Tutor' } },
+        },
+      ]);
+
+      tutorHaveAvailabilityRepository.createQueryBuilder
+        .mockReturnValueOnce(eligibleQb)
+        .mockReturnValueOnce(slotsQb)
+        .mockReturnValueOnce(slotsQb);
+
+      const scheduledQb = createQueryBuilderMock();
+      scheduledQb.getMany
+        .mockResolvedValueOnce([
+          {
+            idTutor: 'tutor-1',
+            idAvailability: 10,
+            availability: { dayOfWeek: 0, startTime: '08:00' },
+            session: { startTime: '08:00', endTime: '08:30' },
+          },
+        ]) // tutor-1 has occupied slot
+        .mockResolvedValueOnce([]); // tutor-2 has available slots
+
+      scheduledSessionRepository.createQueryBuilder.mockReturnValue(
+        scheduledQb,
+      );
+
+      const result = await service.getTutorsBySubjectsWithAvailability(
+        ['subject-1', 'subject-2'],
+        { onlyAvailable: true },
+      );
+
+      expect(result.total).toBe(1);
+      expect(result.tutors).toHaveLength(1);
+      expect(result.tutors[0]?.tutorId).toBe('tutor-2');
+    });
+
+    it('supports weekStart parameter for consulting specific week', async () => {
+      const eligibleQb = createQueryBuilderMock();
+      eligibleQb.getRawMany.mockResolvedValue([{ tutorId: 'tutor-1' }]);
+
+      const slotsQb = createQueryBuilderMock();
+      slotsQb.getMany.mockResolvedValue([
+        {
+          idTutor: 'tutor-1',
+          idAvailability: 10,
+          modality: Modality.PRES,
+          availability: { dayOfWeek: 0, startTime: '08:00' },
+          tutor: { user: { name: 'John Tutor' } },
+        },
+      ]);
+
+      tutorHaveAvailabilityRepository.createQueryBuilder
+        .mockReturnValueOnce(eligibleQb)
+        .mockReturnValueOnce(slotsQb)
+        .mockReturnValueOnce(slotsQb);
+
+      const scheduledQb = createQueryBuilderMock();
+      scheduledQb.getMany.mockResolvedValue([]);
+      scheduledSessionRepository.createQueryBuilder.mockReturnValue(
+        scheduledQb,
+      );
+
+      const result = await service.getTutorsBySubjectsWithAvailability(
+        ['subject-1'],
+        { weekStart: '2024-01-08' }, // Monday of a specific week
+      );
+
+      expect(result.weekReference).toBe('2024-01-08');
     });
   });
 });

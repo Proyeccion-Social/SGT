@@ -685,7 +685,11 @@ export class AvailabilityService {
     weekReference: string;
   }> {
     if (!subjectIds || subjectIds.length === 0) {
-      return { tutors: [], total: 0, weekReference: this.resolveWeekRange(options?.weekStart).weekStartStr };
+      return {
+        tutors: [],
+        total: 0,
+        weekReference: this.resolveWeekRange(options?.weekStart).weekStartStr,
+      };
     }
 
     const page = options?.page ?? 1;
