@@ -369,10 +369,25 @@ export class AvailabilityController {
   @Get('tutors/slots')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.STUDENT, UserRole.TUTOR, UserRole.ADMIN)
-  async getAllAvailableTutors(@Query() query: GetAvailabilityQueryDto) {
-    return await this.availabilityService.getAllAvailableTutors({
-      modality: query.modality,
-      onlyAvailable: query.onlyAvailable,
-    });
+  async getAllAvailableTutors(@Query() query: FilterTutorsDto) {
+    const { tutors, total, weekReference } =
+      await this.availabilityService.getAllAvailableTutors({
+        modality: query.modality,
+        onlyAvailable: query.onlyAvailable,
+        page: query.page,
+        limit: query.limit,
+        weekStart: query.weekStart,
+      });
+
+    return {
+      success: true,
+      weekReference,
+      ...buildPaginatedResponse(
+        tutors,
+        total,
+        query.page ?? 1,
+        query.limit ?? 10,
+      ),
+    };
   }
 }
