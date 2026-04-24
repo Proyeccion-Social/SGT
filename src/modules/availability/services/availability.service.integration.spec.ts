@@ -275,8 +275,7 @@ describe('AvailabilityService (Integration Tests)', () => {
       ).toBe(true);
     });
 
-    it('7. Tutores filtrados por materia solo si tienen slots disponibles', async () => {
-      const subjectId = 'subject-001';
+    it('7. Filtrado de disponibilidad: solo slots sin sesiones activas se marcan disponibles', async () => {
       const tutor1Id = 'tutor-007-1';
       const tutor2Id = 'tutor-007-2';
 
@@ -297,7 +296,7 @@ describe('AvailabilityService (Integration Tests)', () => {
       const mondayOfCurrentWeek = getMondayOfCurrentWeek();
       addScheduledSession({
         idTutor: tutor2Id,
-        idAvailability: parseInt(slot2.slotId),
+        idAvailability: slot2.slotId,
         idSession: 'session-007',
         scheduledDate: mondayOfCurrentWeek,
         session: {
@@ -312,8 +311,7 @@ describe('AvailabilityService (Integration Tests)', () => {
         },
       });
 
-      // Mock getTutorsBySubjectWithAvailability behavior
-      // Since we can't mock subject relationships easily, verify the logic works by calling directly
+      // Verify that getTutorAvailability correctly filters by availability
       const result1 = await service.getTutorAvailability(tutor1Id);
       const result2 = await service.getTutorAvailability(tutor2Id);
 
@@ -601,8 +599,6 @@ describe('AvailabilityService (Integration Tests)', () => {
   }
 
   function createTutorHaveAvailabilityRepositoryMock() {
-    const currentQb: any = null;
-
     const tutorHaveAvailabilityRepository = {
       find: jest.fn(async (options: any) => {
         const tutorId = options.where.idTutor;
@@ -732,10 +728,28 @@ describe('AvailabilityService (Integration Tests)', () => {
                   s.scheduledDate >= cond.params.weekStart &&
                   s.scheduledDate <= cond.params.weekEnd,
               );
+            } else if (
+              cond.condition.includes('scheduled_date') &&
+              cond.condition.includes('=')
+            ) {
+              // Filter by exact scheduledDate (used in isSlotAvailableForDateWithDuration)
+              results = results.filter(
+                (s) => s.scheduledDate === cond.params.scheduledDate,
+              );
             } else if (cond.condition.includes('session.status')) {
               results = results.filter((s) =>
                 cond.params.activeStatuses.includes(s.session.status),
               );
+            } else if (
+              cond.condition.includes('idSession') ||
+              cond.condition.includes('id_session')
+            ) {
+              // Exclude specific session (used in isSlotAvailableForDateWithDuration)
+              if (cond.condition.includes('!=')) {
+                results = results.filter(
+                  (s) => s.idSession !== cond.params.excludeSessionId,
+                );
+              }
             }
           }
         }
@@ -842,6 +856,7 @@ describe('AvailabilityService (Integration Tests)', () => {
       }),
       getCount: jest.fn(async function (this: any) {
         // Query: SELECT count from TutorHaveAvailability WHERE idTutor AND dayOfWeek AND startTime
+        // Also handles EXTRACT conditions for startMin/endMin ranges
         if (queryState.params?.tutorId && queryState.andConditions) {
           let results =
             tutorHaveAvailabilityStorage.get(queryState.params.tutorId) || [];
@@ -866,6 +881,34 @@ describe('AvailabilityService (Integration Tests)', () => {
                 results = results.filter(
                   (s) => s.availability.startTime === startTime,
                 );
+              }
+            } else if (
+              cond.condition.includes('EXTRACT') &&
+              (cond.condition.includes('>=') || cond.condition.includes('>'))
+            ) {
+              // Handle EXTRACT(HOUR FROM start_time) * 60 + EXTRACT(MINUTE) >= startMin
+              const startMinParam = cond.params?.startMin;
+              if (startMinParam !== undefined) {
+                results = results.filter((s) => {
+                  const slotMinutes = this.timeToMinutes(
+                    s.availability.startTime,
+                  );
+                  return slotMinutes >= startMinParam;
+                });
+              }
+            } else if (
+              cond.condition.includes('EXTRACT') &&
+              (cond.condition.includes('<') || cond.condition.includes('<='))
+            ) {
+              // Handle EXTRACT(HOUR FROM start_time) * 60 + EXTRACT(MINUTE) < endMin
+              const endMinParam = cond.params?.endMin;
+              if (endMinParam !== undefined) {
+                results = results.filter((s) => {
+                  const slotMinutes = this.timeToMinutes(
+                    s.availability.startTime,
+                  );
+                  return slotMinutes < endMinParam;
+                });
               }
             }
           }
