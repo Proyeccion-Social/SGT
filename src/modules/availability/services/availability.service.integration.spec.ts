@@ -226,7 +226,9 @@ describe('AvailabilityService (Integration Tests)', () => {
       // Retrieve availability
       const availability = await service.getTutorAvailability(tutorId);
       expect(availability.availableSlots.length).toBe(0);
-      expect(availability.groupedByDay[DayOfWeek.MONDAY][0].isAvailable).toBe(false);
+      expect(availability.groupedByDay[DayOfWeek.MONDAY][0].isAvailable).toBe(
+        false,
+      );
     });
 
     it('6. Slots posteriores NO disponibles por sesión con duración 1.5h', async () => {
@@ -266,7 +268,11 @@ describe('AvailabilityService (Integration Tests)', () => {
       // All 3 slots should be marked as unavailable
       const availability = await service.getTutorAvailability(tutorId);
       expect(availability.availableSlots.length).toBe(0);
-      expect(availability.groupedByDay[DayOfWeek.MONDAY].every((s) => !s.isAvailable)).toBe(true);
+      expect(
+        availability.groupedByDay[DayOfWeek.MONDAY].every(
+          (s) => !s.isAvailable,
+        ),
+      ).toBe(true);
     });
 
     it('7. Tutores filtrados por materia solo si tienen slots disponibles', async () => {
@@ -433,12 +439,20 @@ describe('AvailabilityService (Integration Tests)', () => {
 
       // Should succeed with matching modality
       await expect(
-        service.validateModalityForSlot(parseInt(slot.slotId), tutorId, Modality.PRES),
+        service.validateModalityForSlot(
+          parseInt(slot.slotId),
+          tutorId,
+          Modality.PRES,
+        ),
       ).resolves.not.toThrow();
 
       // Should fail with mismatched modality
       await expect(
-        service.validateModalityForSlot(parseInt(slot.slotId), tutorId, Modality.VIRT),
+        service.validateModalityForSlot(
+          parseInt(slot.slotId),
+          tutorId,
+          Modality.VIRT,
+        ),
       ).rejects.toThrow();
     });
   });
@@ -524,8 +538,12 @@ describe('AvailabilityService (Integration Tests)', () => {
       // Get availability and filter by modality
       const availability = await service.getTutorAvailability(tutorId);
 
-      const presSlots = availability.availableSlots.filter((s) => s.modality === Modality.PRES);
-      const virtSlots = availability.availableSlots.filter((s) => s.modality === Modality.VIRT);
+      const presSlots = availability.availableSlots.filter(
+        (s) => s.modality === Modality.PRES,
+      );
+      const virtSlots = availability.availableSlots.filter(
+        (s) => s.modality === Modality.VIRT,
+      );
 
       expect(presSlots.length).toBe(1);
       expect(virtSlots.length).toBe(1);
@@ -583,7 +601,7 @@ describe('AvailabilityService (Integration Tests)', () => {
   }
 
   function createTutorHaveAvailabilityRepositoryMock() {
-    let currentQb: any = null;
+    const currentQb: any = null;
 
     const tutorHaveAvailabilityRepository = {
       find: jest.fn(async (options: any) => {
@@ -604,7 +622,9 @@ describe('AvailabilityService (Integration Tests)', () => {
         const tutorId = options.where.idTutor;
         const availabilityId = options.where.idAvailability;
         const tutorSlots = tutorHaveAvailabilityStorage.get(tutorId) || [];
-        const slot = tutorSlots.find((s) => s.idAvailability === availabilityId);
+        const slot = tutorSlots.find(
+          (s) => s.idAvailability === availabilityId,
+        );
         return slot ? { ...slot } : undefined;
       }),
       create: jest.fn((data) => data),
@@ -615,7 +635,9 @@ describe('AvailabilityService (Integration Tests)', () => {
         }
         const slots = tutorHaveAvailabilityStorage.get(tutorId);
         // Check if slot already exists and update it
-        const existingIndex = slots.findIndex((s) => s.idAvailability === data.idAvailability);
+        const existingIndex = slots.findIndex(
+          (s) => s.idAvailability === data.idAvailability,
+        );
         if (existingIndex !== -1) {
           slots[existingIndex] = { ...slots[existingIndex], ...data };
         } else {
@@ -635,7 +657,9 @@ describe('AvailabilityService (Integration Tests)', () => {
           for (const item of data) {
             const tutorId = item.idTutor;
             const tutorSlots = tutorHaveAvailabilityStorage.get(tutorId) || [];
-            const index = tutorSlots.findIndex((s) => s.idAvailability === item.idAvailability);
+            const index = tutorSlots.findIndex(
+              (s) => s.idAvailability === item.idAvailability,
+            );
             if (index !== -1) {
               tutorSlots.splice(index, 1);
             }
@@ -687,15 +711,22 @@ describe('AvailabilityService (Integration Tests)', () => {
 
         // Filter by tutorId
         if (queryConditions.params?.tutorIds) {
-          results = results.filter((s) => queryConditions.params.tutorIds.includes(s.idTutor));
+          results = results.filter((s) =>
+            queryConditions.params.tutorIds.includes(s.idTutor),
+          );
         } else if (queryConditions.params?.tutorId) {
-          results = results.filter((s) => s.idTutor === queryConditions.params.tutorId);
+          results = results.filter(
+            (s) => s.idTutor === queryConditions.params.tutorId,
+          );
         }
 
         // Filter by date range
         if (queryConditions.andConditions) {
           for (const cond of queryConditions.andConditions) {
-            if (cond.condition.includes('scheduled_date') && cond.condition.includes('BETWEEN')) {
+            if (
+              cond.condition.includes('scheduled_date') &&
+              cond.condition.includes('BETWEEN')
+            ) {
               results = results.filter(
                 (s) =>
                   s.scheduledDate >= cond.params.weekStart &&
@@ -729,7 +760,7 @@ describe('AvailabilityService (Integration Tests)', () => {
   }
 
   function createSessionQueryBuilderMock() {
-    let queryConditions: any = {};
+    const queryConditions: any = {};
 
     const qb: any = {
       where: jest.fn(function (condition: string, params?: any) {
@@ -759,8 +790,13 @@ describe('AvailabilityService (Integration Tests)', () => {
         // Filter by date and status
         if (queryConditions.andConditions) {
           for (const cond of queryConditions.andConditions) {
-            if (cond.condition.includes('status') && cond.params?.activeStatuses) {
-              results = results.filter((s) => cond.params.activeStatuses.includes(s.status));
+            if (
+              cond.condition.includes('status') &&
+              cond.params?.activeStatuses
+            ) {
+              results = results.filter((s) =>
+                cond.params.activeStatuses.includes(s.status),
+              );
             }
           }
         }
@@ -807,7 +843,8 @@ describe('AvailabilityService (Integration Tests)', () => {
       getCount: jest.fn(async function (this: any) {
         // Query: SELECT count from TutorHaveAvailability WHERE idTutor AND dayOfWeek AND startTime
         if (queryState.params?.tutorId && queryState.andConditions) {
-          let results = tutorHaveAvailabilityStorage.get(queryState.params.tutorId) || [];
+          let results =
+            tutorHaveAvailabilityStorage.get(queryState.params.tutorId) || [];
 
           for (const cond of queryState.andConditions) {
             if (
@@ -816,12 +853,19 @@ describe('AvailabilityService (Integration Tests)', () => {
             ) {
               const dayOfWeek = cond.params?.dayOfWeek;
               if (dayOfWeek !== undefined) {
-                results = results.filter((s) => s.availability.dayOfWeek === dayOfWeek);
+                results = results.filter(
+                  (s) => s.availability.dayOfWeek === dayOfWeek,
+                );
               }
-            } else if (cond.condition.includes('startTime') || cond.condition.includes('start_time')) {
+            } else if (
+              cond.condition.includes('startTime') ||
+              cond.condition.includes('start_time')
+            ) {
               const startTime = cond.params?.startTime;
               if (startTime) {
-                results = results.filter((s) => s.availability.startTime === startTime);
+                results = results.filter(
+                  (s) => s.availability.startTime === startTime,
+                );
               }
             }
           }
@@ -835,7 +879,8 @@ describe('AvailabilityService (Integration Tests)', () => {
 
         // Query for getTutorAvailability
         if (queryState.params?.tutorId && !queryState.params?.scheduledDate) {
-          results = tutorHaveAvailabilityStorage.get(queryState.params.tutorId) || [];
+          results =
+            tutorHaveAvailabilityStorage.get(queryState.params.tutorId) || [];
 
           if (queryState.andConditions) {
             for (const cond of queryState.andConditions) {
@@ -843,7 +888,10 @@ describe('AvailabilityService (Integration Tests)', () => {
                 results = results.filter(
                   (s) => s.availability.dayOfWeek === cond.params.dayOfWeek,
                 );
-              } else if (cond.condition.includes('startTime') && cond.condition.includes('IN')) {
+              } else if (
+                cond.condition.includes('startTime') &&
+                cond.condition.includes('IN')
+              ) {
                 results = results.filter((s) =>
                   cond.params.slotTimes.includes(s.availability.startTime),
                 );
@@ -879,7 +927,11 @@ describe('AvailabilityService (Integration Tests)', () => {
           let slotIds: number[] = [];
           if (queryState.andConditions) {
             for (const cond of queryState.andConditions) {
-              if ((cond.condition.includes('id_availability') || cond.condition.includes('idAvailability')) && cond.condition.includes('IN')) {
+              if (
+                (cond.condition.includes('id_availability') ||
+                  cond.condition.includes('idAvailability')) &&
+                cond.condition.includes('IN')
+              ) {
                 slotIds = cond.params.slotIds || [];
               }
             }
@@ -911,7 +963,11 @@ describe('AvailabilityService (Integration Tests)', () => {
     const dayOfWeek = now.getUTCDay();
     const daysToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
     const monday = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + daysToMonday),
+      Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate() + daysToMonday,
+      ),
     );
     return monday.toISOString().split('T')[0];
   }
@@ -925,7 +981,9 @@ describe('AvailabilityService (Integration Tests)', () => {
 
     // Also mock getMany to return this session
     const existing = tutorHaveAvailabilityStorage.get(session.idTutor) || [];
-    const slot = existing.find((s) => s.idAvailability === session.idAvailability);
+    const slot = existing.find(
+      (s) => s.idAvailability === session.idAvailability,
+    );
     if (slot) {
       slot.scheduledSessions = slot.scheduledSessions || [];
       slot.scheduledSessions.push(session);
