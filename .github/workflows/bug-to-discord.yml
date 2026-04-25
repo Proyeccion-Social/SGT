@@ -9,8 +9,8 @@ jobs:
   comment:
     runs-on: ubuntu-latest
     if: |
-      github.event.action == 'opened' &&
-      contains(github.event.issue.labels.*.name, 'bug')
+      (github.event.action == 'opened' && contains(github.event.issue.labels.*.name, 'bug')) ||
+      (github.event.action == 'labeled' && github.event.label.name == 'bug')
     permissions:
       issues: write
     steps:
@@ -47,7 +47,9 @@ jobs:
 
   discord:
     runs-on: ubuntu-latest
-    if: contains(github.event.issue.labels.*.name, 'bug')
+    if: |
+      contains(github.event.issue.labels.*.name, 'bug') ||
+      github.event.label.name == 'bug'
     steps:
       - name: Notify Discord
         run: |
@@ -59,7 +61,7 @@ jobs:
             STATUS="✅ Bug cerrado"
           else
             COLOR=16776960
-            STATUS="🏷️ Bug etiquetado: ${{ github.event.label.name }}"
+            STATUS="🏷️ Bug etiquetado por **${{ github.event.issue.user.login }}**"
           fi
 
           curl -X POST "${{ secrets.DISCORD_WEBHOOK }}" \
@@ -68,7 +70,7 @@ jobs:
             \"embeds\": [{
               \"title\": \"🐛 Bug #${{ github.event.issue.number }}: ${{ github.event.issue.title }}\",
               \"url\": \"${{ github.event.issue.html_url }}\",
-              \"description\": \"$STATUS por **${{ github.event.issue.user.login }}**\",
+              \"description\": \"$STATUS\",
               \"color\": $COLOR,
               \"footer\": { \"text\": \"Ver detalles en GitHub\" },
               \"timestamp\": \"${{ github.event.issue.created_at }}\"
