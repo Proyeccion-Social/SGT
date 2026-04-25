@@ -103,7 +103,9 @@ describe('SessionService (Integration Tests)', () => {
     ...overrides,
   });
 
-  const createMockStudentParticipation = (overrides = {}): StudentParticipateSession => ({
+  const createMockStudentParticipation = (
+    overrides = {},
+  ): StudentParticipateSession => ({
     idStudent: 'student-123',
     idSession: 'session-123',
     status: ParticipationStatus.CONFIRMED,
@@ -114,7 +116,9 @@ describe('SessionService (Integration Tests)', () => {
     ...overrides,
   });
 
-  const createMockModificationRequest = (overrides = {}): SessionModificationRequest => ({
+  const createMockModificationRequest = (
+    overrides = {},
+  ): SessionModificationRequest => ({
     idRequest: 'request-123',
     idSession: 'session-123',
     requestedBy: 'student-123',
@@ -186,7 +190,9 @@ describe('SessionService (Integration Tests)', () => {
       },
     };
 
-    queryRunner.manager.createQueryBuilder.mockReturnValue(createQueryBuilderMock());
+    queryRunner.manager.createQueryBuilder.mockReturnValue(
+      createQueryBuilderMock(),
+    );
 
     return queryRunner;
   };
@@ -235,7 +241,9 @@ describe('SessionService (Integration Tests)', () => {
       validateStudentNotTutor: jest.fn(),
       validateTutorActive: jest.fn().mockResolvedValue(undefined),
       validateModality: jest.fn().mockResolvedValue(undefined),
-      validateScheduledDateMatchesSlotDay: jest.fn().mockResolvedValue(undefined),
+      validateScheduledDateMatchesSlotDay: jest
+        .fn()
+        .mockResolvedValue(undefined),
       validateAvailabilitySlotWithDuration: jest
         .fn()
         .mockResolvedValue(undefined),
@@ -324,7 +332,10 @@ describe('SessionService (Integration Tests)', () => {
           description: 'Algebra basics',
         };
 
-        const result = await service.createIndividualSession('student-123', dto);
+        const result = await service.createIndividualSession(
+          'student-123',
+          dto,
+        );
 
         expect(result.success).toBe(true);
         expect(result.session).toBeDefined();
@@ -357,7 +368,10 @@ describe('SessionService (Integration Tests)', () => {
           description: 'Algebra basics',
         };
 
-        const result = await service.createIndividualSession('student-123', dto);
+        const result = await service.createIndividualSession(
+          'student-123',
+          dto,
+        );
 
         expect(result.pendingRequestsCount).toBeDefined();
       });
@@ -422,7 +436,10 @@ describe('SessionService (Integration Tests)', () => {
           description: 'Test',
         };
 
-        const result = await service.createIndividualSession('student-123', dto);
+        const result = await service.createIndividualSession(
+          'student-123',
+          dto,
+        );
         expect(result.success).toBe(true);
       });
     });
@@ -764,7 +781,10 @@ describe('SessionService (Integration Tests)', () => {
         const daySessionsQb = createQueryBuilderMock();
         daySessionsQb.getMany.mockResolvedValue([
           {
-            session: createMockSession({ startTime: '09:00', endTime: '13:00' }), // 4h
+            session: createMockSession({
+              startTime: '09:00',
+              endTime: '13:00',
+            }), // 4h
             idSession: 'other-session',
           },
         ]);
@@ -880,11 +900,9 @@ describe('SessionService (Integration Tests)', () => {
         sessionRepository.save.mockResolvedValue(mockSession);
         scheduledSessionRepository.delete.mockResolvedValue({});
 
-        const result = await service.cancelSession(
-          'tutor-456',
-          'session-123',
-          { reason: 'Emergency' },
-        );
+        const result = await service.cancelSession('tutor-456', 'session-123', {
+          reason: 'Emergency',
+        });
 
         expect(result.success).toBe(true);
       });

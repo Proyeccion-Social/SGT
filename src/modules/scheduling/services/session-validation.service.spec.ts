@@ -52,10 +52,8 @@ describe('SessionValidationService (Integration Tests)', () => {
       });
 
       it('should work with different UUIDs', () => {
-        const studentId =
-          'a1b2c3d4-e5f6-4789-8901-2345678901ab';
-        const tutorId =
-          'b1b2c3d4-e5f6-4789-8901-2345678901ab';
+        const studentId = 'a1b2c3d4-e5f6-4789-8901-2345678901ab';
+        const tutorId = 'b1b2c3d4-e5f6-4789-8901-2345678901ab';
         expect(() =>
           service.validateStudentNotTutor(studentId, tutorId),
         ).not.toThrow();
@@ -78,16 +76,14 @@ describe('SessionValidationService (Integration Tests)', () => {
       it('should throw with specific error message', () => {
         expect(() =>
           service.validateStudentNotTutor('user-1', 'user-1'),
-        ).toThrow(
-          'No puedes agendar una tutoría contigo mismo',
-        );
+        ).toThrow('No puedes agendar una tutoría contigo mismo');
       });
 
       it('should fail with UUIDs where student and tutor are identical', () => {
         const id = 'a1b2c3d4-e5f6-4789-8901-2345678901ab';
-        expect(() =>
-          service.validateStudentNotTutor(id, id),
-        ).toThrow(BadRequestException);
+        expect(() => service.validateStudentNotTutor(id, id)).toThrow(
+          BadRequestException,
+        );
       });
     });
   });
@@ -392,9 +388,7 @@ describe('SessionValidationService (Integration Tests)', () => {
             '2025-04-07',
             3,
           ),
-        ).rejects.toThrow(
-          'Slot duration exceeds availability window',
-        );
+        ).rejects.toThrow('Slot duration exceeds availability window');
       });
 
       it('should use default reason when not provided', async () => {
@@ -430,18 +424,15 @@ describe('SessionValidationService (Integration Tests)', () => {
         sessionRepository.createQueryBuilder.mockReturnValue(qb);
 
         await expect(
-          service.validateNoTimeConflict(
-            'tutor-1',
-            '2025-04-07',
-            '10:00',
-            1,
-          ),
+          service.validateNoTimeConflict('tutor-1', '2025-04-07', '10:00', 1),
         ).resolves.toBeUndefined();
       });
 
       it('should resolve when new session is before existing sessions', async () => {
         const qb = createQueryBuilderMock();
-        qb.getMany.mockResolvedValue([{ startTime: '14:00', endTime: '15:00' }]);
+        qb.getMany.mockResolvedValue([
+          { startTime: '14:00', endTime: '15:00' },
+        ]);
         sessionRepository.createQueryBuilder.mockReturnValue(qb);
 
         await expect(
@@ -456,32 +447,26 @@ describe('SessionValidationService (Integration Tests)', () => {
 
       it('should resolve when new session is after existing sessions', async () => {
         const qb = createQueryBuilderMock();
-        qb.getMany.mockResolvedValue([{ startTime: '09:00', endTime: '10:00' }]);
+        qb.getMany.mockResolvedValue([
+          { startTime: '09:00', endTime: '10:00' },
+        ]);
         sessionRepository.createQueryBuilder.mockReturnValue(qb);
 
         await expect(
-          service.validateNoTimeConflict(
-            'tutor-1',
-            '2025-04-07',
-            '14:00',
-            1,
-          ),
+          service.validateNoTimeConflict('tutor-1', '2025-04-07', '14:00', 1),
         ).resolves.toBeUndefined();
       });
 
       it('should allow adjacent sessions (no overlap)', async () => {
         const qb = createQueryBuilderMock();
-        qb.getMany.mockResolvedValue([{ startTime: '08:00', endTime: '10:00' }]);
+        qb.getMany.mockResolvedValue([
+          { startTime: '08:00', endTime: '10:00' },
+        ]);
         sessionRepository.createQueryBuilder.mockReturnValue(qb);
 
         // Proposed: 10:00-11:00 (exactly after existing)
         await expect(
-          service.validateNoTimeConflict(
-            'tutor-1',
-            '2025-04-07',
-            '10:00',
-            1,
-          ),
+          service.validateNoTimeConflict('tutor-1', '2025-04-07', '10:00', 1),
         ).resolves.toBeUndefined();
       });
 
@@ -527,81 +512,66 @@ describe('SessionValidationService (Integration Tests)', () => {
     describe('❌ SHOULD NOT WORK', () => {
       it('should throw when new session overlaps with existing (partial overlap)', async () => {
         const qb = createQueryBuilderMock();
-        qb.getMany.mockResolvedValue([{ startTime: '10:00', endTime: '11:00' }]);
+        qb.getMany.mockResolvedValue([
+          { startTime: '10:00', endTime: '11:00' },
+        ]);
         sessionRepository.createQueryBuilder.mockReturnValue(qb);
 
         // Proposed: 10:30-11:30 (overlaps)
         await expect(
-          service.validateNoTimeConflict(
-            'tutor-1',
-            '2025-04-07',
-            '10:30',
-            1,
-          ),
+          service.validateNoTimeConflict('tutor-1', '2025-04-07', '10:30', 1),
         ).rejects.toThrow(BadRequestException);
       });
 
       it('should throw when new session completely contains existing session', async () => {
         const qb = createQueryBuilderMock();
-        qb.getMany.mockResolvedValue([{ startTime: '11:00', endTime: '12:00' }]);
+        qb.getMany.mockResolvedValue([
+          { startTime: '11:00', endTime: '12:00' },
+        ]);
         sessionRepository.createQueryBuilder.mockReturnValue(qb);
 
         // Proposed: 10:00-13:00 (contains existing)
         await expect(
-          service.validateNoTimeConflict(
-            'tutor-1',
-            '2025-04-07',
-            '10:00',
-            3,
-          ),
+          service.validateNoTimeConflict('tutor-1', '2025-04-07', '10:00', 3),
         ).rejects.toThrow(BadRequestException);
       });
 
       it('should throw when existing session contains new session', async () => {
         const qb = createQueryBuilderMock();
-        qb.getMany.mockResolvedValue([{ startTime: '09:00', endTime: '14:00' }]);
+        qb.getMany.mockResolvedValue([
+          { startTime: '09:00', endTime: '14:00' },
+        ]);
         sessionRepository.createQueryBuilder.mockReturnValue(qb);
 
         // Proposed: 10:00-11:00 (contained in existing)
         await expect(
-          service.validateNoTimeConflict(
-            'tutor-1',
-            '2025-04-07',
-            '10:00',
-            1,
-          ),
+          service.validateNoTimeConflict('tutor-1', '2025-04-07', '10:00', 1),
         ).rejects.toThrow(BadRequestException);
       });
 
       it('should throw with specific time details in error message', async () => {
         const qb = createQueryBuilderMock();
-        qb.getMany.mockResolvedValue([{ startTime: '14:00', endTime: '15:00' }]);
+        qb.getMany.mockResolvedValue([
+          { startTime: '14:00', endTime: '15:00' },
+        ]);
         sessionRepository.createQueryBuilder.mockReturnValue(qb);
 
         // Proposed: 14:30-15:30
         await expect(
-          service.validateNoTimeConflict(
-            'tutor-1',
-            '2025-04-07',
-            '14:30',
-            1,
-          ),
+          service.validateNoTimeConflict('tutor-1', '2025-04-07', '14:30', 1),
         ).rejects.toThrow(/14:00.*15:00/);
       });
 
       it('should throw on partial overlap at session end', async () => {
         const qb = createQueryBuilderMock();
-        qb.getMany.mockResolvedValue([{ startTime: '14:00', endTime: '15:00' }]);
+        qb.getMany.mockResolvedValue([
+          { startTime: '14:00', endTime: '15:00' },
+        ]);
         sessionRepository.createQueryBuilder.mockReturnValue(qb);
 
         // Proposed: 14:50-15:50 (overlaps end)
         await expect(
-          service.validateNoTimeConflict(
-            'tutor-1',
-            '2025-04-07',
-            '14:50',
-            1,
-          ),
+          service.validateNoTimeConflict('tutor-1', '2025-04-07', '14:50', 1),
         ).rejects.toThrow(BadRequestException);
       });
     });
@@ -932,9 +902,9 @@ describe('SessionValidationService (Integration Tests)', () => {
   describe('validateCancellationTime', () => {
     describe('✅ SHOULD WORK', () => {
       it('should return true for far future dates', () => {
-        expect(
-          service.validateCancellationTime('2099-12-31', '12:00'),
-        ).toBe(true);
+        expect(service.validateCancellationTime('2099-12-31', '12:00')).toBe(
+          true,
+        );
       });
 
       it('should return true for dates more than 24 hours away', () => {
@@ -943,21 +913,21 @@ describe('SessionValidationService (Integration Tests)', () => {
       });
 
       it('should return false for past dates', () => {
-        expect(
-          service.validateCancellationTime('2000-01-01', '12:00'),
-        ).toBe(false);
+        expect(service.validateCancellationTime('2000-01-01', '12:00')).toBe(
+          false,
+        );
       });
 
       it('should handle various time formats', () => {
-        expect(
-          service.validateCancellationTime('2030-06-15', '23:59'),
-        ).toBe(true);
+        expect(service.validateCancellationTime('2030-06-15', '23:59')).toBe(
+          true,
+        );
       });
 
       it('should handle midnight times', () => {
-        expect(
-          service.validateCancellationTime('2030-06-15', '00:00'),
-        ).toBe(true);
+        expect(service.validateCancellationTime('2030-06-15', '00:00')).toBe(
+          true,
+        );
       });
     });
 

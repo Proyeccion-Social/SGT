@@ -72,12 +72,16 @@ describe('SessionValidationService (Integration Tests)', () => {
         });
 
         // Setup: Slot is available for the duration
-        availabilityService.isSlotAvailableForDateWithDuration.mockResolvedValue({
-          available: true,
-        });
+        availabilityService.isSlotAvailableForDateWithDuration.mockResolvedValue(
+          {
+            available: true,
+          },
+        );
 
         // Setup: Modality matches
-        availabilityService.validateModalityForSlot.mockResolvedValue(undefined);
+        availabilityService.validateModalityForSlot.mockResolvedValue(
+          undefined,
+        );
 
         // Setup: No time conflicts
         const qb = createQueryBuilderMock();
@@ -138,7 +142,11 @@ describe('SessionValidationService (Integration Tests)', () => {
 
         // Setup: Existing 1-hour session
         qb.getMany.mockResolvedValue([
-          { startTime: '09:00', endTime: '10:00', status: SessionStatus.SCHEDULED },
+          {
+            startTime: '09:00',
+            endTime: '10:00',
+            status: SessionStatus.SCHEDULED,
+          },
         ]);
         sessionRepository.createQueryBuilder.mockReturnValue(qb);
 
@@ -188,9 +196,9 @@ describe('SessionValidationService (Integration Tests)', () => {
       it('should fail early when student equals tutor (first validation)', async () => {
         const userId = 'same-user-123';
 
-        expect(() =>
-          service.validateStudentNotTutor(userId, userId),
-        ).toThrow(BadRequestException);
+        expect(() => service.validateStudentNotTutor(userId, userId)).toThrow(
+          BadRequestException,
+        );
 
         // No other services should be called if first validation fails
         expect(availabilityService.getAvailabilityById).not.toHaveBeenCalled();
@@ -227,7 +235,11 @@ describe('SessionValidationService (Integration Tests)', () => {
 
         // Setup: Existing session from 10:00-11:00
         qb.getMany.mockResolvedValue([
-          { startTime: '10:00', endTime: '11:00', status: SessionStatus.SCHEDULED },
+          {
+            startTime: '10:00',
+            endTime: '11:00',
+            status: SessionStatus.SCHEDULED,
+          },
         ]);
         sessionRepository.createQueryBuilder.mockReturnValue(qb);
 
@@ -246,7 +258,11 @@ describe('SessionValidationService (Integration Tests)', () => {
 
         // Setup: Already at limit (4h)
         qb.getMany.mockResolvedValue([
-          { startTime: '09:00', endTime: '13:00', status: SessionStatus.SCHEDULED },
+          {
+            startTime: '09:00',
+            endTime: '13:00',
+            status: SessionStatus.SCHEDULED,
+          },
         ]);
         sessionRepository.createQueryBuilder.mockReturnValue(qb);
 
@@ -262,8 +278,16 @@ describe('SessionValidationService (Integration Tests)', () => {
 
         // Setup: 10h of sessions this week
         qb.getMany.mockResolvedValue([
-          { startTime: '09:00', endTime: '17:00', status: SessionStatus.SCHEDULED },
-          { startTime: '09:00', endTime: '11:00', status: SessionStatus.SCHEDULED },
+          {
+            startTime: '09:00',
+            endTime: '17:00',
+            status: SessionStatus.SCHEDULED,
+          },
+          {
+            startTime: '09:00',
+            endTime: '11:00',
+            status: SessionStatus.SCHEDULED,
+          },
         ]);
         sessionRepository.createQueryBuilder.mockReturnValue(qb);
         tutorService.getWeeklyHoursLimit.mockResolvedValue(10);
@@ -292,12 +316,28 @@ describe('SessionValidationService (Integration Tests)', () => {
         // Setup: Existing sessions (one is the one being modified, will be excluded)
         qb.getMany
           .mockResolvedValueOnce([
-            { startTime: '10:00', endTime: '11:00', status: SessionStatus.SCHEDULED },
-            { startTime: '14:00', endTime: '15:00', status: SessionStatus.SCHEDULED },
+            {
+              startTime: '10:00',
+              endTime: '11:00',
+              status: SessionStatus.SCHEDULED,
+            },
+            {
+              startTime: '14:00',
+              endTime: '15:00',
+              status: SessionStatus.SCHEDULED,
+            },
           ])
           .mockResolvedValueOnce([
-            { startTime: '10:00', endTime: '11:00', status: SessionStatus.SCHEDULED },
-            { startTime: '14:00', endTime: '15:00', status: SessionStatus.SCHEDULED },
+            {
+              startTime: '10:00',
+              endTime: '11:00',
+              status: SessionStatus.SCHEDULED,
+            },
+            {
+              startTime: '14:00',
+              endTime: '15:00',
+              status: SessionStatus.SCHEDULED,
+            },
           ]);
 
         sessionRepository.createQueryBuilder.mockReturnValue(qb);
@@ -348,7 +388,11 @@ describe('SessionValidationService (Integration Tests)', () => {
 
         // Setup: Existing 1h session
         qb.getMany.mockResolvedValue([
-          { startTime: '09:00', endTime: '10:00', status: SessionStatus.SCHEDULED },
+          {
+            startTime: '09:00',
+            endTime: '10:00',
+            status: SessionStatus.SCHEDULED,
+          },
         ]);
         sessionRepository.createQueryBuilder.mockReturnValue(qb);
 
@@ -377,7 +421,11 @@ describe('SessionValidationService (Integration Tests)', () => {
 
         // Setup: Another session at 14:00-15:00
         qb.getMany.mockResolvedValue([
-          { startTime: '14:00', endTime: '15:00', status: SessionStatus.SCHEDULED },
+          {
+            startTime: '14:00',
+            endTime: '15:00',
+            status: SessionStatus.SCHEDULED,
+          },
         ]);
         sessionRepository.createQueryBuilder.mockReturnValue(qb);
 
@@ -400,7 +448,11 @@ describe('SessionValidationService (Integration Tests)', () => {
 
         // Setup: 3h existing sessions
         qb.getMany.mockResolvedValue([
-          { startTime: '09:00', endTime: '12:00', status: SessionStatus.SCHEDULED },
+          {
+            startTime: '09:00',
+            endTime: '12:00',
+            status: SessionStatus.SCHEDULED,
+          },
         ]);
         sessionRepository.createQueryBuilder.mockReturnValue(qb);
 
@@ -440,7 +492,11 @@ describe('SessionValidationService (Integration Tests)', () => {
 
         // Setup: Session 09:00-10:00
         qb.getMany.mockResolvedValue([
-          { startTime: '09:00', endTime: '10:00', status: SessionStatus.SCHEDULED },
+          {
+            startTime: '09:00',
+            endTime: '10:00',
+            status: SessionStatus.SCHEDULED,
+          },
         ]);
         sessionRepository.createQueryBuilder.mockReturnValue(qb);
 
@@ -453,7 +509,11 @@ describe('SessionValidationService (Integration Tests)', () => {
       it('should handle tutors with different weekly limits', async () => {
         const qb = createQueryBuilderMock();
         qb.getMany.mockResolvedValue([
-          { startTime: '09:00', endTime: '14:00', status: SessionStatus.SCHEDULED },
+          {
+            startTime: '09:00',
+            endTime: '14:00',
+            status: SessionStatus.SCHEDULED,
+          },
         ]); // 5h
         sessionRepository.createQueryBuilder.mockReturnValue(qb);
 
@@ -462,7 +522,11 @@ describe('SessionValidationService (Integration Tests)', () => {
 
         // 5 + 10 = 15h (at limit, should pass)
         await expect(
-          service.validateWeeklyHoursLimit('tutor-high-limit', '2025-04-07', 10),
+          service.validateWeeklyHoursLimit(
+            'tutor-high-limit',
+            '2025-04-07',
+            10,
+          ),
         ).resolves.toBeUndefined();
 
         // Reset for another tutor
@@ -481,7 +545,11 @@ describe('SessionValidationService (Integration Tests)', () => {
 
         // Setup: 2.5h existing
         qb.getMany.mockResolvedValue([
-          { startTime: '09:00', endTime: '11:30', status: SessionStatus.SCHEDULED },
+          {
+            startTime: '09:00',
+            endTime: '11:30',
+            status: SessionStatus.SCHEDULED,
+          },
         ]);
         sessionRepository.createQueryBuilder.mockReturnValue(qb);
 
@@ -531,9 +599,9 @@ describe('SessionValidationService (Integration Tests)', () => {
         const userId = 'same-user';
 
         // Should fail immediately
-        expect(() =>
-          service.validateStudentNotTutor(userId, userId),
-        ).toThrow(BadRequestException);
+        expect(() => service.validateStudentNotTutor(userId, userId)).toThrow(
+          BadRequestException,
+        );
 
         // No further calls should be made
         expect(availabilityService.getAvailabilityById).not.toHaveBeenCalled();
@@ -555,7 +623,11 @@ describe('SessionValidationService (Integration Tests)', () => {
 
         // Reset and test: Time conflict + Hours exceeded simultaneously
         qb.getMany.mockResolvedValue([
-          { startTime: '10:00', endTime: '14:00', status: SessionStatus.SCHEDULED }, // 4h at limit
+          {
+            startTime: '10:00',
+            endTime: '14:00',
+            status: SessionStatus.SCHEDULED,
+          }, // 4h at limit
         ]);
         sessionRepository.createQueryBuilder.mockReturnValue(qb);
 
@@ -652,12 +724,7 @@ describe('SessionValidationService (Integration Tests)', () => {
         .mockReturnValueOnce(qb3);
 
       // Three different validations requiring fresh query builders
-      await service.validateNoTimeConflict(
-        tutorId,
-        '2025-04-07',
-        '10:00',
-        1,
-      );
+      await service.validateNoTimeConflict(tutorId, '2025-04-07', '10:00', 1);
       await service.validateDailyHoursLimit(tutorId, '2025-04-07', 1);
       await service.validateWeeklyHoursLimit(tutorId, '2025-04-07', 1);
 
@@ -670,8 +737,16 @@ describe('SessionValidationService (Integration Tests)', () => {
 
       // Setup: Sessions with different statuses
       qb.getMany.mockResolvedValue([
-        { startTime: '10:00', endTime: '11:00', status: SessionStatus.SCHEDULED },
-        { startTime: '14:00', endTime: '15:00', status: SessionStatus.PENDING_MODIFICATION },
+        {
+          startTime: '10:00',
+          endTime: '11:00',
+          status: SessionStatus.SCHEDULED,
+        },
+        {
+          startTime: '14:00',
+          endTime: '15:00',
+          status: SessionStatus.PENDING_MODIFICATION,
+        },
       ]);
       sessionRepository.createQueryBuilder.mockReturnValue(qb);
 
@@ -781,7 +856,11 @@ describe('SessionValidationService (Integration Tests)', () => {
 
         // Setup: 3.75h (3h 45min)
         qb.getMany.mockResolvedValue([
-          { startTime: '09:00', endTime: '12:45', status: SessionStatus.SCHEDULED },
+          {
+            startTime: '09:00',
+            endTime: '12:45',
+            status: SessionStatus.SCHEDULED,
+          },
         ]);
         sessionRepository.createQueryBuilder.mockReturnValue(qb);
 
@@ -796,7 +875,11 @@ describe('SessionValidationService (Integration Tests)', () => {
         const qb = createQueryBuilderMock();
 
         qb.getMany.mockResolvedValue([
-          { startTime: '10:00', endTime: '11:00', status: SessionStatus.SCHEDULED },
+          {
+            startTime: '10:00',
+            endTime: '11:00',
+            status: SessionStatus.SCHEDULED,
+          },
         ]);
         sessionRepository.createQueryBuilder.mockReturnValue(qb);
 
@@ -818,7 +901,11 @@ describe('SessionValidationService (Integration Tests)', () => {
       const qb = createQueryBuilderMock();
 
       qb.getMany.mockResolvedValue([
-        { startTime: '10:00', endTime: '11:00', status: SessionStatus.SCHEDULED },
+        {
+          startTime: '10:00',
+          endTime: '11:00',
+          status: SessionStatus.SCHEDULED,
+        },
       ]);
       sessionRepository.createQueryBuilder.mockReturnValue(qb);
 
@@ -839,7 +926,11 @@ describe('SessionValidationService (Integration Tests)', () => {
       const qb = createQueryBuilderMock();
 
       qb.getMany.mockResolvedValue([
-        { startTime: '09:00', endTime: '12:00', status: SessionStatus.SCHEDULED }, // 3h
+        {
+          startTime: '09:00',
+          endTime: '12:00',
+          status: SessionStatus.SCHEDULED,
+        }, // 3h
       ]);
       sessionRepository.createQueryBuilder.mockReturnValue(qb);
 
@@ -859,7 +950,11 @@ describe('SessionValidationService (Integration Tests)', () => {
       const qb = createQueryBuilderMock();
 
       qb.getMany.mockResolvedValue([
-        { startTime: '09:00', endTime: '17:00', status: SessionStatus.SCHEDULED }, // 8h
+        {
+          startTime: '09:00',
+          endTime: '17:00',
+          status: SessionStatus.SCHEDULED,
+        }, // 8h
       ]);
       sessionRepository.createQueryBuilder.mockReturnValue(qb);
       tutorService.getWeeklyHoursLimit.mockResolvedValue(10);
@@ -968,7 +1063,10 @@ describe('SessionValidationService (Integration Tests)', () => {
         );
 
         // 8. Can cancel (24h rule)
-        const canCancel = service.validateCancellationTime(scheduledDate, startTime);
+        const canCancel = service.validateCancellationTime(
+          scheduledDate,
+          startTime,
+        );
         expect(canCancel).toBe(true);
 
         // 9. Calculate end time
@@ -986,7 +1084,11 @@ describe('SessionValidationService (Integration Tests)', () => {
 
       // First attempt: daily hours exceeded
       qb1.getMany.mockResolvedValue([
-        { startTime: '09:00', endTime: '13:00', status: SessionStatus.SCHEDULED }, // 4h
+        {
+          startTime: '09:00',
+          endTime: '13:00',
+          status: SessionStatus.SCHEDULED,
+        }, // 4h
       ]);
       sessionRepository.createQueryBuilder.mockReturnValueOnce(qb1);
 
