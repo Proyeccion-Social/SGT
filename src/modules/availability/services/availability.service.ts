@@ -616,8 +616,12 @@ export class AvailabilityService {
         ).length;
 
         const modalities = [
-          ...new Set(slots.map((s) => s.modality)),
-        ] as Modality[];
+          ...new Set(
+            slots
+              .map((s) => s.modality)
+              .filter((modality): modality is Modality => modality != null),
+          ),
+        ];
 
         return {
           tutorId: tutor.tutorId,
@@ -709,7 +713,8 @@ export class AvailabilityService {
       .innerJoin('tutor.tutorImpartSubjects', 'tis')
       .where('tutor.isActive = :isActive', { isActive: true })
       .andWhere('tutor.profile_completed = :completed', { completed: true })
-      .andWhere('tis.idSubject IN (:...subjectIds)', { subjectIds });
+      .andWhere('tis.idSubject IN (:...subjectIds)', { subjectIds })
+      .orderBy('tha.id_tutor', 'ASC');
 
     if (options?.modality) {
       eligibleTutorsQuery.andWhere('tha.modality = :modality', {

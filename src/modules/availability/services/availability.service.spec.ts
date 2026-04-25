@@ -21,6 +21,8 @@ describe('AvailabilityService', () => {
     set: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
+    orderBy: jest.fn().mockReturnThis(),
+    addOrderBy: jest.fn().mockReturnThis(),
     select: jest.fn().mockReturnThis(),
     getCount: jest.fn(),
     getMany: jest.fn(),
