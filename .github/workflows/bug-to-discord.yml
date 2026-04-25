@@ -10,22 +10,25 @@ jobs:
     runs-on: ubuntu-latest
     if: contains(github.event.issue.labels.*.name, 'bug')
     steps:
-      - name: Send to Discord
-        env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+      - name: Notify Discord
         run: |
-          curl -X POST $DISCORD_WEBHOOK \
+          if [ "${{ github.event.action }}" = "opened" ]; then
+            COLOR=15548997
+            STATUS="🔴 Nuevo bug reportado"
+          else
+            COLOR=5763719
+            STATUS="✅ Bug cerrado"
+          fi
+
+          curl -X POST "${{ secrets.DISCORD_WEBHOOK }}" \
           -H "Content-Type: application/json" \
-          -d '{
-            "embeds": [{
-              "title": "🐛 Bug #${{ github.event.issue.number }}: ${{ github.event.issue.title }}",
-              "url": "${{ github.event.issue.html_url }}",
-              "description": "${{ github.event.issue.body }}",
-              "color": 15548997,
-              "fields": [
-                { "name": "👤 Reportado por", "value": "${{ github.event.issue.user.login }}", "inline": true },
-                { "name": "📌 Estado", "value": "🔴 Abierto", "inline": true }
-              ],
-              "timestamp": "${{ github.event.issue.created_at }}"
+          -d "{
+            \"embeds\": [{
+              \"title\": \"🐛 Bug #${{ github.event.issue.number }}: ${{ github.event.issue.title }}\",
+              \"url\": \"${{ github.event.issue.html_url }}\",
+              \"description\": \"$STATUS por **${{ github.event.issue.user.login }}**\",
+              \"color\": $COLOR,
+              \"footer\": { \"text\": \"Ver detalles en GitHub\" },
+              \"timestamp\": \"${{ github.event.issue.created_at }}\"
             }]
-          }'
+          }"
