@@ -3,18 +3,18 @@ name: Bug to Discord
 
 on:
   issues:
-    types: [opened, closed]
+    types: [opened, closed, labeled]
 
 jobs:
-  notify:
+  comment:
     runs-on: ubuntu-latest
-    if: contains(github.event.issue.labels.*.name, 'bug')
+    if: |
+      github.event.action == 'opened' &&
+      contains(github.event.issue.labels.*.name, 'bug')
     permissions:
       issues: write
     steps:
-
       - name: Post template comment
-        if: github.event.action == 'opened'
         uses: actions/github-script@v7
         with:
           script: |
@@ -45,14 +45,21 @@ jobs:
             > Adjunta capturas, videos o logs si tienes.`
             })
 
+  discord:
+    runs-on: ubuntu-latest
+    if: contains(github.event.issue.labels.*.name, 'bug')
+    steps:
       - name: Notify Discord
         run: |
           if [ "${{ github.event.action }}" = "opened" ]; then
             COLOR=15548997
             STATUS="🔴 Nuevo bug reportado"
-          else
+          elif [ "${{ github.event.action }}" = "closed" ]; then
             COLOR=5763719
             STATUS="✅ Bug cerrado"
+          else
+            COLOR=16776960
+            STATUS="🏷️ Bug etiquetado: ${{ github.event.label.name }}"
           fi
 
           curl -X POST "${{ secrets.DISCORD_WEBHOOK }}" \
