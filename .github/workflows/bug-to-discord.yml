@@ -9,7 +9,42 @@ jobs:
   notify:
     runs-on: ubuntu-latest
     if: contains(github.event.issue.labels.*.name, 'bug')
+    permissions:
+      issues: write
     steps:
+
+      - name: Post template comment
+        if: github.event.action == 'opened'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `👋 Hola @${{ github.event.issue.user.login }}, gracias por reportar este bug.
+
+            Por favor completa la siguiente información para que podamos atenderte más rápido:
+
+            ---
+
+            **📋 Descripción del bug**
+            > ¿Qué ocurrió exactamente?
+
+            **🔁 Pasos para reproducirlo**
+            > 1.
+            > 2.
+
+            **✅ Comportamiento esperado**
+            > ¿Qué debería haber pasado?
+
+            **📱 Entorno**
+            > App · Versión · SO · Navegador (si aplica)
+
+            **📎 Evidencia**
+            > Adjunta capturas, videos o logs si tienes.`
+            })
+
       - name: Notify Discord
         run: |
           if [ "${{ github.event.action }}" = "opened" ]; then
