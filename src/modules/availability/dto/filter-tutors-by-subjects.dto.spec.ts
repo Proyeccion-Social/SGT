@@ -89,9 +89,9 @@ describe('FilterTutorsBySubjectsDto', () => {
 
       const errors = await validate(dto);
       expect(errors.length).toBeGreaterThan(0);
-      expect(
-        errors[0].constraints?.['arrayMinSize'],
-      ).toContain('al menos un ID');
+      expect(errors[0].constraints?.['arrayMinSize']).toContain(
+        'al menos un ID',
+      );
     });
 
     it('should fail validation if subjectIds is not an array', async () => {

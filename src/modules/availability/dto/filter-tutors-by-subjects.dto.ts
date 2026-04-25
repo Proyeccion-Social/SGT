@@ -25,9 +25,7 @@ export class FilterTutorsBySubjectsDto extends PaginationDto {
     }
     // Handle array (normal case: ?subjectIds=uuid1&subjectIds=uuid2)
     if (Array.isArray(value)) {
-      return value.map((id) =>
-        typeof id === 'string' ? id.trim() : id,
-      );
+      return value.map((id) => (typeof id === 'string' ? id.trim() : id));
     }
     // Return as-is if already proper format
     return value;
