@@ -482,22 +482,34 @@ export class AvailabilityService {
   }
 
   /**
-   * @param options Modality y/o onlyAvailable para filtrar los tutores, y weekStart para que el front sepa a qué semana corresponde la disponibilidad (lunes de la semana en formato 'YYYY-MM-DD')
-   * @return Lista de tutores con disponibilidad, filtrados por modalidad y/o solo disponibles, sin importar la materia. Útil para el buscador general de tutores.
+   * @param options Filtros: modality, onlyAvailable, paginación (page, limit), weekStart
+   * @return Lista paginada de tutores con disponibilidad, sin importar la materia. Útil para el buscador general de tutores.
    */
   async getAllAvailableTutors(options?: {
     modality?: Modality;
     onlyAvailable?: boolean;
+    page?: number;
+    limit?: number;
     weekStart?: string; //'YYYY-MM-DD' (lunes de la semana a consultar)
-  }): Promise<
-    Array<{
+  }): Promise<{
+    tutors: Array<{
       tutorId: string;
       tutorName: string;
       totalSlots: number;
       availableSlots: number;
       modalities: Modality[];
-    }>
-  > {
+    }>;
+    total: number;
+    weekReference: string;
+  }> {
+    const page = options?.page ?? 1;
+    const limit = options?.limit ?? 10;
+    const offset = (page - 1) * limit;
+    const { weekStartStr, weekEndStr } = this.resolveWeekRange(
+      options?.weekStart,
+    );
+
+    // 1. Obtener todos los tutores activos con disponibilidad
     const tutorsWithAvailability = await this.tutorHaveAvailabilityRepository
       .createQueryBuilder('tha')
       .innerJoinAndSelect('tha.tutor', 'tutor')
@@ -505,8 +517,19 @@ export class AvailabilityService {
       .innerJoinAndSelect('tha.availability', 'availability')
       .where('tutor.isActive = :isActive', { isActive: true })
       .andWhere('tutor.profile_completed = :completed', { completed: true })
+      .orderBy('user.name', 'ASC')
+      .addOrderBy('tutor.idUser', 'ASC')
       .getMany();
 
+    if (tutorsWithAvailability.length === 0) {
+      return {
+        tutors: [],
+        total: 0,
+        weekReference: weekStartStr,
+      };
+    }
+
+    // 2. Agrupar slots por tutor
     const tutorMap = new Map<
       string,
       { tutorId: string; tutorName: string; slots: TutorHaveAvailability[] }
@@ -523,26 +546,28 @@ export class AvailabilityService {
       tutorMap.get(ta.idTutor)!.slots.push(ta);
     }
 
-    // Obtener rangos ocupados para todos los tutores de una vez
+    // 3. Obtener rangos ocupados para todos los tutores
     const allTutorIds = Array.from(tutorMap.keys());
-    const { weekStartStr, weekEndStr } = this.resolveWeekRange(
-      options?.weekStart,
-    );
     const occupiedRangesByTutor = await this.buildOccupiedRangesForTutors(
       allTutorIds,
       weekStartStr,
       weekEndStr,
     );
 
-    const result = Array.from(tutorMap.values()).map((tutor) => {
-      const occupied = occupiedRangesByTutor.get(tutor.tutorId) ?? [];
+    // 4. Filtrar tutores elegibles (aplica onlyAvailable y modality)
+    const eligibleTutorIds: string[] = [];
+
+    for (const tutorId of allTutorIds) {
+      const tutor = tutorMap.get(tutorId)!;
+      const occupied = occupiedRangesByTutor.get(tutorId) ?? [];
 
       let slots = tutor.slots;
       if (options?.modality) {
         slots = slots.filter((s) => s.modality === options.modality);
       }
 
-      const totalSlots = slots.length;
+      if (slots.length === 0) continue;
+
       const availableCount = slots.filter(
         (s) =>
           !this.isSlotOccupiedByBlock(
@@ -552,22 +577,66 @@ export class AvailabilityService {
           ),
       ).length;
 
-      if (options?.onlyAvailable && availableCount === 0) return null;
+      if (options?.onlyAvailable && availableCount === 0) continue;
 
-      const modalities = [
-        ...new Set(slots.map((s) => s.modality)),
-      ] as Modality[];
+      eligibleTutorIds.push(tutorId);
+    }
 
+    const total = eligibleTutorIds.length;
+    const pagedIds = eligibleTutorIds.slice(offset, offset + limit);
+
+    if (pagedIds.length === 0) {
       return {
-        tutorId: tutor.tutorId,
-        tutorName: tutor.tutorName,
-        totalSlots,
-        availableSlots: availableCount,
-        modalities,
+        tutors: [],
+        total,
+        weekReference: weekStartStr,
       };
-    });
+    }
 
-    return result.filter((r) => r !== null);
+    // 5. Construir respuesta para la página
+    const tutors = pagedIds
+      .filter((id) => tutorMap.has(id))
+      .map((id) => {
+        const tutor = tutorMap.get(id)!;
+        const occupied = occupiedRangesByTutor.get(id) ?? [];
+
+        let slots = tutor.slots;
+        if (options?.modality) {
+          slots = slots.filter((s) => s.modality === options.modality);
+        }
+
+        const totalSlots = slots.length;
+        const availableCount = slots.filter(
+          (s) =>
+            !this.isSlotOccupiedByBlock(
+              s.availability.startTime,
+              s.availability.dayOfWeek,
+              occupied,
+            ),
+        ).length;
+
+        const modalities = [
+          ...new Set(
+            slots
+              .map((s) => s.modality)
+              .filter((modality): modality is Modality => modality != null),
+          ),
+        ];
+
+        return {
+          tutorId: tutor.tutorId,
+          tutorName: tutor.tutorName,
+          totalSlots,
+          availableSlots: availableCount,
+          modalities,
+        };
+      });
+
+    return {
+      tutors,
+      total,
+      weekReference: weekStartStr,
+    };
   }
 
   async getTutorsBySubjectWithAvailability(
@@ -591,6 +660,44 @@ export class AvailabilityService {
     total: number;
     weekReference: string;
   }> {
+    return this.getTutorsBySubjectsWithAvailability([subjectId], options);
+  }
+
+  /**
+   * Obtiene tutores disponibles filtrados por una o más materias.
+   * Útil para mostrar tutores según las preferencias de materia del estudiante.
+   * @param subjectIds Array de IDs de materias
+   * @param options Filtros: onlyAvailable, modality, paginación (page, limit), weekStart
+   */
+  async getTutorsBySubjectsWithAvailability(
+    subjectIds: string[],
+    options?: {
+      onlyAvailable?: boolean;
+      modality?: Modality;
+      page?: number;
+      limit?: number;
+      weekStart?: string; //'YYYY-MM-DD' (lunes de la semana a consultar)
+    },
+  ): Promise<{
+    tutors: {
+      tutorId: string;
+      tutorName: string;
+      totalSlots: number;
+      availableSlots: number;
+      modalities: Modality[];
+      availability: TutorAvailabilityPublic;
+    }[];
+    total: number;
+    weekReference: string;
+  }> {
+    if (!subjectIds || subjectIds.length === 0) {
+      return {
+        tutors: [],
+        total: 0,
+        weekReference: this.resolveWeekRange(options?.weekStart).weekStartStr,
+      };
+    }
+
     const page = options?.page ?? 1;
     const limit = options?.limit ?? 10;
     const offset = (page - 1) * limit;
@@ -598,7 +705,7 @@ export class AvailabilityService {
       options?.weekStart,
     );
 
-    // 1. IDs elegibles
+    // 1. IDs elegibles - filtrar por una o más materias
     const eligibleTutorsQuery = this.tutorHaveAvailabilityRepository
       .createQueryBuilder('tha')
       .select('DISTINCT tha.id_tutor', 'tutorId')
@@ -606,7 +713,8 @@ export class AvailabilityService {
       .innerJoin('tutor.tutorImpartSubjects', 'tis')
       .where('tutor.isActive = :isActive', { isActive: true })
       .andWhere('tutor.profile_completed = :completed', { completed: true })
-      .andWhere('tis.idSubject = :subjectId', { subjectId });
+      .andWhere('tis.idSubject IN (:...subjectIds)', { subjectIds })
+      .orderBy('tha.id_tutor', 'ASC');
 
     if (options?.modality) {
       eligibleTutorsQuery.andWhere('tha.modality = :modality', {
