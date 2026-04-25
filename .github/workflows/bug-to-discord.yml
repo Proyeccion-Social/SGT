@@ -1,0 +1,31 @@
+# .github/workflows/bug-to-discord.yml
+name: Bug to Discord
+
+on:
+  issues:
+    types: [opened, closed]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    if: contains(github.event.issue.labels.*.name, 'bug')
+    steps:
+      - name: Send to Discord
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: |
+          curl -X POST $DISCORD_WEBHOOK \
+          -H "Content-Type: application/json" \
+          -d '{
+            "embeds": [{
+              "title": "🐛 Bug #${{ github.event.issue.number }}: ${{ github.event.issue.title }}",
+              "url": "${{ github.event.issue.html_url }}",
+              "description": "${{ github.event.issue.body }}",
+              "color": 15548997,
+              "fields": [
+                { "name": "👤 Reportado por", "value": "${{ github.event.issue.user.login }}", "inline": true },
+                { "name": "📌 Estado", "value": "🔴 Abierto", "inline": true }
+              ],
+              "timestamp": "${{ github.event.issue.created_at }}"
+            }]
+          }'
