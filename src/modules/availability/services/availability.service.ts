@@ -517,6 +517,8 @@ export class AvailabilityService {
       .innerJoinAndSelect('tha.availability', 'availability')
       .where('tutor.isActive = :isActive', { isActive: true })
       .andWhere('tutor.profile_completed = :completed', { completed: true })
+      .orderBy('user.name', 'ASC')
+      .addOrderBy('tutor.idUser', 'ASC')
       .getMany();
 
     if (tutorsWithAvailability.length === 0) {
