@@ -1,0 +1,23 @@
+.github/workflows/bug-to-discord.yml
+  3435d25ed4208388 6,9,11-13,48-51,57,60-62
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "f082508e4b8b7211b78bef5a3237601e870fff20",
+  "prompts": {
+    "3435d25ed4208388": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3fddda6e-427e-4452-83fb-672200776bee",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "DanCmoo",
+      "messages": [],
+      "total_additions": 13,
+      "total_deletions": 6,
+      "accepted_lines": 13,
+      "overriden_lines": 0
+    }
+  }
+}
