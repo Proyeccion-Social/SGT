@@ -7,11 +7,11 @@ import {
 } from '@nestjs/common';
 import { SubjectsService } from '../services/subjects.service';
 import { SubjectFilterDto } from '../dto/subject-filter.dto';
-import { Roles } from 'src/modules/auth/decorators/roles.decorator';
-import { UserRole } from 'src/modules/users/entities/user.entity';
+import { Roles } from '../../auth/decorators/roles.decorator';
+import { UserRole } from '../../users/entities/user.entity';
 import { UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from 'src/modules/auth/guards/jwt-auth.guard';
-import { RolesGuard } from 'src/modules/auth/guards/roles.guard';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
 import { UsePipes, ValidationPipe } from '@nestjs/common';
 
 @Controller('subjects')
