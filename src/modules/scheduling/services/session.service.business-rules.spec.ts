@@ -438,7 +438,8 @@ describe('SessionService — Business Rules (Integration)', () => {
               idSession: 'existing-1',
             },
           ]),
-        );
+        )
+        .mockReturnValueOnce(makeQb('getMany', [])); // otherPending (no hay competidores)
 
       qrManager.findOne.mockResolvedValueOnce({
         // scheduledSession
