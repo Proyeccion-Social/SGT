@@ -6,10 +6,24 @@ import {
   Query,
 } from '@nestjs/common';
 import { SubjectsService } from '../services/subjects.service';
-import { Public } from '../../auth/decorators/public.decorator';
 import { SubjectFilterDto } from '../dto/subject-filter.dto';
+import { Roles } from 'src/modules/auth/decorators/roles.decorator';
+import { UserRole } from 'src/modules/users/entities/user.entity';
+import { UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from 'src/modules/auth/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/modules/auth/guards/roles.guard';
+import { UsePipes, ValidationPipe } from '@nestjs/common';
 
 @Controller('subjects')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(UserRole.TUTOR, UserRole.ADMIN, UserRole.STUDENT)
+@UsePipes(
+  new ValidationPipe({
+    whitelist: true,
+    forbidNonWhitelisted: true,
+    transform: true,
+  }),
+)
 export class SubjectsController {
   constructor(private readonly subjectsService: SubjectsService) {}
 
@@ -17,7 +31,7 @@ export class SubjectsController {
   // GET /api/v1/subjects
   // Listar todas las materias (para selección en UI)
   // =====================================================
-  @Public()
+
   @Get()
   async findAll(@Query() filters: SubjectFilterDto) {
     return {
@@ -30,7 +44,6 @@ export class SubjectsController {
   // GET /api/v1/subjects/:id
   // Obtener una materia específica
   // =====================================================
-  @Public()
   @Get(':id')
   async findOne(@Param('id') id: string) {
     const subject = await this.subjectsService.findById(id);
@@ -44,6 +57,8 @@ export class SubjectsController {
       data: {
         id: subject.idSubject,
         name: subject.name,
+        color: subject.color,
+        borderColor: subject.borderColor,
       },
     };
   }
@@ -52,7 +67,6 @@ export class SubjectsController {
   // GET /api/v1/subjects/:id/tutors
   // RF-14: Visualizar tutores por materia
   // =====================================================
-  @Public()
   @Get(':id/tutors')
   async getTutorsBySubject(@Param('id') subjectId: string) {
     // Validar que la materia exista
