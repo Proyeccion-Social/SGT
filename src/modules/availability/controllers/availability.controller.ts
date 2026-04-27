@@ -22,6 +22,7 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { UserRole, User } from '../../users/entities/user.entity';
 import { NotFoundException } from '@nestjs/common';
 import { FilterTutorsDto } from '../dto/filter-tutors.dto';
+import { FilterTutorsBySubjectsDto } from '../dto/filter-tutors-by-subjects.dto';
 import { ManageSlotDto } from '../dto/manage-slot.dto';
 import { CreateSlotDto } from '../dto/create-slot.dto';
 import { UpdateWeeklyHoursLimitDto } from '../dto/update-weekly-hours-limit.dto';
@@ -36,6 +37,13 @@ import { GetAvailabilityQueryDto } from '../dto/GetAvailabilityQueryDto';
 import { buildPaginatedResponse } from '../../common/helpers/pagination.helper';
 
 @Controller('availability')
+@UsePipes(
+  new ValidationPipe({
+    whitelist: true,
+    forbidNonWhitelisted: true,
+    transform: true,
+  }),
+)
 export class AvailabilityController {
   constructor(
     private readonly subjectsService: SubjectsService,
@@ -49,13 +57,6 @@ export class AvailabilityController {
   //====================================================
   @Get('tutors/me')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @UsePipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  )
   @Roles(UserRole.TUTOR)
   async getMyAvailability(
     @CurrentUser() user: User,
@@ -77,13 +78,8 @@ export class AvailabilityController {
   // RF-14: Visualizar tutores por materia (Código o Nombre) con su disponibilidad
   //====================================================
   @Get('tutors/subject')
-  @UsePipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  )
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.STUDENT, UserRole.TUTOR, UserRole.ADMIN)
   async getTutorsBySubject(@Query() filters: FilterTutorsDto) {
     if (!filters.subjectId && !filters.subjectName) {
       throw new BadRequestException(
@@ -130,6 +126,40 @@ export class AvailabilityController {
     };
   }
 
+  //====================================================
+  // GET /api/v1/availability/tutors/subjects
+  // Visualizar tutores por múltiples materias con su disponibilidad
+  // Útil para preferencias de estudiante
+  //====================================================
+  @Get('tutors/subjects')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.STUDENT, UserRole.TUTOR, UserRole.ADMIN)
+  async getTutorsBySubjects(@Query() filters: FilterTutorsBySubjectsDto) {
+    const { tutors, total, weekReference } =
+      await this.availabilityService.getTutorsBySubjectsWithAvailability(
+        filters.subjectIds,
+        {
+          onlyAvailable: filters.onlyAvailable,
+          modality: filters.modality,
+          page: filters.page,
+          limit: filters.limit,
+          weekStart: filters.weekStart,
+        },
+      );
+
+    return {
+      success: true,
+      subjectIds: filters.subjectIds,
+      weekReference,
+      ...buildPaginatedResponse(
+        tutors,
+        total,
+        filters.page ?? 1,
+        filters.limit ?? 10,
+      ),
+    };
+  }
+
   /**
    * POST /api/v1/availability/tutor/slots
    * RF-15: Gestionar disponibilidad del tutor (CREATE, UPDATE, DELETE)
@@ -137,13 +167,6 @@ export class AvailabilityController {
    */
   @Post('tutor/slots')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @UsePipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  )
   @Roles(UserRole.TUTOR)
   async manageSlot(
     @CurrentUser() user: User,
@@ -218,13 +241,6 @@ export class AvailabilityController {
   //====================================================
   @Patch('tutor/me/limits')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @UsePipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  )
   @Roles(UserRole.TUTOR)
   @HttpCode(HttpStatus.OK)
   async updateMyWeeklyHoursLimit(
@@ -256,13 +272,6 @@ export class AvailabilityController {
   @Post('tutor/slots/range')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.TUTOR)
-  @UsePipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  )
   @HttpCode(HttpStatus.CREATED)
   async createSlotsInRange(
     @CurrentUser() user: User,
@@ -287,13 +296,6 @@ export class AvailabilityController {
   @Patch('tutor/slots/range')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.TUTOR)
-  @UsePipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  )
   @HttpCode(HttpStatus.OK)
   async updateSlotsInRange(
     @CurrentUser() user: User,
@@ -318,13 +320,6 @@ export class AvailabilityController {
   @Delete('tutor/slots/range')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.TUTOR)
-  @UsePipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  )
   @HttpCode(HttpStatus.OK)
   async deleteSlotsInRange(
     @CurrentUser() user: User,
@@ -352,13 +347,8 @@ export class AvailabilityController {
    * - modality: PRES/VIRT (filtrar por modalidad)
    */
   @Get('tutors/:tutorId/slots')
-  @UsePipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  )
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.STUDENT, UserRole.TUTOR, UserRole.ADMIN)
   async getTutorAvailability(
     @Param('tutorId', ParseUUIDPipe) tutorId: string,
     @Query() query: GetAvailabilityQueryDto,
@@ -377,17 +367,27 @@ export class AvailabilityController {
    * Útil para mostrar un directorio de tutores disponibles
    */
   @Get('tutors/slots')
-  @UsePipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  )
-  async getAllAvailableTutors(@Query() query: GetAvailabilityQueryDto) {
-    return await this.availabilityService.getAllAvailableTutors({
-      modality: query.modality,
-      onlyAvailable: query.onlyAvailable,
-    });
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.STUDENT, UserRole.TUTOR, UserRole.ADMIN)
+  async getAllAvailableTutors(@Query() query: FilterTutorsDto) {
+    const { tutors, total, weekReference } =
+      await this.availabilityService.getAllAvailableTutors({
+        modality: query.modality,
+        onlyAvailable: query.onlyAvailable,
+        page: query.page,
+        limit: query.limit,
+        weekStart: query.weekStart,
+      });
+
+    return {
+      success: true,
+      weekReference,
+      ...buildPaginatedResponse(
+        tutors,
+        total,
+        query.page ?? 1,
+        query.limit ?? 10,
+      ),
+    };
   }
 }

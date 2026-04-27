@@ -11,7 +11,13 @@ import { ParticipationStatus } from '../enums/participation-status.enum';
 // ─── QueryBuilder factory ─────────────────────────────────────────────────────
 // Returns a chainable QB mock; terminalFn is the method that resolves with value.
 const makeQb = (
-  terminalFn: 'getOne' | 'getMany' | 'getCount' | 'getManyAndCount',
+  terminalFn:
+    | 'getOne'
+    | 'getMany'
+    | 'getCount'
+    | 'getManyAndCount'
+    | 'getRawOne'
+    | 'getRawMany',
   value: any,
 ) => {
   const qb: any = {
@@ -30,6 +36,8 @@ const makeQb = (
     getMany: jest.fn().mockResolvedValue([]),
     getCount: jest.fn().mockResolvedValue(0),
     getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+    getRawOne: jest.fn().mockResolvedValue(null),
+    getRawMany: jest.fn().mockResolvedValue([]),
   };
   qb[terminalFn].mockResolvedValue(value);
   return qb;
@@ -138,6 +146,7 @@ describe('SessionService', () => {
         .mockResolvedValue(undefined),
       validateNoTimeConflict: jest.fn().mockResolvedValue(undefined),
       validateWeeklyHoursLimit: jest.fn().mockResolvedValue(undefined),
+      validateDailyHoursLimit: jest.fn().mockResolvedValue(undefined),
       validateCancellationTime: jest.fn().mockReturnValue(true),
       calculateEndTime: jest.fn().mockReturnValue('10:00'),
     };
@@ -697,6 +706,7 @@ describe('SessionService', () => {
       managerMock.createQueryBuilder
         .mockReturnValueOnce(makeQb('getOne', session)) // get session
         .mockReturnValueOnce(makeQb('getOne', null)) // no conflicting
+        .mockReturnValueOnce(makeQb('getMany', [])) // daySessions (daily hours check)
         .mockReturnValueOnce(makeQb('getMany', [])); // no other pending
       managerMock.findOne
         .mockResolvedValueOnce({
@@ -705,8 +715,12 @@ describe('SessionService', () => {
         }) // scheduledSession
         .mockResolvedValueOnce({ idStudent: 'student-1' }); // confirmedParticipation
 
-      // getSessionById call after commit needs sessionRepository
+      // Post-transaction mock setup
       sessionRepository.findOne.mockResolvedValue(mockSession());
+      managerMock.save.mockResolvedValue({
+        ...session,
+        status: SessionStatus.SCHEDULED,
+      });
 
       const result = await service.confirmSession('tutor-1', 'session-1', {});
 
@@ -738,6 +752,7 @@ describe('SessionService', () => {
       managerMock.createQueryBuilder
         .mockReturnValueOnce(makeQb('getOne', session)) // get session
         .mockReturnValueOnce(makeQb('getOne', null)) // no conflicting
+        .mockReturnValueOnce(makeQb('getMany', [])) // daySessions (daily hours check)
         .mockReturnValueOnce(makeQb('getMany', [competitor1, competitor2])); // 2 competing
 
       managerMock.findOne
@@ -780,8 +795,9 @@ describe('SessionService', () => {
     };
 
     const setupHappyPath = () => {
-      // No confirmed session in slot, 0 pending
+      // Daily hours check, no confirmed session in slot, 0 pending
       managerMock.createQueryBuilder
+        .mockReturnValueOnce(makeQb('getRawOne', { totalHours: '0' })) // daily hours
         .mockReturnValueOnce(makeQb('getOne', null)) // confirmedInSlot
         .mockReturnValueOnce(makeQb('getCount', 0)); // pendingCount
 
@@ -811,9 +827,9 @@ describe('SessionService', () => {
     });
 
     it('throws BadRequestException when slot is already confirmed (pessimistic lock)', async () => {
-      managerMock.createQueryBuilder.mockReturnValueOnce(
-        makeQb('getOne', { idSession: 'other-session' }),
-      ); // confirmedInSlot
+      managerMock.createQueryBuilder
+        .mockReturnValueOnce(makeQb('getRawOne', { totalHours: '0' })) // daily hours
+        .mockReturnValueOnce(makeQb('getOne', { idSession: 'other-session' })); // confirmedInSlot
 
       await expect(
         service.createIndividualSession('student-1', dto),
@@ -823,6 +839,7 @@ describe('SessionService', () => {
 
     it('throws BadRequestException on DB unique constraint violation (code 23505)', async () => {
       managerMock.createQueryBuilder
+        .mockReturnValueOnce(makeQb('getRawOne', { totalHours: '0' })) // daily hours
         .mockReturnValueOnce(makeQb('getOne', null)) // no confirmed
         .mockReturnValueOnce(makeQb('getCount', 0)); // pendingCount
 
@@ -851,6 +868,7 @@ describe('SessionService', () => {
 
     it('includes pending request count in message when slot already has pending requests', async () => {
       managerMock.createQueryBuilder
+        .mockReturnValueOnce(makeQb('getRawOne', { totalHours: '0' })) // daily hours
         .mockReturnValueOnce(makeQb('getOne', null)) // no confirmed
         .mockReturnValueOnce(makeQb('getCount', 2)); // 2 other pending
 

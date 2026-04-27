@@ -506,6 +506,24 @@ export class TutorService {
     return tutor.limitDisponibility ?? 8;
   }
 
+  /**
+   * Obtener el límite diario de horas de un tutor (máximo de horas agendables por día)
+   * Actualmente es una constante de 4 horas para todos los tutores
+   */
+  async getDailyHoursLimit(tutorId: string): Promise<number> {
+    // Verificar que el tutor existe
+    const tutor = await this.tutorRepository.findOne({
+      where: { idUser: tutorId },
+    });
+
+    if (!tutor) {
+      throw new NotFoundException('Tutor not found');
+    }
+
+    // Retornar constante de 4 horas por día
+    return 4;
+  }
+
   async updateWeeklyHoursLimit(tutorId: string, maxWeeklyHours: number) {
     const MAX_DECLARABLE_WEEKLY_HOURS = 8;
 

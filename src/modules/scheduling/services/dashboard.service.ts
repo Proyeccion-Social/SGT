@@ -112,10 +112,7 @@ export class DashboardService {
       where: {
         idTutor: tutorId,
         scheduledDate: Between(weekStart, weekEnd),
-        status: In([
-          SessionStatus.SCHEDULED,
-          SessionStatus.PENDING_MODIFICATION,
-        ]),
+        status: SessionStatus.COMPLETED, // Solo se cuentan las horas de sesiones completadas
       },
     });
 
