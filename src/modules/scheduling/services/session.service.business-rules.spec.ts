@@ -431,11 +431,13 @@ describe('SessionService — Business Rules (Integration)', () => {
         .mockReturnValueOnce(makeQb('getOne', null)) // no conflict in slot
         .mockReturnValueOnce(
           makeQb('getMany', [
-            // daySessions para daily check
+            // daySessions para daily check - retorna sesiones que suman 4h
             {
               ...existingScheduled,
               session: existingScheduled,
               idSession: 'existing-1',
+              startTime: '09:00',
+              endTime: '13:00',
             },
           ]),
         )
