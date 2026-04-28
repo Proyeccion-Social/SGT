@@ -448,6 +448,8 @@ describe('SessionService — Business Rules (Integration)', () => {
         scheduledDate: '2030-01-06',
       });
 
+      sessionRepo.findOne.mockResolvedValue(pendingSession);
+
       await expect(
         service.confirmSession('tutor-1', 'session-1', {}),
       ).rejects.toThrow(BadRequestException);
