@@ -3,6 +3,7 @@ import {
   Injectable,
   UnauthorizedException,
   BadRequestException,
+  ConflictException,
   Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -57,7 +58,36 @@ export class AuthService {
       );
     }
 
-    // 3. Crear usuario usando UserService
+    // 3. Verificar si el email ya existe
+    const existingUser = await this.userService.findByEmail(dto.email);
+
+    if (existingUser) {
+      // Si ya está verificado, es un conflicto real
+      if (existingUser.emailVerified) {
+        throw new ConflictException('Email already exists');
+      }
+
+      // Si no está verificado, reenviar el correo de verificación
+      const verificationToken = await this.emailVerificationService.createToken(
+        existingUser.idUser,
+      );
+      try {
+        await this.emailService.sendEmailConfirmation(
+          existingUser.email,
+          existingUser.name,
+          verificationToken,
+        );
+      } catch (error) {
+        this.logger.error('Error resending confirmation email:', error);
+      }
+
+      return {
+        message:
+          'We sent a new verification email to your address. Please check your inbox.',
+      };
+    }
+
+    // 4. Crear usuario usando UserService
     const savedUser = await this.userService.create({
       name: dto.name,
       email: dto.email,
@@ -66,16 +96,15 @@ export class AuthService {
       status: UserStatus.PENDING,
     });
 
-    // 4. Crear registro en tabla students
+    // 5. Crear registro en tabla students
     await this.studentService.createFromUser(savedUser.idUser);
 
-    // 5. Generar token de verificación de email
+    // 6. Generar token de verificación de email
     const verificationToken = await this.emailVerificationService.createToken(
       savedUser.idUser,
     );
-    console.log('Verification token generated:', verificationToken); // Log del token generado para pruebas (quitar después)
 
-    // 6. Enviar email de confirmación
+    // 7. Enviar email de confirmación
     try {
       await this.emailService.sendEmailConfirmation(
         savedUser.email,
@@ -84,10 +113,9 @@ export class AuthService {
       );
     } catch (error) {
       this.logger.error('Error sending confirmation email:', error);
-      // No fallar registro si email falla
     }
 
-    // 7. Auditar
+    // 8. Auditar
     await this.auditService.log({
       id_user: savedUser.idUser,
       action: AuditAction.ACCOUNT_CREATED,
