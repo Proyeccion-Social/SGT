@@ -1,0 +1,38 @@
+src/modules/notifications/templates/email-confirmation.hbs
+  ac73bfe75a279a79 48,59
+src/modules/notifications/templates/welcome-email.hbs
+  ac73bfe75a279a79 22,38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "baac7fdba4439159adb8eb52e31705c3027ea4ba",
+  "prompts": {
+    "3435d25ed4208388": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3fddda6e-427e-4452-83fb-672200776bee",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "DanCmoo",
+      "messages": [],
+      "total_additions": 138,
+      "total_deletions": 0,
+      "accepted_lines": 147,
+      "overriden_lines": 0
+    },
+    "ac73bfe75a279a79": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f5bf422b-d435-4b29-a85e-3270c0258bb0",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "DanCmoo",
+      "messages": [],
+      "total_additions": 44,
+      "total_deletions": 17,
+      "accepted_lines": 44,
+      "overriden_lines": 0
+    }
+  }
+}
