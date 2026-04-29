@@ -24,7 +24,7 @@ export class SubjectsService {
   // =====================================================
 
   /**
-   * Obtener una materia por ID
+   * Obtener una materia por ID, retorna su nombre, color y borderColor
    */
   async findById(id: string): Promise<Subject | null> {
     return await this.subjectRepository.findOne({
@@ -68,7 +68,12 @@ export class SubjectsService {
     });
 
     return buildPaginatedResponse(
-      subjects.map((s) => ({ id: s.idSubject, name: s.name })),
+      subjects.map((s) => ({
+        id: s.idSubject,
+        name: s.name,
+        color: s.color,
+        borderColor: s.borderColor,
+      })), //Se añaden dos atributos relacionados al color para su uso en el frontend
       total,
       page,
       limit,
@@ -83,6 +88,20 @@ export class SubjectsService {
       where: { idSubject: id },
     });
     return count > 0;
+  }
+
+  async updateSubjectColors(
+    id: string,
+    color: string,
+    borderColor: string,
+  ): Promise<void> {
+    const subject = await this.findById(id);
+    if (!subject) {
+      throw new NotFoundException(`Subject with id ${id} not found`);
+    }
+    subject.color = color;
+    subject.borderColor = borderColor;
+    await this.subjectRepository.save(subject);
   }
 
   // =====================================================

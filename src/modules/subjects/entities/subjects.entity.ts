@@ -27,6 +27,17 @@ export class Subject {
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive: boolean;
 
+  @Column({ name: 'color', type: 'varchar', length: 255, nullable: true })
+  color: string | null;
+
+  @Column({
+    name: 'border_color',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
+  borderColor: string | null;
+
   @OneToMany(
     () => TutorImpartSubject,
     (tutorImpartSubject) => tutorImpartSubject.subject,
