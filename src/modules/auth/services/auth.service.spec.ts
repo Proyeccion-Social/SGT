@@ -1,4 +1,8 @@
-import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { UserRole, UserStatus } from '../../users/entities/user.entity';
 
@@ -126,6 +130,7 @@ describe('AuthService', () => {
     });
 
     it('registers successfully and returns confirmation message', async () => {
+      userService.findByEmail.mockResolvedValue(null);
       userService.create.mockResolvedValue({
         idUser: 'user-1',
         email: 'test@udistrital.edu.co',
@@ -153,6 +158,7 @@ describe('AuthService', () => {
     });
 
     it('does not throw if confirmation email fails', async () => {
+      userService.findByEmail.mockResolvedValue(null);
       userService.create.mockResolvedValue({
         idUser: 'user-1',
         email: 'test@udistrital.edu.co',
@@ -172,6 +178,47 @@ describe('AuthService', () => {
           confirmPassword: 'Pass1@abc',
         }),
       ).resolves.toBeDefined();
+    });
+
+    it('resends verification email if user exists but is not verified', async () => {
+      userService.findByEmail.mockResolvedValue({
+        idUser: 'user-1',
+        email: 'test@udistrital.edu.co',
+        name: 'Test',
+        emailVerified: false,
+      });
+
+      const result = await service.register({
+        name: 'Test',
+        email: 'test@udistrital.edu.co',
+        password: 'Pass1@abc',
+        confirmPassword: 'Pass1@abc',
+      });
+
+      expect(result.message).toContain('new verification email');
+      expect(emailVerificationService.createToken).toHaveBeenCalledWith('user-1');
+      expect(emailService.sendEmailConfirmation).toHaveBeenCalled();
+      expect(userService.create).not.toHaveBeenCalled();
+    });
+
+    it('throws ConflictException if user exists and is already verified', async () => {
+      userService.findByEmail.mockResolvedValue({
+        idUser: 'user-1',
+        email: 'test@udistrital.edu.co',
+        name: 'Test',
+        emailVerified: true,
+      });
+
+      await expect(
+        service.register({
+          name: 'Test',
+          email: 'test@udistrital.edu.co',
+          password: 'Pass1@abc',
+          confirmPassword: 'Pass1@abc',
+        }),
+      ).rejects.toThrow(ConflictException);
+
+      expect(userService.create).not.toHaveBeenCalled();
     });
   });
 
