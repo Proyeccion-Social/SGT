@@ -1,0 +1,23 @@
+src/modules/notifications/templates/session-absent.hbs
+  ac73bfe75a279a79 1-62
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "293206523509ee68b660b7c1b648f962b6865061",
+  "prompts": {
+    "ac73bfe75a279a79": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f5bf422b-d435-4b29-a85e-3270c0258bb0",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "DanCmoo",
+      "messages": [],
+      "total_additions": 62,
+      "total_deletions": 0,
+      "accepted_lines": 95,
+      "overriden_lines": 0
+    }
+  }
+}
