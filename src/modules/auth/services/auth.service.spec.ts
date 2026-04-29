@@ -201,6 +201,29 @@ describe('AuthService', () => {
       expect(userService.create).not.toHaveBeenCalled();
     });
 
+    it('throws if email service fails during resend to unverified user', async () => {
+      userService.findByEmail.mockResolvedValue({
+        idUser: 'user-1',
+        email: 'test@udistrital.edu.co',
+        name: 'Test',
+        emailVerified: false,
+      });
+      emailService.sendEmailConfirmation.mockRejectedValue(
+        new Error('SMTP error'),
+      );
+
+      await expect(
+        service.register({
+          name: 'Test',
+          email: 'test@udistrital.edu.co',
+          password: 'Pass1@abc',
+          confirmPassword: 'Pass1@abc',
+        }),
+      ).rejects.toThrow('SMTP error');
+
+      expect(userService.create).not.toHaveBeenCalled();
+    });
+
     it('throws ConflictException if user exists and is already verified', async () => {
       userService.findByEmail.mockResolvedValue({
         idUser: 'user-1',

@@ -71,15 +71,11 @@ export class AuthService {
       const verificationToken = await this.emailVerificationService.createToken(
         existingUser.idUser,
       );
-      try {
-        await this.emailService.sendEmailConfirmation(
-          existingUser.email,
-          existingUser.name,
-          verificationToken,
-        );
-      } catch (error) {
-        this.logger.error('Error resending confirmation email:', error);
-      }
+      await this.emailService.sendEmailConfirmation(
+        existingUser.email,
+        existingUser.name,
+        verificationToken,
+      );
 
       return {
         message:
