@@ -196,7 +196,9 @@ describe('AuthService', () => {
       });
 
       expect(result.message).toContain('new verification email');
-      expect(emailVerificationService.createToken).toHaveBeenCalledWith('user-1');
+      expect(emailVerificationService.createToken).toHaveBeenCalledWith(
+        'user-1',
+      );
       expect(emailService.sendEmailConfirmation).toHaveBeenCalled();
       expect(userService.create).not.toHaveBeenCalled();
     });
