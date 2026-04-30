@@ -117,6 +117,22 @@ export class TutorsController {
   }
 
   // =====================================================
+  // PATCH /api/v1/tutors/me/active
+  // Activar / desactivar tutor (ADMIN)
+  // =====================================================
+  @Patch('me/active')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TUTOR)
+  @HttpCode(HttpStatus.OK)
+  async setMyAccountActive(
+    @CurrentUser() user: User,
+    @Body('isActive') isActive: boolean,
+  ) {
+    await this.tutorService.setActive(user.idUser, isActive);
+    return { message: 'Tutor status updated successfully' };
+  }
+
+  // =====================================================
   // GET /api/v1/tutors/profile
   // VER PERFIL PROPIO (TUTOR)
   // =====================================================
