@@ -6,6 +6,7 @@ describe('TutorService', () => {
   let service: TutorService;
   let tutorRepository: { findOne: jest.Mock; save: jest.Mock };
   let sessionRepository: { find: jest.Mock };
+  let cloudinaryService: { generateUploadSignature: jest.Mock };
 
   beforeEach(() => {
     tutorRepository = {
@@ -17,12 +18,17 @@ describe('TutorService', () => {
       find: jest.fn(),
     };
 
+    cloudinaryService = {
+      generateUploadSignature: jest.fn(),
+    };
+
     service = new TutorService(
       tutorRepository as any,
       sessionRepository as any,
       {} as any,
       {} as any,
       {} as any,
+      cloudinaryService as any,
     );
   });
 
@@ -238,6 +244,92 @@ describe('TutorService', () => {
       expect(result.previousMaxWeeklyHours).toBe(4);
       expect(result.maxWeeklyHours).toBe(7);
       expect(new Date(result.updatedAt).toString()).not.toBe('Invalid Date');
+    });
+  });
+
+  describe('avatar flow', () => {
+    it('should generate avatar upload signature for an existing tutor', async () => {
+      tutorRepository.findOne.mockResolvedValue({ idUser: 'tutor-1' });
+      cloudinaryService.generateUploadSignature.mockReturnValue({
+        timestamp: '1710000000',
+        signature: 'signature',
+        api_key: 'api-key',
+        cloud_name: 'sgt-cloud',
+        folder: 'tutors/tutor-1',
+        public_id: 'tutors/tutor-1/avatar',
+      });
+
+      const result = await service.getAvatarUploadSignature('tutor-1');
+
+      expect(cloudinaryService.generateUploadSignature).toHaveBeenCalledWith(
+        'tutors/tutor-1',
+        'tutors/tutor-1/avatar',
+      );
+      expect(result).toEqual({
+        timestamp: '1710000000',
+        signature: 'signature',
+        api_key: 'api-key',
+        cloud_name: 'sgt-cloud',
+        folder: 'tutors/tutor-1',
+        public_id: 'tutors/tutor-1/avatar',
+      });
+    });
+
+    it('should reject avatar signature when tutor does not exist', async () => {
+      tutorRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.getAvatarUploadSignature('missing-tutor')).rejects.toMatchObject({
+        response: {
+          errorCode: 'RESOURCE_02',
+          message: 'Tutor no encontrado',
+        },
+      });
+    });
+
+    it('should validate whether an avatar url belongs to the tutor', () => {
+      expect(
+        service.validateAvatarUrl(
+          'https://res.cloudinary.com/sgt-cloud/image/upload/tutors/tutor-1/avatar.jpg',
+          'tutor-1',
+        ),
+      ).toBe(true);
+      expect(
+        service.validateAvatarUrl(
+          'https://res.cloudinary.com/sgt-cloud/image/upload/tutors/tutor-2/avatar.jpg',
+          'tutor-1',
+        ),
+      ).toBe(false);
+      expect(service.validateAvatarUrl('', 'tutor-1')).toBe(false);
+    });
+
+    it('should persist the secure url as tutor avatar', async () => {
+      const tutorEntity = {
+        idUser: 'tutor-2',
+        urlImage: null,
+      };
+
+      tutorRepository.findOne.mockResolvedValue(tutorEntity);
+      tutorRepository.save.mockResolvedValue({
+        ...tutorEntity,
+        urlImage: 'https://res.cloudinary.com/sgt-cloud/image/upload/v1/tutors/tutor-2/avatar.jpg',
+      });
+
+      const result = await service.confirmAvatarUpload(
+        'tutor-2',
+        'https://res.cloudinary.com/sgt-cloud/image/upload/v1/tutors/tutor-2/avatar.jpg',
+        'tutors/tutor-2/avatar',
+      );
+
+      expect(tutorRepository.findOne).toHaveBeenCalledWith({
+        where: { idUser: 'tutor-2' },
+      });
+      expect(tutorRepository.save).toHaveBeenCalledWith({
+        idUser: 'tutor-2',
+        urlImage: 'https://res.cloudinary.com/sgt-cloud/image/upload/v1/tutors/tutor-2/avatar.jpg',
+      });
+      expect(result).toEqual({
+        message: 'Avatar actualizado correctamente',
+      });
     });
   });
 });
