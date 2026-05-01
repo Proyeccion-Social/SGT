@@ -1017,6 +1017,12 @@ describe('SessionService — Business Rules (Integration)', () => {
         expect.any(Number),
         'session-1',
       );
+      expect(validationService.validateWeeklyHoursLimit).toHaveBeenCalledWith(
+        'tutor-1',
+        '2030-01-13',
+        expect.any(Number),
+        'session-1',
+      );
     });
 
     /**

@@ -156,7 +156,11 @@ export class SessionService {
         .setLock('pessimistic_write')
         .getRawOne<{ totalHours: string }>();
       const existingDailyHours = Number(dailyHoursRaw?.totalHours ?? 0);
-      if (existingDailyHours + dto.durationHours > 4) {
+      const requestedDuration = Number(dto.durationHours);
+      if (Number.isNaN(requestedDuration)) {
+        throw new BadRequestException('durationHours debe ser un numero válido');
+      }
+      if (existingDailyHours + requestedDuration > 4) {
         throw new BadRequestException(
           'El tutor no puede superar 4 horas de sesiones en un mismo día.',
         );
@@ -957,6 +961,14 @@ export class SessionService {
 
       // Re-validar límite diario antes de aceptar la modificación
       await this.validationService.validateDailyHoursLimit(
+        session.idTutor,
+        newDate,
+        newDuration,
+        session.idSession,
+      );
+
+      // Re-validar límite semanal antes de aceptar la modificación
+      await this.validationService.validateWeeklyHoursLimit(
         session.idTutor,
         newDate,
         newDuration,
