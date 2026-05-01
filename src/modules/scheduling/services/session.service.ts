@@ -7,7 +7,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, Not, Repository } from 'typeorm';
 import { addDays } from 'date-fns';
 
 import { Session } from '../entities/session.entity';
@@ -789,23 +789,40 @@ export class SessionService {
     userId: string,
     sessionId: string,
     accept: boolean,
+    requestId: string,
   ) {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
+      if (!requestId) {
+        throw new BadRequestException('requestId es requerido');
+      }
+
       const session = await queryRunner.manager.findOne(Session, {
         where: { idSession: sessionId },
         // Necesitamos la materia para el email de notificación
         relations: ['subject'],
+        lock: { mode: 'pessimistic_write' },
       });
       if (!session) throw new NotFoundException('Session not found');
+
+      if (session.status !== SessionStatus.PENDING_MODIFICATION) {
+        throw new BadRequestException(
+          'La sesión no tiene modificaciones pendientes',
+        );
+      }
 
       const pendingRequest = await queryRunner.manager.findOne(
         SessionModificationRequest,
         {
-          where: { idSession: sessionId, status: ModificationStatus.PENDING },
+          where: {
+            idSession: sessionId,
+            idRequest: requestId,
+            status: ModificationStatus.PENDING,
+          },
+          lock: { mode: 'pessimistic_write' },
         },
       );
       if (!pendingRequest)
@@ -834,8 +851,22 @@ export class SessionService {
       // Verificar expiración
       if (new Date() > pendingRequest.expiresAt) {
         pendingRequest.status = ModificationStatus.EXPIRED;
-        session.status = SessionStatus.SCHEDULED;
         await queryRunner.manager.save(pendingRequest);
+
+        const remainingPending = await queryRunner.manager.count(
+          SessionModificationRequest,
+          {
+            where: {
+              idSession: sessionId,
+              status: ModificationStatus.PENDING,
+              idRequest: Not(requestId),
+            },
+          },
+        );
+        session.status =
+          remainingPending > 0
+            ? SessionStatus.PENDING_MODIFICATION
+            : SessionStatus.SCHEDULED;
         await queryRunner.manager.save(session);
         await queryRunner.commitTransaction();
         throw new BadRequestException('La solicitud ha expirado');
@@ -844,13 +875,27 @@ export class SessionService {
       // ── RECHAZAR ──────────────────────────────────────────────────────────
 
       if (!accept) {
-        session.status = SessionStatus.SCHEDULED;
         pendingRequest.status = ModificationStatus.REJECTED;
         pendingRequest.respondedBy = userId;
         pendingRequest.respondedAt = new Date();
 
-        await queryRunner.manager.save(session);
         await queryRunner.manager.save(pendingRequest);
+
+        const remainingPending = await queryRunner.manager.count(
+          SessionModificationRequest,
+          {
+            where: {
+              idSession: sessionId,
+              status: ModificationStatus.PENDING,
+              idRequest: Not(requestId),
+            },
+          },
+        );
+        session.status =
+          remainingPending > 0
+            ? SessionStatus.PENDING_MODIFICATION
+            : SessionStatus.SCHEDULED;
+        await queryRunner.manager.save(session);
         await queryRunner.commitTransaction();
 
         await this.fireAndLogNotifications([
@@ -937,6 +982,20 @@ export class SessionService {
       pendingRequest.respondedBy = userId;
       pendingRequest.respondedAt = new Date();
       await queryRunner.manager.save(pendingRequest);
+
+      await queryRunner.manager.update(
+        SessionModificationRequest,
+        {
+          idSession: sessionId,
+          status: ModificationStatus.PENDING,
+          idRequest: Not(requestId),
+        },
+        {
+          status: ModificationStatus.REJECTED,
+          respondedBy: userId,
+          respondedAt: new Date(),
+        },
+      );
 
       await queryRunner.commitTransaction();
 

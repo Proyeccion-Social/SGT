@@ -152,6 +152,7 @@ export class SessionController {
       user.idUser,
       sessionId,
       true, // accept = true
+      requestId,
     );
   }
 
@@ -171,6 +172,7 @@ export class SessionController {
       user.idUser,
       sessionId,
       false, // accept = false
+      requestId,
     );
   }
 
@@ -259,7 +261,7 @@ export class SessionController {
    */
   @Get(':id/modification-request')
   @Roles(UserRole.STUDENT, UserRole.TUTOR, UserRole.ADMIN)
-  async getModificationRequestById(@Param('requestId') requestId: string) {
+  async getModificationRequestById(@Param('id') requestId: string) {
     return await this.sessionService.getModificationRequestById(requestId);
   }
 }

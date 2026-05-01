@@ -101,6 +101,8 @@ describe('SessionService', () => {
       save: jest.fn(async (e) => ({ ...e, idSession: 'session-1' })),
       findOne: jest.fn(),
       find: jest.fn(),
+      count: jest.fn().mockResolvedValue(0),
+      update: jest.fn().mockResolvedValue({ affected: 0 }),
       remove: jest.fn(),
       createQueryBuilder: jest.fn(),
     };
@@ -523,7 +525,7 @@ describe('SessionService', () => {
       managerMock.findOne.mockResolvedValueOnce(null); // session not found
 
       await expect(
-        service.respondToModification('tutor-1', 'session-1', true),
+        service.respondToModification('tutor-1', 'session-1', true, 'req-1'),
       ).rejects.toThrow(NotFoundException);
       expect(queryRunnerMock.rollbackTransaction).toHaveBeenCalled();
     });
@@ -536,7 +538,7 @@ describe('SessionService', () => {
         .mockResolvedValueOnce(null); // no pending request
 
       await expect(
-        service.respondToModification('tutor-1', 'session-1', true),
+        service.respondToModification('tutor-1', 'session-1', true, 'req-1'),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -549,7 +551,12 @@ describe('SessionService', () => {
       managerMock.find.mockResolvedValueOnce([{ idStudent: 'student-1' }]); // participations
 
       await expect(
-        service.respondToModification('unrelated-user', 'session-1', true),
+        service.respondToModification(
+          'unrelated-user',
+          'session-1',
+          true,
+          'req-1',
+        ),
       ).rejects.toThrow(ForbiddenException);
     });
 
@@ -562,7 +569,7 @@ describe('SessionService', () => {
       managerMock.find.mockResolvedValueOnce([{ idStudent: 'student-1' }]);
 
       await expect(
-        service.respondToModification('tutor-1', 'session-1', true), // tutor tries to respond own
+        service.respondToModification('tutor-1', 'session-1', true, 'req-1'), // tutor tries to respond own
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -580,7 +587,7 @@ describe('SessionService', () => {
       managerMock.find.mockResolvedValueOnce([{ idStudent: 'student-1' }]);
 
       await expect(
-        service.respondToModification('tutor-1', 'session-1', true),
+        service.respondToModification('tutor-1', 'session-1', true, 'req-1'),
       ).rejects.toThrow(BadRequestException);
 
       expect(request.status).toBe(ModificationStatus.EXPIRED);
@@ -602,6 +609,7 @@ describe('SessionService', () => {
         'tutor-1',
         'session-1',
         false,
+        'req-1',
       );
 
       expect(request.status).toBe(ModificationStatus.REJECTED);
@@ -633,6 +641,7 @@ describe('SessionService', () => {
         'tutor-1',
         'session-1',
         true,
+        'req-1',
       );
 
       expect(session.scheduledDate).toBe('2030-11-15');

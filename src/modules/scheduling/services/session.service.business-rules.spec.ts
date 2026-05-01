@@ -123,6 +123,8 @@ describe('SessionService — Business Rules (Integration)', () => {
       save: jest.fn(async (e) => ({ ...e, idSession: 'session-1' })),
       findOne: jest.fn().mockResolvedValue(null),
       find: jest.fn().mockResolvedValue([]),
+      count: jest.fn().mockResolvedValue(0),
+      update: jest.fn().mockResolvedValue({ affected: 0 }),
       remove: jest.fn().mockResolvedValue(undefined),
       createQueryBuilder: jest.fn(),
     };
@@ -880,7 +882,7 @@ describe('SessionService — Business Rules (Integration)', () => {
       qrManager.find.mockResolvedValueOnce([{ idStudent: 'student-1' }]);
 
       await expect(
-        service.respondToModification('student-1', 'session-1', true),
+        service.respondToModification('student-1', 'session-1', true, 'req-1'),
       ).rejects.toThrow(BadRequestException);
     });
   });
@@ -990,7 +992,7 @@ describe('SessionService — Business Rules (Integration)', () => {
         .mockResolvedValueOnce(scheduledSession);
       qrManager.find.mockResolvedValueOnce([{ idStudent: 'student-1' }]);
 
-      await service.respondToModification('tutor-1', 'session-1', true);
+      await service.respondToModification('tutor-1', 'session-1', true, 'req-1');
 
       // Deben haberse re-validado al momento de aceptar
       expect(
@@ -1038,7 +1040,7 @@ describe('SessionService — Business Rules (Integration)', () => {
       qrManager.find.mockResolvedValueOnce([{ idStudent: 'student-1' }]);
 
       await expect(
-        service.respondToModification('tutor-1', 'session-1', true),
+        service.respondToModification('tutor-1', 'session-1', true, 'req-1'),
       ).rejects.toThrow(BadRequestException);
       expect(request.status).toBe(ModificationStatus.EXPIRED);
       expect(session.status).toBe(SessionStatus.SCHEDULED);
