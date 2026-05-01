@@ -4,6 +4,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { SessionService } from './session.service';
+import { Not } from 'typeorm';
+import { SessionModificationRequest } from '../entities/session-modification-request.entity';
 import { SessionStatus } from '../enums/session-status.enum';
 import { ModificationStatus } from '../enums/modification-status.enum';
 import { ParticipationStatus } from '../enums/participation-status.enum';
@@ -542,6 +544,16 @@ describe('SessionService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
+    it('throws BadRequestException when session status is not PENDING_MODIFICATION', async () => {
+      managerMock.findOne.mockResolvedValueOnce(
+        mockSession({ status: SessionStatus.SCHEDULED }),
+      );
+
+      await expect(
+        service.respondToModification('tutor-1', 'session-1', true, 'req-1'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
     it('throws ForbiddenException when user is neither participant nor tutor', async () => {
       managerMock.findOne
         .mockResolvedValueOnce(
@@ -594,6 +606,38 @@ describe('SessionService', () => {
       expect(session.status).toBe(SessionStatus.SCHEDULED);
     });
 
+    it('keeps session in PENDING_MODIFICATION when expired request has other pending requests', async () => {
+      const session = mockSession({
+        status: SessionStatus.PENDING_MODIFICATION,
+      });
+      const request = pendingRequest({
+        expiresAt: new Date(Date.now() - 1000),
+      });
+
+      managerMock.findOne
+        .mockResolvedValueOnce(session)
+        .mockResolvedValueOnce(request);
+      managerMock.find.mockResolvedValueOnce([{ idStudent: 'student-1' }]);
+      managerMock.count.mockResolvedValueOnce(1);
+
+      await expect(
+        service.respondToModification('tutor-1', 'session-1', true, 'req-1'),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(request.status).toBe(ModificationStatus.EXPIRED);
+      expect(session.status).toBe(SessionStatus.PENDING_MODIFICATION);
+      expect(managerMock.count).toHaveBeenCalledWith(
+        SessionModificationRequest,
+        {
+          where: {
+            idSession: 'session-1',
+            status: ModificationStatus.PENDING,
+            idRequest: Not('req-1'),
+          },
+        },
+      );
+    });
+
     it('rejects modification: sets REJECTED status and restores SCHEDULED session', async () => {
       const session = mockSession({
         status: SessionStatus.PENDING_MODIFICATION,
@@ -616,6 +660,40 @@ describe('SessionService', () => {
       expect(session.status).toBe(SessionStatus.SCHEDULED);
       expect(result.message).toContain('rechazada');
       expect(queryRunnerMock.commitTransaction).toHaveBeenCalled();
+    });
+
+    it('keeps session in PENDING_MODIFICATION when rejecting and other pending requests remain', async () => {
+      const session = mockSession({
+        status: SessionStatus.PENDING_MODIFICATION,
+      });
+      const request = pendingRequest({ requestedBy: 'student-1' });
+
+      managerMock.findOne
+        .mockResolvedValueOnce(session)
+        .mockResolvedValueOnce(request);
+      managerMock.find.mockResolvedValueOnce([{ idStudent: 'student-1' }]);
+      managerMock.count.mockResolvedValueOnce(2);
+
+      const result = await service.respondToModification(
+        'tutor-1',
+        'session-1',
+        false,
+        'req-1',
+      );
+
+      expect(request.status).toBe(ModificationStatus.REJECTED);
+      expect(session.status).toBe(SessionStatus.PENDING_MODIFICATION);
+      expect(result.message).toContain('rechazada');
+      expect(managerMock.count).toHaveBeenCalledWith(
+        SessionModificationRequest,
+        {
+          where: {
+            idSession: 'session-1',
+            status: ModificationStatus.PENDING,
+            idRequest: Not('req-1'),
+          },
+        },
+      );
     });
 
     it('accepts modification: applies new date and restores SCHEDULED status', async () => {
@@ -648,6 +726,19 @@ describe('SessionService', () => {
       expect(session.status).toBe(SessionStatus.SCHEDULED);
       expect(request.status).toBe(ModificationStatus.ACCEPTED);
       expect(result.message).toContain('aceptada');
+      expect(managerMock.update).toHaveBeenCalledWith(
+        SessionModificationRequest,
+        {
+          idSession: 'session-1',
+          status: ModificationStatus.PENDING,
+          idRequest: Not('req-1'),
+        },
+        {
+          status: ModificationStatus.REJECTED,
+          respondedBy: 'tutor-1',
+          respondedAt: expect.any(Date),
+        },
+      );
     });
   });
 

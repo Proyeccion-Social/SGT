@@ -12,6 +12,8 @@ import {
   Req,
   HttpCode,
   HttpStatus,
+  UsePipes,
+  ValidationPipe,
 } from '@nestjs/common';
 import { SessionService } from '../services/session.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -29,6 +31,13 @@ import { SessionFilterDto } from '../dto/session-filter.dto';
 
 @Controller('scheduling/sessions')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@UsePipes(
+  new ValidationPipe({
+    transform: true,
+    whitelist: true,
+    forbidNonWhitelisted: true,
+  }),
+)
 export class SessionController {
   constructor(private readonly sessionService: SessionService) {}
 
@@ -260,14 +269,14 @@ export class SessionController {
   }
 
   /**
-   * GET /api/sessions/:id/modification-request
+   * GET /api/sessions/:requestId/modification-request
    * Obtener detalles de una propuesta de modificación usando el ID de la request (participantes o admin)
    */
-  @Get(':id/modification-request')
+  @Get(':requestId/modification-request')
   @Roles(UserRole.STUDENT, UserRole.TUTOR, UserRole.ADMIN)
   async getModificationRequestById(
     @CurrentUser() user: User,
-    @Param('id') requestId: string,
+    @Param('requestId') requestId: string,
   ) {
     return await this.sessionService.getModificationRequestById(
       user.idUser,
