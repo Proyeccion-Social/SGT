@@ -158,7 +158,9 @@ export class SessionService {
       const existingDailyHours = Number(dailyHoursRaw?.totalHours ?? 0);
       const requestedDuration = Number(dto.durationHours);
       if (Number.isNaN(requestedDuration)) {
-        throw new BadRequestException('durationHours debe ser un numero válido');
+        throw new BadRequestException(
+          'durationHours debe ser un numero válido',
+        );
       }
       if (existingDailyHours + requestedDuration > 4) {
         throw new BadRequestException(

@@ -992,7 +992,12 @@ describe('SessionService — Business Rules (Integration)', () => {
         .mockResolvedValueOnce(scheduledSession);
       qrManager.find.mockResolvedValueOnce([{ idStudent: 'student-1' }]);
 
-      await service.respondToModification('tutor-1', 'session-1', true, 'req-1');
+      await service.respondToModification(
+        'tutor-1',
+        'session-1',
+        true,
+        'req-1',
+      );
 
       // Deben haberse re-validado al momento de aceptar
       expect(
