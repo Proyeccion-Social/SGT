@@ -1160,15 +1160,52 @@ export class SessionService {
     return this.mapToDetailedDto(session);
   }
 
-  async getModificationRequestById(requestId: string) {
+  async getModificationRequestById(userId: string, requestId: string) {
     const request = await this.modificationRequestRepository.findOne({
       where: { idRequest: requestId },
     });
     if (!request) throw new NotFoundException('Modification request not found');
+
+    const session = await this.sessionRepository.findOne({
+      where: { idSession: request.idSession },
+      relations: ['studentParticipateSessions'],
+    });
+    if (!session) throw new NotFoundException('Session not found');
+
+    const isParticipant = session.studentParticipateSessions.some(
+      (p) => p.idStudent === userId,
+    );
+    const isTutor = session.idTutor === userId;
+    const isAdmin = await this.userService.isAdmin(userId);
+
+    if (!isParticipant && !isTutor && !isAdmin) {
+      throw new ForbiddenException(
+        'No tienes permiso para ver esta solicitud de modificación',
+      );
+    }
+
     return request;
   }
 
-  async getModificationsRequestBySessionId(sessionId: string) {
+  async getModificationsRequestBySessionId(userId: string, sessionId: string) {
+    const session = await this.sessionRepository.findOne({
+      where: { idSession: sessionId },
+      relations: ['studentParticipateSessions'],
+    });
+    if (!session) throw new NotFoundException('Session not found');
+
+    const isParticipant = session.studentParticipateSessions.some(
+      (p) => p.idStudent === userId,
+    );
+    const isTutor = session.idTutor === userId;
+    const isAdmin = await this.userService.isAdmin(userId);
+
+    if (!isParticipant && !isTutor && !isAdmin) {
+      throw new ForbiddenException(
+        'No tienes permiso para ver estas solicitudes de modificación',
+      );
+    }
+
     return this.modificationRequestRepository.find({
       where: { idSession: sessionId },
       order: { requestedAt: 'DESC' },

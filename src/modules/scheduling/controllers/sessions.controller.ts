@@ -249,8 +249,12 @@ export class SessionController {
    */
   @Get(':id/modification-requests')
   @Roles(UserRole.STUDENT, UserRole.TUTOR, UserRole.ADMIN)
-  async getModificationRequestBySessionId(@Param('id') sessionId: string) {
+  async getModificationRequestBySessionId(
+    @CurrentUser() user: User,
+    @Param('id') sessionId: string,
+  ) {
     return await this.sessionService.getModificationsRequestBySessionId(
+      user.idUser,
       sessionId,
     );
   }
@@ -261,7 +265,13 @@ export class SessionController {
    */
   @Get(':id/modification-request')
   @Roles(UserRole.STUDENT, UserRole.TUTOR, UserRole.ADMIN)
-  async getModificationRequestById(@Param('id') requestId: string) {
-    return await this.sessionService.getModificationRequestById(requestId);
+  async getModificationRequestById(
+    @CurrentUser() user: User,
+    @Param('id') requestId: string,
+  ) {
+    return await this.sessionService.getModificationRequestById(
+      user.idUser,
+      requestId,
+    );
   }
 }
