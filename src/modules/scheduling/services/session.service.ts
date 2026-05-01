@@ -7,7 +7,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, Not, Repository } from 'typeorm';
 import { addDays } from 'date-fns';
 
 import { Session } from '../entities/session.entity';
@@ -156,7 +156,13 @@ export class SessionService {
         .setLock('pessimistic_write')
         .getRawOne<{ totalHours: string }>();
       const existingDailyHours = Number(dailyHoursRaw?.totalHours ?? 0);
-      if (existingDailyHours + dto.durationHours > 4) {
+      const requestedDuration = Number(dto.durationHours);
+      if (Number.isNaN(requestedDuration)) {
+        throw new BadRequestException(
+          'durationHours debe ser un numero válido',
+        );
+      }
+      if (existingDailyHours + requestedDuration > 4) {
         throw new BadRequestException(
           'El tutor no puede superar 4 horas de sesiones en un mismo día.',
         );
@@ -789,23 +795,40 @@ export class SessionService {
     userId: string,
     sessionId: string,
     accept: boolean,
+    requestId: string,
   ) {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
+      if (!requestId) {
+        throw new BadRequestException('requestId es requerido');
+      }
+
       const session = await queryRunner.manager.findOne(Session, {
         where: { idSession: sessionId },
         // Necesitamos la materia para el email de notificación
         relations: ['subject'],
+        lock: { mode: 'pessimistic_write' },
       });
       if (!session) throw new NotFoundException('Session not found');
+
+      if (session.status !== SessionStatus.PENDING_MODIFICATION) {
+        throw new BadRequestException(
+          'La sesión no tiene modificaciones pendientes',
+        );
+      }
 
       const pendingRequest = await queryRunner.manager.findOne(
         SessionModificationRequest,
         {
-          where: { idSession: sessionId, status: ModificationStatus.PENDING },
+          where: {
+            idSession: sessionId,
+            idRequest: requestId,
+            status: ModificationStatus.PENDING,
+          },
+          lock: { mode: 'pessimistic_write' },
         },
       );
       if (!pendingRequest)
@@ -834,8 +857,22 @@ export class SessionService {
       // Verificar expiración
       if (new Date() > pendingRequest.expiresAt) {
         pendingRequest.status = ModificationStatus.EXPIRED;
-        session.status = SessionStatus.SCHEDULED;
         await queryRunner.manager.save(pendingRequest);
+
+        const remainingPending = await queryRunner.manager.count(
+          SessionModificationRequest,
+          {
+            where: {
+              idSession: sessionId,
+              status: ModificationStatus.PENDING,
+              idRequest: Not(requestId),
+            },
+          },
+        );
+        session.status =
+          remainingPending > 0
+            ? SessionStatus.PENDING_MODIFICATION
+            : SessionStatus.SCHEDULED;
         await queryRunner.manager.save(session);
         await queryRunner.commitTransaction();
         throw new BadRequestException('La solicitud ha expirado');
@@ -844,13 +881,27 @@ export class SessionService {
       // ── RECHAZAR ──────────────────────────────────────────────────────────
 
       if (!accept) {
-        session.status = SessionStatus.SCHEDULED;
         pendingRequest.status = ModificationStatus.REJECTED;
         pendingRequest.respondedBy = userId;
         pendingRequest.respondedAt = new Date();
 
-        await queryRunner.manager.save(session);
         await queryRunner.manager.save(pendingRequest);
+
+        const remainingPending = await queryRunner.manager.count(
+          SessionModificationRequest,
+          {
+            where: {
+              idSession: sessionId,
+              status: ModificationStatus.PENDING,
+              idRequest: Not(requestId),
+            },
+          },
+        );
+        session.status =
+          remainingPending > 0
+            ? SessionStatus.PENDING_MODIFICATION
+            : SessionStatus.SCHEDULED;
+        await queryRunner.manager.save(session);
         await queryRunner.commitTransaction();
 
         await this.fireAndLogNotifications([
@@ -918,6 +969,14 @@ export class SessionService {
         session.idSession,
       );
 
+      // Re-validar límite semanal antes de aceptar la modificación
+      await this.validationService.validateWeeklyHoursLimit(
+        session.idTutor,
+        newDate,
+        newDuration,
+        session.idSession,
+      );
+
       // Aplicar cambios
       session.scheduledDate = newDate;
       scheduledSession.scheduledDate = newDate;
@@ -937,6 +996,20 @@ export class SessionService {
       pendingRequest.respondedBy = userId;
       pendingRequest.respondedAt = new Date();
       await queryRunner.manager.save(pendingRequest);
+
+      await queryRunner.manager.update(
+        SessionModificationRequest,
+        {
+          idSession: sessionId,
+          status: ModificationStatus.PENDING,
+          idRequest: Not(requestId),
+        },
+        {
+          status: ModificationStatus.REJECTED,
+          respondedBy: userId,
+          respondedAt: new Date(),
+        },
+      );
 
       await queryRunner.commitTransaction();
 
@@ -1089,15 +1162,52 @@ export class SessionService {
     return this.mapToDetailedDto(session);
   }
 
-  async getModificationRequestById(requestId: string) {
+  async getModificationRequestById(userId: string, requestId: string) {
     const request = await this.modificationRequestRepository.findOne({
       where: { idRequest: requestId },
     });
     if (!request) throw new NotFoundException('Modification request not found');
+
+    const session = await this.sessionRepository.findOne({
+      where: { idSession: request.idSession },
+      relations: ['studentParticipateSessions'],
+    });
+    if (!session) throw new NotFoundException('Session not found');
+
+    const isParticipant = session.studentParticipateSessions.some(
+      (p) => p.idStudent === userId,
+    );
+    const isTutor = session.idTutor === userId;
+    const isAdmin = await this.userService.isAdmin(userId);
+
+    if (!isParticipant && !isTutor && !isAdmin) {
+      throw new ForbiddenException(
+        'No tienes permiso para ver esta solicitud de modificación',
+      );
+    }
+
     return request;
   }
 
-  async getModificationsRequestBySessionId(sessionId: string) {
+  async getModificationsRequestBySessionId(userId: string, sessionId: string) {
+    const session = await this.sessionRepository.findOne({
+      where: { idSession: sessionId },
+      relations: ['studentParticipateSessions'],
+    });
+    if (!session) throw new NotFoundException('Session not found');
+
+    const isParticipant = session.studentParticipateSessions.some(
+      (p) => p.idStudent === userId,
+    );
+    const isTutor = session.idTutor === userId;
+    const isAdmin = await this.userService.isAdmin(userId);
+
+    if (!isParticipant && !isTutor && !isAdmin) {
+      throw new ForbiddenException(
+        'No tienes permiso para ver estas solicitudes de modificación',
+      );
+    }
+
     return this.modificationRequestRepository.find({
       where: { idSession: sessionId },
       order: { requestedAt: 'DESC' },

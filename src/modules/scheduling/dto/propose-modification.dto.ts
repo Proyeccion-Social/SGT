@@ -7,6 +7,7 @@ import {
   IsNumber,
   IsIn,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { Modality } from '../../availability/enums/modality.enum';
 
 export class ProposeModificationDto {
@@ -16,6 +17,7 @@ export class ProposeModificationDto {
 
   @IsOptional()
   @IsNumber()
+  @Type(() => Number)
   newAvailabilityId?: number;
 
   @IsOptional()
@@ -24,6 +26,7 @@ export class ProposeModificationDto {
 
   @IsOptional()
   @IsNumber()
+  @Type(() => Number)
   @IsIn([0.5, 1, 1.5, 2], { message: 'durationHours debe ser 0.5, 1, 1.5 o 2' })
   newDurationHours?: number; // Para calcular nuevo endTime
 }

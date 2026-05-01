@@ -232,6 +232,11 @@ export class SessionValidationService {
     durationHours: number,
     excludeSessionId?: string,
   ): Promise<void> {
+    const requestedDuration = Number(durationHours);
+    if (Number.isNaN(requestedDuration)) {
+      throw new BadRequestException('durationHours debe ser un numero válido');
+    }
+
     const qb = this.sessionRepository
       .createQueryBuilder('session')
       .where('session.idTutor = :tutorId', { tutorId })
@@ -260,11 +265,11 @@ export class SessionValidationService {
 
     const DAILY_HOURS_LIMIT = 4; // Máximo 4 horas por día
 
-    if (hoursThisDay + durationHours > DAILY_HOURS_LIMIT) {
+    if (hoursThisDay + requestedDuration > DAILY_HOURS_LIMIT) {
       throw new BadRequestException(
         `El tutor ha alcanzado su límite diario de ${DAILY_HOURS_LIMIT}h ` +
-          `(${hoursThisDay}h usadas + ${durationHours}h solicitadas = ` +
-          `${hoursThisDay + durationHours}h).`,
+          `(${hoursThisDay}h usadas + ${requestedDuration}h solicitadas = ` +
+          `${hoursThisDay + requestedDuration}h).`,
       );
     }
   }
@@ -283,6 +288,11 @@ export class SessionValidationService {
     durationHours: number,
     excludeSessionId?: string,
   ): Promise<void> {
+    const requestedDuration = Number(durationHours);
+    if (Number.isNaN(requestedDuration)) {
+      throw new BadRequestException('durationHours debe ser un numero válido');
+    }
+
     // parseISO('2025-04-07') → Date en UTC, sin ambigüedad de zona horaria
     const refDate = parseISO(scheduledDate);
     const weekStart = startOfWeek(refDate, { weekStartsOn: 1 }); // Lunes
@@ -317,11 +327,11 @@ export class SessionValidationService {
 
     const weeklyLimit = await this.tutorService.getWeeklyHoursLimit(tutorId);
 
-    if (hoursThisWeek + durationHours > weeklyLimit) {
+    if (hoursThisWeek + requestedDuration > weeklyLimit) {
       throw new BadRequestException(
         `El tutor ha alcanzado su límite semanal de ${weeklyLimit}h ` +
-          `(${hoursThisWeek}h usadas + ${durationHours}h solicitadas = ` +
-          `${hoursThisWeek + durationHours}h).`,
+          `(${hoursThisWeek}h usadas + ${requestedDuration}h solicitadas = ` +
+          `${hoursThisWeek + requestedDuration}h).`,
       );
     }
   }

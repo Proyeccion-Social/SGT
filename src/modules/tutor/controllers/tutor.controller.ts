@@ -118,7 +118,7 @@ export class TutorsController {
 
   // =====================================================
   // PATCH /api/v1/tutors/me/active
-  // Activar / desactivar tutor (ADMIN)
+  // Activar / desactivar tutor (CUENTA PROPIA TUTOR)
   // =====================================================
   @Patch('me/active')
   @UseGuards(JwtAuthGuard, RolesGuard)
