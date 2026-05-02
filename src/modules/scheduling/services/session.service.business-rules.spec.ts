@@ -1027,6 +1027,7 @@ describe('SessionService — Business Rules (Integration)', () => {
         '2030-01-13',
         expect.any(Number),
         'session-1',
+        expect.any(Object), // queryRunner
       );
     });
 

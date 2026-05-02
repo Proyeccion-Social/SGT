@@ -73,69 +73,80 @@ export class SessionService {
     studentId: string,
     dto: CreateIndividualSessionDto,
   ) {
+    // ── 1. Validaciones de dominio (ANTES de transacción, sin locks) ────────
+
+    this.validationService.validateStudentNotTutor(studentId, dto.tutorId);
+    await this.tutorService.validateTutorActive(dto.tutorId);
+
+    const availability = await this.availabilityService.getAvailabilityById(
+      dto.availabilityId,
+    );
+    const startTime = availability.startTime;
+    const endTime = this.validationService.calculateEndTime(
+      startTime,
+      dto.durationHours,
+    );
+
+    // Modalidad coincide con la franja del tutor
+    await this.validationService.validateModality(
+      dto.availabilityId,
+      dto.tutorId,
+      dto.modality,
+    );
+
+    //  NUEVO — validar coherencia día-slot
+    await this.validationService.validateScheduledDateMatchesSlotDay(
+      dto.availabilityId,
+      dto.scheduledDate, // string
+    );
+
+    // Slot disponible para esa fecha + duración completa (Cara 1 y Cara 2).
+    // Esta llamada verifica:
+    //   a) Que el tutor tiene franjas registradas suficientes para cubrir durationHours.
+    //   b) Que ningún slot dentro del bloque esté ya ocupado por una sesión activa,
+    //      incluyendo sesiones que comenzaron antes y cuyo bloque se extiende hasta aquí.
+    //   c) Que el mismo slot para UNA FECHA DIFERENTE no bloquee este agendamiento
+    //      (la validación filtra siempre por scheduledDate).
+    await this.validationService.validateAvailabilitySlotWithDuration(
+      dto.tutorId,
+      dto.availabilityId,
+      dto.scheduledDate,
+      dto.durationHours,
+      // Sin excludeSessionId: es una sesión nueva, no hay nada que excluir.
+    );
+
+    // No hay sesiones SCHEDULED ni PENDING_MODIFICATION solapadas en el mismo día
+    await this.validationService.validateNoTimeConflict(
+      dto.tutorId,
+      dto.scheduledDate,
+      startTime,
+      dto.durationHours,
+    );
+
+    // No supera el límite semanal del tutor
+    // Esta validación corre SIN transacción (rápida, usa repo compartido)
+    // Hay una posible race condition, pero es menos crítica que en confirmSession
+    await this.validationService.validateWeeklyHoursLimit(
+      dto.tutorId,
+      dto.scheduledDate,
+      dto.durationHours,
+    );
+
+    // ── 2. Transacción: validaciones de concurrencia con lock ──────────────
+
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
-      // ── 1. Validaciones de dominio (fuera de transacción, sin locks) ──────
-
-      this.validationService.validateStudentNotTutor(studentId, dto.tutorId);
-      await this.tutorService.validateTutorActive(dto.tutorId);
-
-      const availability = await this.availabilityService.getAvailabilityById(
-        dto.availabilityId,
-      );
-      const startTime = availability.startTime;
-      const endTime = this.validationService.calculateEndTime(
-        startTime,
-        dto.durationHours,
-      );
-
-      // Modalidad coincide con la franja del tutor
-      await this.validationService.validateModality(
-        dto.availabilityId,
-        dto.tutorId,
-        dto.modality,
-      );
-
-      //  NUEVO — validar coherencia día-slot
-      await this.validationService.validateScheduledDateMatchesSlotDay(
-        dto.availabilityId,
-        dto.scheduledDate, // string
-      );
-
-      // Slot disponible para esa fecha + duración completa (Cara 1 y Cara 2).
-      // Esta llamada verifica:
-      //   a) Que el tutor tiene franjas registradas suficientes para cubrir durationHours.
-      //   b) Que ningún slot dentro del bloque esté ya ocupado por una sesión activa,
-      //      incluyendo sesiones que comenzaron antes y cuyo bloque se extiende hasta aquí.
-      //   c) Que el mismo slot para UNA FECHA DIFERENTE no bloquee este agendamiento
-      //      (la validación filtra siempre por scheduledDate).
-      await this.validationService.validateAvailabilitySlotWithDuration(
-        dto.tutorId,
-        dto.availabilityId,
-        dto.scheduledDate,
-        dto.durationHours,
-        // Sin excludeSessionId: es una sesión nueva, no hay nada que excluir.
-      );
-
-      // No hay sesiones SCHEDULED ni PENDING_MODIFICATION solapadas en el mismo día
-      await this.validationService.validateNoTimeConflict(
-        dto.tutorId,
-        dto.scheduledDate,
-        startTime,
-        dto.durationHours,
-      );
-
       // No supera el límite diario del tutor (máximo 4 horas por día).
       // Esta validación debe correr dentro de la misma transacción y tomando
       // lock sobre las sesiones del tutor en la fecha para evitar carreras
       // entre requests concurrentes en slots distintos del mismo día.
-      const dailyHoursRaw = await queryRunner.manager
-        .createQueryBuilder(ScheduledSession, 'ss')
-        .innerJoin('ss.session', 'session')
-        .select('COALESCE(SUM(session.durationHours), 0)', 'totalHours')
+      const dailySessions = await queryRunner.manager
+        .createQueryBuilder(Session, 'session')
+        .innerJoin(ScheduledSession, 'ss', 'ss.idSession = session.idSession')
+        .select(['session.startTime', 'session.endTime'])
         .where('ss.idTutor = :tutorId', { tutorId: dto.tutorId })
         .andWhere('ss.scheduledDate = :scheduledDate', {
           scheduledDate: new Date(dto.scheduledDate),
@@ -147,8 +158,12 @@ export class SessionService {
           ],
         })
         .setLock('pessimistic_write')
-        .getRawOne<{ totalHours: string }>();
-      const existingDailyHours = Number(dailyHoursRaw?.totalHours ?? 0);
+        .getMany();
+      const existingDailyHours = dailySessions.reduce((sum, s) => {
+        const [sh, sm] = s.startTime.split(':').map(Number);
+        const [eh, em] = s.endTime.split(':').map(Number);
+        return sum + (eh * 60 + em - (sh * 60 + sm)) / 60;
+      }, 0);
       const requestedDuration = Number(dto.durationHours);
       if (Number.isNaN(requestedDuration)) {
         throw new BadRequestException(
@@ -161,18 +176,7 @@ export class SessionService {
         );
       }
 
-      // No supera el límite semanal del tutor
-      // Esta validación corre dentro de la transacción para evitar race conditions
-      // entre confirmaciones/creaciones concurrentes en diferentes días de la semana.
-      await this.validationService.validateWeeklyHoursLimit(
-        dto.tutorId,
-        dto.scheduledDate,
-        dto.durationHours,
-        undefined, // sin excludeSessionId: es sesión nueva
-        queryRunner,
-      );
-
-      // ── 2. Verificación de concurrencia con lock pesimista ────────────────
+      // ── 3. Verificación de concurrencia con lock pesimista ────────────────
       //
       // Aquí solo bloqueamos si hay OTRA sesión CONFIRMADA (SCHEDULED) en el
       // SLOT EXACTO + FECHA. Esto es la última línea de defensa ante condiciones
@@ -218,7 +222,7 @@ export class SessionService {
         })
         .getCount();
 
-      // ── 3. Persistir ──────────────────────────────────────────────────────
+      // ── 4. Persistir ──────────────────────────────────────────────────────
 
       const session = queryRunner.manager.create(Session, {
         idTutor: dto.tutorId,
