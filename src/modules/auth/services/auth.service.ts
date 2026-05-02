@@ -53,7 +53,7 @@ export class AuthService {
     private readonly passwordResetService: PasswordResetService,
     private readonly emailVerificationService: EmailVerificationService,
     private readonly emailService: NotificationsService,
-  ) { }
+  ) {}
 
   // =====================================================
   // REGISTRO DE ESTUDIANTE
