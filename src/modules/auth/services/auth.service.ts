@@ -53,7 +53,7 @@ export class AuthService {
     private readonly passwordResetService: PasswordResetService,
     private readonly emailVerificationService: EmailVerificationService,
     private readonly emailService: NotificationsService,
-  ) {}
+  ) { }
 
   // =====================================================
   // REGISTRO DE ESTUDIANTE
@@ -155,33 +155,39 @@ export class AuthService {
     // 3. Actualizar usuario usando UserService
     await this.userService.markEmailAsVerified(verificationToken.id_user);
 
-    // 4. Generar credenciales (AHORA que todo está validado)
-    const accessToken = this.generateAccessToken(verificationToken.id_user);
-    const refreshToken = this.generateRefreshToken(verificationToken.id_user);
-
-    // 5. Auditoría
-    await this.auditService.logEmailVerified(verificationToken.id_user);
-
-    // 6. Obtener datos del usuario para la respuesta
+    // 4. Obtener datos completos del usuario ANTES de generar tokens
+    //    (generateAccessToken/generateRefreshToken necesitan idUser, email y role)
     const user = await this.userService.findById(verificationToken.id_user);
 
     if (!user) {
       throw new NotFoundException('User not found after email verification');
     }
 
-    // 7. Enviar email de bienvenida (no bloqueante)
-    if (user) {
-      this.emailService
-        .sendWelcomeEmail(user.email, user.name)
-        .catch((error) =>
-          this.logger.error('Error sending welcome email:', error),
-        );
-    }
+    // 5. Generar tokens con el objeto usuario completo
+    const accessToken = this.generateAccessToken(user);
+    const refreshToken = this.generateRefreshToken(user);
+
+    // 6. Persistir la sesión en BD para que refresh() pueda validarla
+    //    (mismo flujo que login())
+    await this.sessionService.createSession({
+      user,
+      refresh_token: refreshToken,
+    });
+
+    // 7. Auditoría
+    await this.auditService.logEmailVerified(user.idUser);
+
+    // 8. Enviar email de bienvenida (no bloqueante — no debe retrasar la respuesta)
+    this.emailService
+      .sendWelcomeEmail(user.email, user.name)
+      .catch((error) =>
+        this.logger.error('Error sending welcome email:', error),
+      );
 
     return {
       message: 'Email verified successfully. You are now logged in.',
-      accessToken: accessToken,
-      refreshToken: refreshToken,
+      accessToken,
+      refreshToken,
       user: {
         id: user.idUser,
         name: user.name,
