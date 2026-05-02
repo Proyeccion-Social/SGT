@@ -287,6 +287,7 @@ export class SessionValidationService {
     scheduledDate: string, // 'YYYY-MM-DD'
     durationHours: number,
     excludeSessionId?: string,
+    queryRunner?: any, // QueryRunner opcional para transacciones
   ): Promise<void> {
     const requestedDuration = Number(durationHours);
     if (Number.isNaN(requestedDuration)) {
@@ -298,7 +299,13 @@ export class SessionValidationService {
     const weekStart = startOfWeek(refDate, { weekStartsOn: 1 }); // Lunes
     const weekEnd = endOfWeek(refDate, { weekStartsOn: 1 }); // Domingo
 
-    const qb = this.sessionRepository
+    // Si se proporciona queryRunner, usar su manager (dentro de transacción).
+    // Sino, usar el repositorio compartido.
+    const source = queryRunner
+      ? queryRunner.manager.getRepository(Session)
+      : this.sessionRepository;
+
+    const qb = source
       .createQueryBuilder('session')
       .where('session.idTutor = :tutorId', { tutorId })
       .andWhere('session.scheduledDate BETWEEN :weekStart AND :weekEnd', {
