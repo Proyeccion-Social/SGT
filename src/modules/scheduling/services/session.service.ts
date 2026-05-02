@@ -354,7 +354,8 @@ export class SessionService {
       // Esta validación debe hacerse dentro de la misma transacción y con lock
       // sobre las sesiones del tutor en el día para evitar carreras entre
       // confirmaciones concurrentes de distintas franjas del mismo día.
-      const sessionDuration = this.calcDuration(session);
+      const sessionDurationHours = this.calcDuration(session);
+      const sessionDurationMinutes = sessionDurationHours * 60;
       const daySessions = await queryRunner.manager
         .createQueryBuilder(ScheduledSession, 'ss')
         .innerJoinAndSelect('ss.session', 'daySession')
@@ -374,16 +375,22 @@ export class SessionService {
           ) {
             return total;
           }
-          return total + this.calcDuration(dayScheduled.session);
+          return total + this.calcDuration(dayScheduled.session) * 60;
         },
         0,
       );
       const maxDailyMinutes = 4 * 60;
-      if (alreadyScheduledMinutes + sessionDuration > maxDailyMinutes) {
+      if (alreadyScheduledMinutes + sessionDurationMinutes > maxDailyMinutes) {
         throw new BadRequestException(
           'La confirmación excede el límite diario de 4 horas para el tutor.',
         );
       }
+
+      await this.validationService.validateWeeklyHoursLimit(
+        tutorId,
+        session.scheduledDate,
+        sessionDurationHours,
+      );
 
       // Confirmar
       session.status = SessionStatus.SCHEDULED;
