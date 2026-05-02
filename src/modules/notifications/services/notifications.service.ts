@@ -293,6 +293,7 @@ export class NotificationsService {
         title: session.title,
         description: session.description,
         confirmUrl: this.generateConfirmSessionLink(session.id),
+        rejectUrl: this.generateRejectSessionLink(session.id),
         expiresAt: this.formatDateTime(
           new Date(Date.now() + 24 * 60 * 60 * 1000),
         ),
@@ -776,7 +777,8 @@ export class NotificationsService {
         title: session.title,
         proposedChanges: changes,
         expiresAt: this.formatDateTime(request.expiresAt),
-        reviewUrl: this.generateReviewModificationLink(request.idRequest),
+        acceptUrl: this.generateAcceptModificationLink(request.idRequest),
+        rejectUrl: this.generateRejectModificationLink(request.idRequest),
       });
 
       await this.settleAll([
@@ -1523,11 +1525,35 @@ export class NotificationsService {
   }
 
   /**
+   * Genera URL para rechazar sesión (emailScreens)
+   * Ruta: /dashboard?action=reject-session&sessionId={{SESSION_ID}}
+   */
+  private generateRejectSessionLink(sessionId: string): string {
+    return `${this.frontendUrl}/dashboard?action=reject-session&sessionId=${sessionId}`;
+  }
+
+  /**
    * Genera URL para revisar una propuesta de modificación (emailScreens)
    * Ruta: /dashboard?action=review-modification&requestId={{REQUEST_ID}}
    */
   private generateReviewModificationLink(requestId: string): string {
     return `${this.frontendUrl}/dashboard?action=review-modification&requestId=${requestId}`;
+  }
+
+  /**
+   * Genera URL para aceptar una propuesta de modificación (emailScreens)
+   * Ruta: /dashboard?action=accept-modification&requestId={{REQUEST_ID}}
+   */
+  private generateAcceptModificationLink(requestId: string): string {
+    return `${this.frontendUrl}/dashboard?action=accept-modification&requestId=${requestId}`;
+  }
+
+  /**
+   * Genera URL para rechazar una propuesta de modificación (emailScreens)
+   * Ruta: /dashboard?action=reject-modification&requestId={{REQUEST_ID}}
+   */
+  private generateRejectModificationLink(requestId: string): string {
+    return `${this.frontendUrl}/dashboard?action=reject-modification&requestId=${requestId}`;
   }
 
   /**
