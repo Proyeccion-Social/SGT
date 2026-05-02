@@ -813,10 +813,10 @@ export class SessionService {
         throw new BadRequestException('requestId es requerido');
       }
 
+      // 1er findOne: CON lock, SIN relations
+      // (Evita el LEFT JOIN que causa error en PostgreSQL con FOR UPDATE)
       const session = await queryRunner.manager.findOne(Session, {
         where: { idSession: sessionId },
-        // Necesitamos la materia para el email de notificación
-        relations: ['subject'],
         lock: { mode: 'pessimistic_write' },
       });
       if (!session) throw new NotFoundException('Session not found');
@@ -911,9 +911,16 @@ export class SessionService {
         await queryRunner.manager.save(session);
         await queryRunner.commitTransaction();
 
+        // 2do findOne: SIN lock, CON relations
+        // (Se ejecuta DESPUÉS de la transacción, por eso no interfiere con FOR UPDATE)
+        const sessionWithSubject = await this.sessionRepository.findOne({
+          where: { idSession: sessionId },
+          relations: ['subject'],
+        });
+
         await this.fireAndLogNotifications([
           this.notificationsService.sendModificationResponse(
-            session,
+            sessionWithSubject || session,
             pendingRequest,
             false,
           ),
@@ -1020,9 +1027,16 @@ export class SessionService {
 
       await queryRunner.commitTransaction();
 
+      // 2do findOne: SIN lock, CON relations
+      // (Se ejecuta DESPUÉS de la transacción, por eso no interfiere con FOR UPDATE)
+      const sessionWithSubject = await this.sessionRepository.findOne({
+        where: { idSession: sessionId },
+        relations: ['subject'],
+      });
+
       await this.fireAndLogNotifications([
         this.notificationsService.sendModificationResponse(
-          session,
+          sessionWithSubject || session,
           pendingRequest,
           true,
         ),
