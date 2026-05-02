@@ -11,7 +11,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import type { Request } from 'express';
-import { AuthService } from '../services/auth.service';
+import { AuthService, ConfirmEmailResponse } from '../services/auth.service';
 import { AuditService } from '../services/audit-log.service';
 import { RegisterDto } from '../dto/register.dto';
 import { LoginDto } from '../dto/login.dto';
@@ -54,7 +54,9 @@ export class AuthController {
   @Public()
   @Post('confirm-email')
   @HttpCode(HttpStatus.OK)
-  async confirmEmail(@Body() dto: ConfirmEmailDto) {
+  async confirmEmail(
+    @Body() dto: ConfirmEmailDto,
+  ): Promise<ConfirmEmailResponse> {
     return this.authService.confirmEmail(dto.token);
   }
 
