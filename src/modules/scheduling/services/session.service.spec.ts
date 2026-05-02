@@ -643,11 +643,16 @@ describe('SessionService', () => {
         status: SessionStatus.PENDING_MODIFICATION,
       });
       const request = pendingRequest({ requestedBy: 'student-1' });
+      const sessionWithSubject = mockSession({
+        status: SessionStatus.SCHEDULED,
+        subject: { idSubject: 'sub-1', name: 'Math' },
+      });
 
       managerMock.findOne
         .mockResolvedValueOnce(session)
         .mockResolvedValueOnce(request);
       managerMock.find.mockResolvedValueOnce([{ idStudent: 'student-1' }]);
+      sessionRepository.findOne.mockResolvedValueOnce(sessionWithSubject); // 2do findOne with relations
 
       const result = await service.respondToModification(
         'tutor-1',
@@ -660,6 +665,13 @@ describe('SessionService', () => {
       expect(session.status).toBe(SessionStatus.SCHEDULED);
       expect(result.message).toContain('rechazada');
       expect(queryRunnerMock.commitTransaction).toHaveBeenCalled();
+      expect(sessionRepository.findOne).toHaveBeenCalledWith({
+        where: { idSession: 'session-1' },
+        relations: ['subject'],
+      });
+      expect(
+        notificationsService.sendModificationResponse,
+      ).toHaveBeenCalledWith(sessionWithSubject, request, false);
     });
 
     it('keeps session in PENDING_MODIFICATION when rejecting and other pending requests remain', async () => {
@@ -667,12 +679,17 @@ describe('SessionService', () => {
         status: SessionStatus.PENDING_MODIFICATION,
       });
       const request = pendingRequest({ requestedBy: 'student-1' });
+      const sessionWithSubject = mockSession({
+        status: SessionStatus.PENDING_MODIFICATION,
+        subject: { idSubject: 'sub-1', name: 'Math' },
+      });
 
       managerMock.findOne
         .mockResolvedValueOnce(session)
         .mockResolvedValueOnce(request);
       managerMock.find.mockResolvedValueOnce([{ idStudent: 'student-1' }]);
       managerMock.count.mockResolvedValueOnce(2);
+      sessionRepository.findOne.mockResolvedValueOnce(sessionWithSubject); // 2do findOne with relations
 
       const result = await service.respondToModification(
         'tutor-1',
@@ -694,6 +711,10 @@ describe('SessionService', () => {
           },
         },
       );
+      expect(sessionRepository.findOne).toHaveBeenCalledWith({
+        where: { idSession: 'session-1' },
+        relations: ['subject'],
+      });
     });
 
     it('accepts modification: applies new date and restores SCHEDULED status', async () => {
@@ -708,12 +729,17 @@ describe('SessionService', () => {
         idAvailability: 1,
         scheduledDate: FUTURE_DATE,
       };
+      const sessionWithSubject = mockSession({
+        status: SessionStatus.SCHEDULED,
+        subject: { idSubject: 'sub-1', name: 'Math' },
+      });
 
       managerMock.findOne
-        .mockResolvedValueOnce(session) // findOne(Session)
-        .mockResolvedValueOnce(request) // findOne(ModificationRequest)
+        .mockResolvedValueOnce(session) // findOne(Session) with lock
+        .mockResolvedValueOnce(request) // findOne(ModificationRequest) with lock
         .mockResolvedValueOnce(scheduledSession); // findOne(ScheduledSession)
       managerMock.find.mockResolvedValueOnce([{ idStudent: 'student-1' }]);
+      sessionRepository.findOne.mockResolvedValueOnce(sessionWithSubject); // 2do findOne with relations, no lock
 
       const result = await service.respondToModification(
         'tutor-1',
@@ -726,6 +752,11 @@ describe('SessionService', () => {
       expect(session.status).toBe(SessionStatus.SCHEDULED);
       expect(request.status).toBe(ModificationStatus.ACCEPTED);
       expect(result.message).toContain('aceptada');
+      expect(queryRunnerMock.commitTransaction).toHaveBeenCalled();
+      expect(sessionRepository.findOne).toHaveBeenCalledWith({
+        where: { idSession: 'session-1' },
+        relations: ['subject'],
+      });
       expect(managerMock.update).toHaveBeenCalledWith(
         SessionModificationRequest,
         {
@@ -739,6 +770,9 @@ describe('SessionService', () => {
           respondedAt: expect.any(Date),
         },
       );
+      expect(
+        notificationsService.sendModificationResponse,
+      ).toHaveBeenCalledWith(sessionWithSubject, request, true);
     });
   });
 
