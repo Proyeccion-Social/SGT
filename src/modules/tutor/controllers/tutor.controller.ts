@@ -117,10 +117,10 @@ export class TutorsController {
   }
 
   // =====================================================
-  // PATCH /api/v1/tutors/me/active
+  // PATCH /api/v1/tutors/active
   // Activar / desactivar tutor (CUENTA PROPIA TUTOR)
   // =====================================================
-  @Patch('me/active')
+  @Patch('active')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.TUTOR)
   @HttpCode(HttpStatus.OK)
