@@ -128,13 +128,6 @@ export class SessionService {
         dto.durationHours,
       );
 
-      // No supera el límite semanal del tutor
-      await this.validationService.validateWeeklyHoursLimit(
-        dto.tutorId,
-        dto.scheduledDate,
-        dto.durationHours,
-      );
-
       // No supera el límite diario del tutor (máximo 4 horas por día).
       // Esta validación debe correr dentro de la misma transacción y tomando
       // lock sobre las sesiones del tutor en la fecha para evitar carreras
@@ -167,6 +160,17 @@ export class SessionService {
           'El tutor no puede superar 4 horas de sesiones en un mismo día.',
         );
       }
+
+      // No supera el límite semanal del tutor
+      // Esta validación corre dentro de la transacción para evitar race conditions
+      // entre confirmaciones/creaciones concurrentes en diferentes días de la semana.
+      await this.validationService.validateWeeklyHoursLimit(
+        dto.tutorId,
+        dto.scheduledDate,
+        dto.durationHours,
+        undefined, // sin excludeSessionId: es sesión nueva
+        queryRunner,
+      );
 
       // ── 2. Verificación de concurrencia con lock pesimista ────────────────
       //
@@ -371,7 +375,9 @@ export class SessionService {
           if (
             dayScheduled.idSession === sessionId ||
             !dayScheduled.session ||
-            dayScheduled.session.status !== SessionStatus.SCHEDULED
+            (dayScheduled.session.status !== SessionStatus.SCHEDULED &&
+              dayScheduled.session.status !==
+                SessionStatus.PENDING_MODIFICATION)
           ) {
             return total;
           }
@@ -390,6 +396,8 @@ export class SessionService {
         tutorId,
         session.scheduledDate,
         sessionDurationHours,
+        session.idSession,
+        queryRunner, // Pasar queryRunner para usar transacción con lock
       );
 
       // Confirmar
@@ -989,6 +997,7 @@ export class SessionService {
         newDate,
         newDuration,
         session.idSession,
+        queryRunner, // Pasar queryRunner para usar transacción con lock
       );
 
       // Aplicar cambios
