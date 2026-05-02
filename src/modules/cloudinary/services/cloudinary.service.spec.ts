@@ -5,11 +5,11 @@ import { CloudinaryService } from './cloudinary.service';
 
 describe('CloudinaryService', () => {
   let service: CloudinaryService;
-  let configService: { getOrThrow: jest.Mock };
+  let configService: { get: jest.Mock };
 
   beforeEach(() => {
     configService = {
-      getOrThrow: jest.fn((key: string) => {
+      get: jest.fn((key: string) => {
         const values: Record<string, string> = {
           CLOUDINARY_NAME: 'sgt-cloud',
           CLOUDINARY_API_KEY: 'api-key',
@@ -24,11 +24,11 @@ describe('CloudinaryService', () => {
   });
 
   it('should throw when cloudinary configuration is missing', () => {
-    configService.getOrThrow.mockImplementation(() => {
-      throw new Error('missing');
-    });
+    configService.get.mockReturnValue(undefined);
 
-    expect(() => new CloudinaryService(configService as unknown as ConfigService)).toThrow(
+    const missingService = new CloudinaryService(configService as unknown as ConfigService);
+
+    expect(() => missingService.generateUploadSignature('tutors/tutor-1', 'tutors/tutor-1/avatar')).toThrow(
       InternalServerErrorException,
     );
   });
@@ -36,12 +36,14 @@ describe('CloudinaryService', () => {
   it('should generate a signed payload for uploads', () => {
     const originalNow = Date.now;
     Date.now = jest.fn(() => 1710000000123);
+    const timestamp = '1710000000';
+    const stringToSign = `folder=tutors/tutor-1&public_id=tutors/tutor-1/avatar&timestamp=${timestamp}`;
 
     const result = service.generateUploadSignature('tutors/tutor-1', 'tutors/tutor-1/avatar');
 
     expect(result).toEqual({
-      timestamp: '1710000000',
-      signature: crypto.createHash('sha1').update('timestamp=1710000000api-secret').digest('hex'),
+      timestamp,
+      signature: crypto.createHash('sha1').update(`${stringToSign}api-secret`).digest('hex'),
       api_key: 'api-key',
       cloud_name: 'sgt-cloud',
       folder: 'tutors/tutor-1',

@@ -4,20 +4,18 @@ import * as crypto from 'crypto';
 
 @Injectable()
 export class CloudinaryService {
-  private cloudinaryName: string;
-  private cloudinaryApiKey: string;
-  private cloudinaryApiSecret: string;
+  private cloudinaryName?: string;
+  private cloudinaryApiKey?: string;
+  private cloudinaryApiSecret?: string;
+ 
 
   constructor(private configService: ConfigService) {
-    try {
-      this.cloudinaryName = this.configService.getOrThrow<string>('CLOUDINARY_NAME');
-      this.cloudinaryApiKey = this.configService.getOrThrow<string>('CLOUDINARY_API_KEY');
-      this.cloudinaryApiSecret = this.configService.getOrThrow<string>('CLOUDINARY_API_SECRET');
-    } catch (error) {
-      throw new InternalServerErrorException(
-        'Cloudinary configuration is missing. Please set CLOUDINARY_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET environment variables.',
-      );
-    }
+    // Do not throw at construction time so the app can start in environments
+    // where Cloudinary is not configured (e.g., local development without uploads).
+    // Defer validation to methods that actually require the credentials.
+    this.cloudinaryName = this.configService.get<string>('CLOUDINARY_NAME');
+    this.cloudinaryApiKey = this.configService.get<string>('CLOUDINARY_API_KEY');
+    this.cloudinaryApiSecret = this.configService.get<string>('CLOUDINARY_API_SECRET');
   }
 
   /**
@@ -35,10 +33,28 @@ export class CloudinaryService {
       });
     }
 
+    // Ensure Cloudinary credentials are present at the time we need them
+    if (!this.cloudinaryApiKey || !this.cloudinaryApiSecret || !this.cloudinaryName) {
+      throw new InternalServerErrorException(
+        'Cloudinary configuration is missing. Set CLOUDINARY_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET to use uploads.',
+      );
+    }
+
     const timestamp = Math.floor(Date.now() / 1000).toString();
 
-    // Generar signature: SHA1(timestamp + api_secret)
-    const string = `timestamp=${timestamp}${this.cloudinaryApiSecret}`;
+    const paramsToSign = {
+      folder,
+      public_id,
+      timestamp,
+    };
+
+    const stringToSign = Object.keys(paramsToSign)
+      .sort()
+      .map((key) => `${key}=${paramsToSign[key as keyof typeof paramsToSign]}`)
+      .join('&');
+
+    // Cloudinary requires the sorted param string plus the API secret.
+    const string = `${stringToSign}${this.cloudinaryApiSecret}`;
     const signature = crypto
       .createHash('sha1')
       .update(string)
@@ -65,6 +81,9 @@ export class CloudinaryService {
       return false;
     }
 
+    // If cloud name is not configured, we cannot validate against it
+    if (!this.cloudinaryName) return false;
+
     // Verificar que sea URL HTTPS de Cloudinary con nuestro cloud name
     return url.includes(`res.cloudinary.com/${this.cloudinaryName}`);
   }
@@ -73,7 +92,7 @@ export class CloudinaryService {
    * Extrae el cloud name (usado para validaciones)
    */
   getCloudName(): string {
-    return this.cloudinaryName;
+    return this.cloudinaryName || '';
   }
 }
 
