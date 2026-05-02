@@ -55,8 +55,6 @@ export class AuthService {
     private readonly emailService: NotificationsService,
   ) {}
 
-  
-
   // =====================================================
   // REGISTRO DE ESTUDIANTE
   // =====================================================
@@ -145,51 +143,54 @@ export class AuthService {
   // CONFIRMAR EMAIL
   // =====================================================
   async confirmEmail(token: string): Promise<ConfirmEmailResponse> {
-  // 1. Validar token
-  const verificationToken =
-    await this.emailVerificationService.validateToken(token);
+    // 1. Validar token
+    const verificationToken =
+      await this.emailVerificationService.validateToken(token);
 
-  // 2. Marcar token como usado
-  await this.emailVerificationService.markAsVerified(
-    verificationToken.id_token,
-  );
+    // 2. Marcar token como usado
+    await this.emailVerificationService.markAsVerified(
+      verificationToken.id_token,
+    );
 
-  // 3. Actualizar usuario usando UserService
-  await this.userService.markEmailAsVerified(verificationToken.id_user);
+    // 3. Actualizar usuario usando UserService
+    await this.userService.markEmailAsVerified(verificationToken.id_user);
 
-  // 4. Generar credenciales (AHORA que todo está validado)
-  const accessToken = this.generateAccessToken(verificationToken.id_user);
-  const refreshToken = this.generateRefreshToken(verificationToken.id_user);
+    // 4. Generar credenciales (AHORA que todo está validado)
+    const accessToken = this.generateAccessToken(verificationToken.id_user);
+    const refreshToken = this.generateRefreshToken(verificationToken.id_user);
 
-  // 5. Auditoría
-  await this.auditService.logEmailVerified(verificationToken.id_user);
+    // 5. Auditoría
+    await this.auditService.logEmailVerified(verificationToken.id_user);
 
-  // 6. Obtener datos del usuario para la respuesta
-  const user = await this.userService.findById(verificationToken.id_user);
+    // 6. Obtener datos del usuario para la respuesta
+    const user = await this.userService.findById(verificationToken.id_user);
 
-  if (!user) {
-    throw new NotFoundException('User not found after email verification');
+    if (!user) {
+      throw new NotFoundException('User not found after email verification');
+    }
+
+    // 7. Enviar email de bienvenida (no bloqueante)
+    if (user) {
+      this.emailService
+        .sendWelcomeEmail(user.email, user.name)
+        .catch((error) =>
+          this.logger.error('Error sending welcome email:', error),
+        );
+    }
+
+    return {
+      message: 'Email verified successfully. You are now logged in.',
+      accessToken: accessToken,
+      refreshToken: refreshToken,
+      user: {
+        id: user.idUser,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        emailVerified: true,
+      },
+    };
   }
-
-  // 7. Enviar email de bienvenida (no bloqueante)
-  if (user) {
-    this.emailService.sendWelcomeEmail(user.email, user.name)
-      .catch(error => this.logger.error('Error sending welcome email:', error));
-  }
-
-  return {
-    message: 'Email verified successfully. You are now logged in.',
-    accessToken: accessToken,
-    refreshToken: refreshToken,
-    user: {
-      id: user.idUser,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      emailVerified: true,
-    },
-  };
-}
 
   // =====================================================
   // VERIFICAR SI EXISTE EMAIL (ENDPOINT PÚBLICO)
