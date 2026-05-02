@@ -292,8 +292,7 @@ export class NotificationsService {
         modality: this.translateModality(session.modality),
         title: session.title,
         description: session.description,
-        confirmUrl: `${this.frontendUrl}/tutor/sessions/${session.id}/confirm`,
-        rejectUrl: `${this.frontendUrl}/tutor/sessions/${session.id}/reject`,
+        confirmUrl: this.generateConfirmSessionLink(session.id),
         expiresAt: this.formatDateTime(
           new Date(Date.now() + 24 * 60 * 60 * 1000),
         ),
@@ -558,7 +557,7 @@ export class NotificationsService {
         endTime: session.endTime,
         title: session.title,
         rejectionReason: session.rejectionReason ?? 'No especificada',
-        rescheduleUrl: `${this.frontendUrl}/sessions/schedule`,
+        rescheduleUrl: this.generateRescheduleLink(session.idSession),
         // idTutor es el idUser del tutor, sirve para construir el perfil
         tutorProfileUrl: `${this.frontendUrl}/tutors/${session.idTutor}`,
       });
@@ -622,7 +621,7 @@ export class NotificationsService {
         cancellationReason: session.cancellationReason ?? 'No especificada',
         cancelledBy: cancelledByRole,
         cancelledWithin24h: session.cancelledWithin24h,
-        rescheduleUrl: `${this.frontendUrl}/sessions/schedule`,
+        rescheduleUrl: this.generateRescheduleLink(session.idSession),
       };
 
       const studentIds = (session.studentParticipateSessions ?? []).map(
@@ -777,9 +776,7 @@ export class NotificationsService {
         title: session.title,
         proposedChanges: changes,
         expiresAt: this.formatDateTime(request.expiresAt),
-        // idRequest es la PK de SessionModificationRequest
-        acceptUrl: `${this.frontendUrl}/sessions/${session.idSession}/modifications/${request.idRequest}/accept`,
-        rejectUrl: `${this.frontendUrl}/sessions/${session.idSession}/modifications/${request.idRequest}/reject`,
+        reviewUrl: this.generateReviewModificationLink(request.idRequest),
       });
 
       await this.settleAll([
@@ -1169,7 +1166,7 @@ export class NotificationsService {
               sessionTime: session.startTime,
               title: session.title,
               isReminder,
-              evaluationUrl: `${this.frontendUrl}/sessions/${session.id}/evaluate`,
+              evaluationUrl: this.generateEvaluateLink(session.id),
             }),
           }),
         },
@@ -1325,7 +1322,7 @@ export class NotificationsService {
           isModified: affected.changeType === 'MODIFIED',
           isSlotDeleted: affected.changeType === 'SLOT_DELETED',
           changeReason: changeReason ?? 'No especificada',
-          rescheduleUrl: `${this.frontendUrl}/sessions/schedule`,
+          rescheduleUrl: this.generateRescheduleLink(affected.sessionId),
           tutorProfileUrl: `${this.frontendUrl}/tutors/${tutorId}`,
         });
 
@@ -1511,6 +1508,42 @@ export class NotificationsService {
     this.logger.log(
       `[RF-25] Anuncio colaborativo ${session.id} enviado a ${interestedStudentEmails.length} estudiantes`,
     );
+  }
+
+  // =====================================================
+  // HELPERS PRIVADOS - GENERACIÓN DE LINKS
+  // =====================================================
+
+  /**
+   * Genera URL para confirmar/rechazar sesión (emailScreens)
+   * Ruta: /dashboard?action=confirm-session&sessionId={{SESSION_ID}}
+   */
+  private generateConfirmSessionLink(sessionId: string): string {
+    return `${this.frontendUrl}/dashboard?action=confirm-session&sessionId=${sessionId}`;
+  }
+
+  /**
+   * Genera URL para revisar una propuesta de modificación (emailScreens)
+   * Ruta: /dashboard?action=review-modification&requestId={{REQUEST_ID}}
+   */
+  private generateReviewModificationLink(requestId: string): string {
+    return `${this.frontendUrl}/dashboard?action=review-modification&requestId=${requestId}`;
+  }
+
+  /**
+   * Genera URL para reprogramar sesión (emailScreens)
+   * Ruta: /dashboard?action=reschedule&sessionId={{SESSION_ID}}
+   */
+  private generateRescheduleLink(sessionId: string): string {
+    return `${this.frontendUrl}/dashboard?action=reschedule&sessionId=${sessionId}`;
+  }
+
+  /**
+   * Genera URL para evaluar sesión finalizada (emailScreens)
+   * Ruta: /dashboard?action=evaluate&sessionId={{SESSION_ID}}
+   */
+  private generateEvaluateLink(sessionId: string): string {
+    return `${this.frontendUrl}/dashboard?action=evaluate&sessionId=${sessionId}`;
   }
 
   // =====================================================
