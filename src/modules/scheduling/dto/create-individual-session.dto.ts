@@ -9,6 +9,7 @@ import {
   MinLength,
   IsIn,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { Modality } from '../../availability/enums';
 import { IsThirtyMinuteIncrement } from '../../availability/validators';
 
@@ -20,6 +21,7 @@ export class CreateIndividualSessionDto {
   subjectId: string;
 
   @IsNumber({}, { message: 'availabilityId debe ser un numero válido' })
+  @Type(() => Number)
   availabilityId: number;
 
   @IsDateString({}, { message: 'scheduledDate debe tener formato YYYY-MM-DD' })
@@ -29,6 +31,7 @@ export class CreateIndividualSessionDto {
   modality: Modality;
 
   @IsNumber()
+  @Type(() => Number)
   @IsIn([0.5, 1, 1.5, 2], { message: 'durationHours debe ser 0.5, 1, 1.5 o 2' })
   //@IsThirtyMinuteIncrement({
   //  message: 'durationHours debe estar en incrementos de 0.5 horas (30 minutos)',

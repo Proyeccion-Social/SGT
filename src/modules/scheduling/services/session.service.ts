@@ -7,7 +7,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, Not, Repository } from 'typeorm';
 import { addDays } from 'date-fns';
 
 import { Session } from '../entities/session.entity';
@@ -73,76 +73,80 @@ export class SessionService {
     studentId: string,
     dto: CreateIndividualSessionDto,
   ) {
+    // ── 1. Validaciones de dominio (ANTES de transacción, sin locks) ────────
+
+    this.validationService.validateStudentNotTutor(studentId, dto.tutorId);
+    await this.tutorService.validateTutorActive(dto.tutorId);
+
+    const availability = await this.availabilityService.getAvailabilityById(
+      dto.availabilityId,
+    );
+    const startTime = availability.startTime;
+    const endTime = this.validationService.calculateEndTime(
+      startTime,
+      dto.durationHours,
+    );
+
+    // Modalidad coincide con la franja del tutor
+    await this.validationService.validateModality(
+      dto.availabilityId,
+      dto.tutorId,
+      dto.modality,
+    );
+
+    //  NUEVO — validar coherencia día-slot
+    await this.validationService.validateScheduledDateMatchesSlotDay(
+      dto.availabilityId,
+      dto.scheduledDate, // string
+    );
+
+    // Slot disponible para esa fecha + duración completa (Cara 1 y Cara 2).
+    // Esta llamada verifica:
+    //   a) Que el tutor tiene franjas registradas suficientes para cubrir durationHours.
+    //   b) Que ningún slot dentro del bloque esté ya ocupado por una sesión activa,
+    //      incluyendo sesiones que comenzaron antes y cuyo bloque se extiende hasta aquí.
+    //   c) Que el mismo slot para UNA FECHA DIFERENTE no bloquee este agendamiento
+    //      (la validación filtra siempre por scheduledDate).
+    await this.validationService.validateAvailabilitySlotWithDuration(
+      dto.tutorId,
+      dto.availabilityId,
+      dto.scheduledDate,
+      dto.durationHours,
+      // Sin excludeSessionId: es una sesión nueva, no hay nada que excluir.
+    );
+
+    // No hay sesiones SCHEDULED ni PENDING_MODIFICATION solapadas en el mismo día
+    await this.validationService.validateNoTimeConflict(
+      dto.tutorId,
+      dto.scheduledDate,
+      startTime,
+      dto.durationHours,
+    );
+
+    // No supera el límite semanal del tutor
+    // Esta validación corre SIN transacción (rápida, usa repo compartido)
+    // Hay una posible race condition, pero es menos crítica que en confirmSession
+    await this.validationService.validateWeeklyHoursLimit(
+      dto.tutorId,
+      dto.scheduledDate,
+      dto.durationHours,
+    );
+
+    // ── 2. Transacción: validaciones de concurrencia con lock ──────────────
+
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
-      // ── 1. Validaciones de dominio (fuera de transacción, sin locks) ──────
-
-      this.validationService.validateStudentNotTutor(studentId, dto.tutorId);
-      await this.tutorService.validateTutorActive(dto.tutorId);
-
-      const availability = await this.availabilityService.getAvailabilityById(
-        dto.availabilityId,
-      );
-      const startTime = availability.startTime;
-      const endTime = this.validationService.calculateEndTime(
-        startTime,
-        dto.durationHours,
-      );
-
-      // Modalidad coincide con la franja del tutor
-      await this.validationService.validateModality(
-        dto.availabilityId,
-        dto.tutorId,
-        dto.modality,
-      );
-
-      //  NUEVO — validar coherencia día-slot
-      await this.validationService.validateScheduledDateMatchesSlotDay(
-        dto.availabilityId,
-        dto.scheduledDate, // string
-      );
-
-      // Slot disponible para esa fecha + duración completa (Cara 1 y Cara 2).
-      // Esta llamada verifica:
-      //   a) Que el tutor tiene franjas registradas suficientes para cubrir durationHours.
-      //   b) Que ningún slot dentro del bloque esté ya ocupado por una sesión activa,
-      //      incluyendo sesiones que comenzaron antes y cuyo bloque se extiende hasta aquí.
-      //   c) Que el mismo slot para UNA FECHA DIFERENTE no bloquee este agendamiento
-      //      (la validación filtra siempre por scheduledDate).
-      await this.validationService.validateAvailabilitySlotWithDuration(
-        dto.tutorId,
-        dto.availabilityId,
-        dto.scheduledDate,
-        dto.durationHours,
-        // Sin excludeSessionId: es una sesión nueva, no hay nada que excluir.
-      );
-
-      // No hay sesiones SCHEDULED ni PENDING_MODIFICATION solapadas en el mismo día
-      await this.validationService.validateNoTimeConflict(
-        dto.tutorId,
-        dto.scheduledDate,
-        startTime,
-        dto.durationHours,
-      );
-
-      // No supera el límite semanal del tutor
-      await this.validationService.validateWeeklyHoursLimit(
-        dto.tutorId,
-        dto.scheduledDate,
-        dto.durationHours,
-      );
-
       // No supera el límite diario del tutor (máximo 4 horas por día).
       // Esta validación debe correr dentro de la misma transacción y tomando
       // lock sobre las sesiones del tutor en la fecha para evitar carreras
       // entre requests concurrentes en slots distintos del mismo día.
-      const dailyHoursRaw = await queryRunner.manager
-        .createQueryBuilder(ScheduledSession, 'ss')
-        .innerJoin('ss.session', 'session')
-        .select('COALESCE(SUM(session.durationHours), 0)', 'totalHours')
+      const dailySessions = await queryRunner.manager
+        .createQueryBuilder(Session, 'session')
+        .innerJoin(ScheduledSession, 'ss', 'ss.idSession = session.idSession')
+        .select(['session.startTime', 'session.endTime'])
         .where('ss.idTutor = :tutorId', { tutorId: dto.tutorId })
         .andWhere('ss.scheduledDate = :scheduledDate', {
           scheduledDate: new Date(dto.scheduledDate),
@@ -154,15 +158,25 @@ export class SessionService {
           ],
         })
         .setLock('pessimistic_write')
-        .getRawOne<{ totalHours: string }>();
-      const existingDailyHours = Number(dailyHoursRaw?.totalHours ?? 0);
-      if (existingDailyHours + dto.durationHours > 4) {
+        .getMany();
+      const existingDailyHours = dailySessions.reduce((sum, s) => {
+        const [sh, sm] = s.startTime.split(':').map(Number);
+        const [eh, em] = s.endTime.split(':').map(Number);
+        return sum + (eh * 60 + em - (sh * 60 + sm)) / 60;
+      }, 0);
+      const requestedDuration = Number(dto.durationHours);
+      if (Number.isNaN(requestedDuration)) {
+        throw new BadRequestException(
+          'durationHours debe ser un numero válido',
+        );
+      }
+      if (existingDailyHours + requestedDuration > 4) {
         throw new BadRequestException(
           'El tutor no puede superar 4 horas de sesiones en un mismo día.',
         );
       }
 
-      // ── 2. Verificación de concurrencia con lock pesimista ────────────────
+      // ── 3. Verificación de concurrencia con lock pesimista ────────────────
       //
       // Aquí solo bloqueamos si hay OTRA sesión CONFIRMADA (SCHEDULED) en el
       // SLOT EXACTO + FECHA. Esto es la última línea de defensa ante condiciones
@@ -208,7 +222,7 @@ export class SessionService {
         })
         .getCount();
 
-      // ── 3. Persistir ──────────────────────────────────────────────────────
+      // ── 4. Persistir ──────────────────────────────────────────────────────
 
       const session = queryRunner.manager.create(Session, {
         idTutor: dto.tutorId,
@@ -348,7 +362,8 @@ export class SessionService {
       // Esta validación debe hacerse dentro de la misma transacción y con lock
       // sobre las sesiones del tutor en el día para evitar carreras entre
       // confirmaciones concurrentes de distintas franjas del mismo día.
-      const sessionDuration = this.calcDuration(session);
+      const sessionDurationHours = this.calcDuration(session);
+      const sessionDurationMinutes = sessionDurationHours * 60;
       const daySessions = await queryRunner.manager
         .createQueryBuilder(ScheduledSession, 'ss')
         .innerJoinAndSelect('ss.session', 'daySession')
@@ -364,20 +379,30 @@ export class SessionService {
           if (
             dayScheduled.idSession === sessionId ||
             !dayScheduled.session ||
-            dayScheduled.session.status !== SessionStatus.SCHEDULED
+            (dayScheduled.session.status !== SessionStatus.SCHEDULED &&
+              dayScheduled.session.status !==
+                SessionStatus.PENDING_MODIFICATION)
           ) {
             return total;
           }
-          return total + this.calcDuration(dayScheduled.session);
+          return total + this.calcDuration(dayScheduled.session) * 60;
         },
         0,
       );
       const maxDailyMinutes = 4 * 60;
-      if (alreadyScheduledMinutes + sessionDuration > maxDailyMinutes) {
+      if (alreadyScheduledMinutes + sessionDurationMinutes > maxDailyMinutes) {
         throw new BadRequestException(
           'La confirmación excede el límite diario de 4 horas para el tutor.',
         );
       }
+
+      await this.validationService.validateWeeklyHoursLimit(
+        tutorId,
+        session.scheduledDate,
+        sessionDurationHours,
+        session.idSession,
+        queryRunner, // Pasar queryRunner para usar transacción con lock
+      );
 
       // Confirmar
       session.status = SessionStatus.SCHEDULED;
@@ -789,23 +814,40 @@ export class SessionService {
     userId: string,
     sessionId: string,
     accept: boolean,
+    requestId: string,
   ) {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
+      if (!requestId) {
+        throw new BadRequestException('requestId es requerido');
+      }
+
+      // 1er findOne: CON lock, SIN relations
+      // (Evita el LEFT JOIN que causa error en PostgreSQL con FOR UPDATE)
       const session = await queryRunner.manager.findOne(Session, {
         where: { idSession: sessionId },
-        // Necesitamos la materia para el email de notificación
-        relations: ['subject'],
+        lock: { mode: 'pessimistic_write' },
       });
       if (!session) throw new NotFoundException('Session not found');
+
+      if (session.status !== SessionStatus.PENDING_MODIFICATION) {
+        throw new BadRequestException(
+          'La sesión no tiene modificaciones pendientes',
+        );
+      }
 
       const pendingRequest = await queryRunner.manager.findOne(
         SessionModificationRequest,
         {
-          where: { idSession: sessionId, status: ModificationStatus.PENDING },
+          where: {
+            idSession: sessionId,
+            idRequest: requestId,
+            status: ModificationStatus.PENDING,
+          },
+          lock: { mode: 'pessimistic_write' },
         },
       );
       if (!pendingRequest)
@@ -834,8 +876,22 @@ export class SessionService {
       // Verificar expiración
       if (new Date() > pendingRequest.expiresAt) {
         pendingRequest.status = ModificationStatus.EXPIRED;
-        session.status = SessionStatus.SCHEDULED;
         await queryRunner.manager.save(pendingRequest);
+
+        const remainingPending = await queryRunner.manager.count(
+          SessionModificationRequest,
+          {
+            where: {
+              idSession: sessionId,
+              status: ModificationStatus.PENDING,
+              idRequest: Not(requestId),
+            },
+          },
+        );
+        session.status =
+          remainingPending > 0
+            ? SessionStatus.PENDING_MODIFICATION
+            : SessionStatus.SCHEDULED;
         await queryRunner.manager.save(session);
         await queryRunner.commitTransaction();
         throw new BadRequestException('La solicitud ha expirado');
@@ -844,18 +900,39 @@ export class SessionService {
       // ── RECHAZAR ──────────────────────────────────────────────────────────
 
       if (!accept) {
-        session.status = SessionStatus.SCHEDULED;
         pendingRequest.status = ModificationStatus.REJECTED;
         pendingRequest.respondedBy = userId;
         pendingRequest.respondedAt = new Date();
 
-        await queryRunner.manager.save(session);
         await queryRunner.manager.save(pendingRequest);
+
+        const remainingPending = await queryRunner.manager.count(
+          SessionModificationRequest,
+          {
+            where: {
+              idSession: sessionId,
+              status: ModificationStatus.PENDING,
+              idRequest: Not(requestId),
+            },
+          },
+        );
+        session.status =
+          remainingPending > 0
+            ? SessionStatus.PENDING_MODIFICATION
+            : SessionStatus.SCHEDULED;
+        await queryRunner.manager.save(session);
         await queryRunner.commitTransaction();
+
+        // 2do findOne: SIN lock, CON relations
+        // (Se ejecuta DESPUÉS de la transacción, por eso no interfiere con FOR UPDATE)
+        const sessionWithSubject = await this.sessionRepository.findOne({
+          where: { idSession: sessionId },
+          relations: ['subject'],
+        });
 
         await this.fireAndLogNotifications([
           this.notificationsService.sendModificationResponse(
-            session,
+            sessionWithSubject || session,
             pendingRequest,
             false,
           ),
@@ -918,6 +995,15 @@ export class SessionService {
         session.idSession,
       );
 
+      // Re-validar límite semanal antes de aceptar la modificación
+      await this.validationService.validateWeeklyHoursLimit(
+        session.idTutor,
+        newDate,
+        newDuration,
+        session.idSession,
+        queryRunner, // Pasar queryRunner para usar transacción con lock
+      );
+
       // Aplicar cambios
       session.scheduledDate = newDate;
       scheduledSession.scheduledDate = newDate;
@@ -938,11 +1024,32 @@ export class SessionService {
       pendingRequest.respondedAt = new Date();
       await queryRunner.manager.save(pendingRequest);
 
+      await queryRunner.manager.update(
+        SessionModificationRequest,
+        {
+          idSession: sessionId,
+          status: ModificationStatus.PENDING,
+          idRequest: Not(requestId),
+        },
+        {
+          status: ModificationStatus.REJECTED,
+          respondedBy: userId,
+          respondedAt: new Date(),
+        },
+      );
+
       await queryRunner.commitTransaction();
+
+      // 2do findOne: SIN lock, CON relations
+      // (Se ejecuta DESPUÉS de la transacción, por eso no interfiere con FOR UPDATE)
+      const sessionWithSubject = await this.sessionRepository.findOne({
+        where: { idSession: sessionId },
+        relations: ['subject'],
+      });
 
       await this.fireAndLogNotifications([
         this.notificationsService.sendModificationResponse(
-          session,
+          sessionWithSubject || session,
           pendingRequest,
           true,
         ),
@@ -1089,15 +1196,52 @@ export class SessionService {
     return this.mapToDetailedDto(session);
   }
 
-  async getModificationRequestById(requestId: string) {
+  async getModificationRequestById(userId: string, requestId: string) {
     const request = await this.modificationRequestRepository.findOne({
       where: { idRequest: requestId },
     });
     if (!request) throw new NotFoundException('Modification request not found');
+
+    const session = await this.sessionRepository.findOne({
+      where: { idSession: request.idSession },
+      relations: ['studentParticipateSessions'],
+    });
+    if (!session) throw new NotFoundException('Session not found');
+
+    const isParticipant = session.studentParticipateSessions.some(
+      (p) => p.idStudent === userId,
+    );
+    const isTutor = session.idTutor === userId;
+    const isAdmin = await this.userService.isAdmin(userId);
+
+    if (!isParticipant && !isTutor && !isAdmin) {
+      throw new ForbiddenException(
+        'No tienes permiso para ver esta solicitud de modificación',
+      );
+    }
+
     return request;
   }
 
-  async getModificationsRequestBySessionId(sessionId: string) {
+  async getModificationsRequestBySessionId(userId: string, sessionId: string) {
+    const session = await this.sessionRepository.findOne({
+      where: { idSession: sessionId },
+      relations: ['studentParticipateSessions'],
+    });
+    if (!session) throw new NotFoundException('Session not found');
+
+    const isParticipant = session.studentParticipateSessions.some(
+      (p) => p.idStudent === userId,
+    );
+    const isTutor = session.idTutor === userId;
+    const isAdmin = await this.userService.isAdmin(userId);
+
+    if (!isParticipant && !isTutor && !isAdmin) {
+      throw new ForbiddenException(
+        'No tienes permiso para ver estas solicitudes de modificación',
+      );
+    }
+
     return this.modificationRequestRepository.find({
       where: { idSession: sessionId },
       order: { requestedAt: 'DESC' },
