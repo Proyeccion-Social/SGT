@@ -61,7 +61,9 @@ export class NotificationsService {
       this.configService.get<string>('RESEND_FROM_EMAIL') ||
       'noreply@yourdomain.com';
     this.frontendUrl =
-      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:4321';
+
+    console.log('🔗 Frontend URL para correos:', this.frontendUrl);
 
     // Registrar helpers de Handlebars una sola vez en el constructor
     Handlebars.registerHelper('eq', (a: any, b: any) => a === b);
@@ -80,6 +82,7 @@ export class NotificationsService {
     token: string,
   ): Promise<void> {
     const confirmationUrl = `${this.frontendUrl}/confirm-email?token=${token}`;
+    console.log('📧 URL Correo - Confirmación Email:', confirmationUrl);
     const htmlContent = this.renderTemplate('email-confirmation', {
       fullName,
       confirmationUrl,
@@ -107,9 +110,11 @@ export class NotificationsService {
   }
 
   async sendWelcomeEmail(email: string, fullName: string): Promise<void> {
+    const loginUrl = `${this.frontendUrl}/login`;
+    console.log('📧 URL Correo - Bienvenida:', loginUrl);
     const htmlContent = this.renderTemplate('welcome-email', {
       fullName,
-      loginUrl: `${this.frontendUrl}/login`,
+      loginUrl,
     });
 
     try {
@@ -142,11 +147,13 @@ export class NotificationsService {
     name: string,
     temporaryPassword: string,
   ): Promise<void> {
+    const loginUrl = `${this.frontendUrl}/login`;
+    console.log('📧 URL Correo - Credenciales Tutor:', loginUrl);
     const htmlContent = this.renderTemplate('tutor-credentials', {
       name,
       email,
       temporaryPassword,
-      loginUrl: `${this.frontendUrl}/login`,
+      loginUrl,
     });
 
     try {
@@ -174,9 +181,11 @@ export class NotificationsService {
     email: string,
     name: string,
   ): Promise<void> {
+    const dashboardUrl = `${this.frontendUrl}/dashboard`;
+    console.log('📧 URL Correo - Perfil Completado:', dashboardUrl);
     const htmlContent = this.renderTemplate('tutor-profile-completed', {
       name,
-      dashboardUrl: `${this.frontendUrl}/dashboard`,
+      dashboardUrl,
     });
 
     try {
@@ -209,9 +218,11 @@ export class NotificationsService {
     name: string,
     resetToken: string,
   ): Promise<void> {
+    const resetUrl = `${this.frontendUrl}/reset-password?token=${resetToken}`;
+    console.log('📧 URL Correo - Reset Password:', resetUrl);
     const htmlContent = this.renderTemplate('password-reset', {
       name,
-      resetUrl: `${this.frontendUrl}/reset-password?token=${resetToken}`,
+      resetUrl,
     });
 
     try {
@@ -293,7 +304,6 @@ export class NotificationsService {
         title: session.title,
         description: session.description,
         confirmUrl: this.generateConfirmSessionLink(session.id),
-        rejectUrl: this.generateRejectSessionLink(session.id),
         expiresAt: this.formatDateTime(
           new Date(Date.now() + 24 * 60 * 60 * 1000),
         ),
@@ -359,7 +369,7 @@ export class NotificationsService {
         title: session.title,
         description: session.description,
         status: 'Pendiente de confirmación del tutor',
-        sessionDetailsUrl: `${this.frontendUrl}/sessions/${session.id}`,
+        sessionDetailsUrl: this.generateConfirmSessionLink(session.id),
       });
 
       await this.settleAll([
@@ -427,6 +437,7 @@ export class NotificationsService {
         isVirtual: session.modality === 'VIRT',
         virtualLink: session.virtualLink ?? null,
       });
+      console.log('📧 URL Correo - Confirmación Sesión Estudiante:', `${this.frontendUrl}/sessions/${session.id}`);
 
       await this.settleAll([
         {
@@ -486,6 +497,7 @@ export class NotificationsService {
         sessionDetailsUrl: `${this.frontendUrl}/tutor/sessions/${session.id}`,
         isVirtual: session.modality === 'VIRT',
       });
+      console.log('📧 URL Correo - Confirmación Sesión Tutor:', `${this.frontendUrl}/tutor/sessions/${session.id}`);
 
       await this.settleAll([
         {
@@ -768,6 +780,9 @@ export class NotificationsService {
         : (session.studentParticipateSessions?.[0]?.student?.user?.name ??
           'El estudiante');
 
+      const reviewUrl = this.generateReviewModificationLink(request.idRequest);
+      console.log('📧 URL Correo - Review Modificación:', reviewUrl);
+
       const htmlContent = this.renderTemplate('session-modification-request', {
         recipientRole: isTutor ? 'estudiante' : 'tutor',
         requesterRole: isTutor ? 'tutor' : 'estudiante',
@@ -777,8 +792,7 @@ export class NotificationsService {
         title: session.title,
         proposedChanges: changes,
         expiresAt: this.formatDateTime(request.expiresAt),
-        acceptUrl: this.generateAcceptModificationLink(request.idRequest),
-        rejectUrl: this.generateRejectModificationLink(request.idRequest),
+        reviewUrl,
       });
 
       await this.settleAll([
@@ -924,6 +938,7 @@ export class NotificationsService {
         changes,
         hasChanges: changes.length > 0,
       });
+      console.log('📧 URL Correo - Detalles Sesión Actualizado:', `${this.frontendUrl}/sessions/${session.idSession}`);
 
       const emailSubject = `Detalles actualizados — ${subjectName}`;
       const notifMessage = `Los detalles de tu sesión de ${subjectName} fueron actualizados`;
@@ -1150,6 +1165,12 @@ export class NotificationsService {
         ? AppNotificationType.EVALUATION_REMINDER
         : AppNotificationType.EVALUATION_PENDING;
 
+      const evaluationUrl = this.generateEvaluateLink(session.id);
+      console.log(
+        `📧 URL Correo - ${isReminder ? 'Recordatorio de' : ''} Calificación:`,
+        evaluationUrl,
+      );
+
       await this.settleAll([
         {
           label: 'email',
@@ -1168,7 +1189,7 @@ export class NotificationsService {
               sessionTime: session.startTime,
               title: session.title,
               isReminder,
-              evaluationUrl: this.generateEvaluateLink(session.id),
+              evaluationUrl,
             }),
           }),
         },
@@ -1231,6 +1252,7 @@ export class NotificationsService {
         // Link para que el estudiante contacte al tutor o reagende
         rescheduleUrl: `${this.frontendUrl}/sessions/schedule`,
       });
+      console.log('📧 URL Correo - Sesión Ausente:', `${this.frontendUrl}/sessions/schedule`);
 
       await this.settleAll([
         {
@@ -1521,7 +1543,9 @@ export class NotificationsService {
    * Ruta: /dashboard?action=confirm-session&sessionId={{SESSION_ID}}
    */
   private generateConfirmSessionLink(sessionId: string): string {
-    return `${this.frontendUrl}/dashboard?action=confirm-session&sessionId=${sessionId}`;
+    const url = `${this.frontendUrl}/dashboard?action=confirm-session&sessionId=${sessionId}`;
+    console.log('📧 URL Correo - Confirmar Sesión:', url);
+    return url;
   }
 
   /**
@@ -1529,7 +1553,9 @@ export class NotificationsService {
    * Ruta: /dashboard?action=reject-session&sessionId={{SESSION_ID}}
    */
   private generateRejectSessionLink(sessionId: string): string {
-    return `${this.frontendUrl}/dashboard?action=reject-session&sessionId=${sessionId}`;
+    const url = `${this.frontendUrl}/dashboard?action=reject-session&sessionId=${sessionId}`;
+    console.log('📧 URL Correo - Rechazar Sesión:', url);
+    return url;
   }
 
   /**
@@ -1537,7 +1563,8 @@ export class NotificationsService {
    * Ruta: /dashboard?action=review-modification&requestId={{REQUEST_ID}}
    */
   private generateReviewModificationLink(requestId: string): string {
-    return `${this.frontendUrl}/dashboard?action=review-modification&requestId=${requestId}`;
+    const url = `${this.frontendUrl}/dashboard?action=review-modification&requestId=${requestId}`;
+    return url;
   }
 
   /**
@@ -1545,7 +1572,8 @@ export class NotificationsService {
    * Ruta: /dashboard?action=accept-modification&requestId={{REQUEST_ID}}
    */
   private generateAcceptModificationLink(requestId: string): string {
-    return `${this.frontendUrl}/dashboard?action=accept-modification&requestId=${requestId}`;
+    const url = `${this.frontendUrl}/dashboard?action=accept-modification&requestId=${requestId}`;
+    return url;
   }
 
   /**
@@ -1553,7 +1581,8 @@ export class NotificationsService {
    * Ruta: /dashboard?action=reject-modification&requestId={{REQUEST_ID}}
    */
   private generateRejectModificationLink(requestId: string): string {
-    return `${this.frontendUrl}/dashboard?action=reject-modification&requestId=${requestId}`;
+    const url = `${this.frontendUrl}/dashboard?action=reject-modification&requestId=${requestId}`;
+    return url;
   }
 
   /**
@@ -1561,7 +1590,9 @@ export class NotificationsService {
    * Ruta: /dashboard?action=reschedule&sessionId={{SESSION_ID}}
    */
   private generateRescheduleLink(sessionId: string): string {
-    return `${this.frontendUrl}/dashboard?action=reschedule&sessionId=${sessionId}`;
+    const url = `${this.frontendUrl}/dashboard?action=reschedule&sessionId=${sessionId}`;
+    console.log('📧 URL Correo - Reprogramar Sesión:', url);
+    return url;
   }
 
   /**
@@ -1569,7 +1600,9 @@ export class NotificationsService {
    * Ruta: /dashboard?action=evaluate&sessionId={{SESSION_ID}}
    */
   private generateEvaluateLink(sessionId: string): string {
-    return `${this.frontendUrl}/dashboard?action=evaluate&sessionId=${sessionId}`;
+    const url = `${this.frontendUrl}/dashboard?action=evaluate&sessionId=${sessionId}`;
+    console.log('📧 URL Correo - Calificar Sesión:', url);
+    return url;
   }
 
   // =====================================================
