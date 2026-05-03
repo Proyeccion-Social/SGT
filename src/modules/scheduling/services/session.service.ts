@@ -228,6 +228,7 @@ export class SessionService {
         idTutor: dto.tutorId,
         idSubject: dto.subjectId,
         scheduledDate: dto.scheduledDate,
+        confirmationExpiresAt: this.validationService.calculateConfirmationExpiry(dto.scheduledDate,startTime), //NUEVO
         startTime,
         endTime,
         type: SessionType.INDIVIDUAL,
