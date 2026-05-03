@@ -23,12 +23,16 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { Public } from '../../auth/decorators/public.decorator';
 import { User, UserRole } from '../../users/entities/user.entity';
 import { UpdateTutorProfileDto } from '../dto/update-tutor-profile.dto';
+import { CloudinaryService } from '../../cloudinary/services/cloudinary.service';
+import { CloudinarySignatureDto } from '../dto/cloudinary-signature.dto';
+import { ConfirmAvatarUploadDto } from '../dto/confirm-avatar-upload.dto';
 
 @Controller('tutors')
 export class TutorsController {
   constructor(
     private readonly tutorService: TutorService,
     private readonly userService: UserService,
+    private readonly cloudinaryService: CloudinaryService,
   ) {}
 
   // =====================================================
@@ -117,6 +121,22 @@ export class TutorsController {
   }
 
   // =====================================================
+  // PATCH /api/v1/tutors/active
+  // Activar / desactivar tutor (CUENTA PROPIA TUTOR)
+  // =====================================================
+  @Patch('active')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TUTOR)
+  @HttpCode(HttpStatus.OK)
+  async setMyAccountActive(
+    @CurrentUser() user: User,
+    @Body('isActive') isActive: boolean,
+  ) {
+    await this.tutorService.setActive(user.idUser, isActive);
+    return { message: 'Tutor status updated successfully' };
+  }
+
+  // =====================================================
   // GET /api/v1/tutors/profile
   // VER PERFIL PROPIO (TUTOR)
   // =====================================================
@@ -156,6 +176,75 @@ export class TutorsController {
     }
 
     return this.tutorService.getTutorHoursStatus(tutorId);
+  }
+
+  // =====================================================
+  // POST /api/v1/tutors/:id/avatar/signature
+  // Generar firma para subir avatar (solo ADMIN)
+  // =====================================================
+  @Post(':id/avatar/signature')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  async getAvatarSignature(
+    @Param(
+      'id',
+      new ParseUUIDPipe({
+        exceptionFactory: () =>
+          new BadRequestException({
+            errorCode: 'VALIDATION_01',
+            message: 'ID de tutor inválido',
+          }),
+      }),
+    )
+    tutorId: string,
+  ): Promise<CloudinarySignatureDto> {
+    return await this.tutorService.getAvatarUploadSignature(tutorId);
+  }
+
+  // =====================================================
+  // POST /api/v1/tutors/:id/avatar/confirm
+  // Confirmar upload de avatar desde Cloudinary (solo ADMIN)
+  // =====================================================
+  @Post(':id/avatar/confirm')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  async confirmAvatarUpload(
+    @Param(
+      'id',
+      new ParseUUIDPipe({
+        exceptionFactory: () =>
+          new BadRequestException({
+            errorCode: 'VALIDATION_01',
+            message: 'ID de tutor inválido',
+          }),
+      }),
+    )
+    tutorId: string,
+    @Body() dto: ConfirmAvatarUploadDto,
+  ) {
+    // Validación técnica: ¿es URL válida de Cloudinary?
+    if (!this.cloudinaryService.isValidCloudinaryUrl(dto.secure_url)) {
+      throw new BadRequestException({
+        errorCode: 'VALIDATION_02',
+        message: 'URL no es de Cloudinary',
+      });
+    }
+
+    // Validación de negocio: ¿pertenece a este tutor?
+    if (!this.tutorService.validateAvatarUrl(dto.secure_url, tutorId)) {
+      throw new BadRequestException({
+        errorCode: 'VALIDATION_03',
+        message: 'Avatar no pertenece a este tutor',
+      });
+    }
+
+    return await this.tutorService.confirmAvatarUpload(
+      tutorId,
+      dto.secure_url,
+      dto.public_id,
+    );
   }
 
   // =====================================================

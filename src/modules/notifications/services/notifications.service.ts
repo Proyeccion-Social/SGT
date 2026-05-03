@@ -61,7 +61,7 @@ export class NotificationsService {
       this.configService.get<string>('RESEND_FROM_EMAIL') ||
       'noreply@yourdomain.com';
     this.frontendUrl =
-      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:4321';
 
     // Registrar helpers de Handlebars una sola vez en el constructor
     Handlebars.registerHelper('eq', (a: any, b: any) => a === b);
@@ -80,6 +80,7 @@ export class NotificationsService {
     token: string,
   ): Promise<void> {
     const confirmationUrl = `${this.frontendUrl}/confirm-email?token=${token}`;
+
     const htmlContent = this.renderTemplate('email-confirmation', {
       fullName,
       confirmationUrl,
@@ -107,9 +108,11 @@ export class NotificationsService {
   }
 
   async sendWelcomeEmail(email: string, fullName: string): Promise<void> {
+    const loginUrl = `${this.frontendUrl}/login`;
+
     const htmlContent = this.renderTemplate('welcome-email', {
       fullName,
-      loginUrl: `${this.frontendUrl}/login`,
+      loginUrl,
     });
 
     try {
@@ -142,11 +145,13 @@ export class NotificationsService {
     name: string,
     temporaryPassword: string,
   ): Promise<void> {
+    const loginUrl = `${this.frontendUrl}/login`;
+
     const htmlContent = this.renderTemplate('tutor-credentials', {
       name,
       email,
       temporaryPassword,
-      loginUrl: `${this.frontendUrl}/login`,
+      loginUrl,
     });
 
     try {
@@ -174,9 +179,11 @@ export class NotificationsService {
     email: string,
     name: string,
   ): Promise<void> {
+    const dashboardUrl = `${this.frontendUrl}/dashboard`;
+
     const htmlContent = this.renderTemplate('tutor-profile-completed', {
       name,
-      dashboardUrl: `${this.frontendUrl}/dashboard`,
+      dashboardUrl,
     });
 
     try {
@@ -209,9 +216,11 @@ export class NotificationsService {
     name: string,
     resetToken: string,
   ): Promise<void> {
+    const resetUrl = `${this.frontendUrl}/reset-password?token=${resetToken}`;
+
     const htmlContent = this.renderTemplate('password-reset', {
       name,
-      resetUrl: `${this.frontendUrl}/reset-password?token=${resetToken}`,
+      resetUrl,
     });
 
     try {
@@ -292,8 +301,7 @@ export class NotificationsService {
         modality: this.translateModality(session.modality),
         title: session.title,
         description: session.description,
-        confirmUrl: `${this.frontendUrl}/tutor/sessions/${session.id}/confirm`,
-        rejectUrl: `${this.frontendUrl}/tutor/sessions/${session.id}/reject`,
+        confirmUrl: this.generateConfirmSessionLink(session.id),
         expiresAt: this.formatDateTime(
           new Date(Date.now() + 24 * 60 * 60 * 1000),
         ),
@@ -359,7 +367,7 @@ export class NotificationsService {
         title: session.title,
         description: session.description,
         status: 'Pendiente de confirmación del tutor',
-        sessionDetailsUrl: `${this.frontendUrl}/sessions/${session.id}`,
+        sessionDetailsUrl: this.generateConfirmSessionLink(session.id),
       });
 
       await this.settleAll([
@@ -558,7 +566,7 @@ export class NotificationsService {
         endTime: session.endTime,
         title: session.title,
         rejectionReason: session.rejectionReason ?? 'No especificada',
-        rescheduleUrl: `${this.frontendUrl}/sessions/schedule`,
+        rescheduleUrl: this.generateRescheduleLink(session.idSession),
         // idTutor es el idUser del tutor, sirve para construir el perfil
         tutorProfileUrl: `${this.frontendUrl}/tutors/${session.idTutor}`,
       });
@@ -622,7 +630,7 @@ export class NotificationsService {
         cancellationReason: session.cancellationReason ?? 'No especificada',
         cancelledBy: cancelledByRole,
         cancelledWithin24h: session.cancelledWithin24h,
-        rescheduleUrl: `${this.frontendUrl}/sessions/schedule`,
+        rescheduleUrl: this.generateRescheduleLink(session.idSession),
       };
 
       const studentIds = (session.studentParticipateSessions ?? []).map(
@@ -768,6 +776,8 @@ export class NotificationsService {
         : (session.studentParticipateSessions?.[0]?.student?.user?.name ??
           'El estudiante');
 
+      const reviewUrl = this.generateReviewModificationLink(request.idRequest);
+
       const htmlContent = this.renderTemplate('session-modification-request', {
         recipientRole: isTutor ? 'estudiante' : 'tutor',
         requesterRole: isTutor ? 'tutor' : 'estudiante',
@@ -777,9 +787,7 @@ export class NotificationsService {
         title: session.title,
         proposedChanges: changes,
         expiresAt: this.formatDateTime(request.expiresAt),
-        // idRequest es la PK de SessionModificationRequest
-        acceptUrl: `${this.frontendUrl}/sessions/${session.idSession}/modifications/${request.idRequest}/accept`,
-        rejectUrl: `${this.frontendUrl}/sessions/${session.idSession}/modifications/${request.idRequest}/reject`,
+        reviewUrl,
       });
 
       await this.settleAll([
@@ -1151,6 +1159,8 @@ export class NotificationsService {
         ? AppNotificationType.EVALUATION_REMINDER
         : AppNotificationType.EVALUATION_PENDING;
 
+      const evaluationUrl = this.generateEvaluateLink(session.id);
+
       await this.settleAll([
         {
           label: 'email',
@@ -1169,7 +1179,7 @@ export class NotificationsService {
               sessionTime: session.startTime,
               title: session.title,
               isReminder,
-              evaluationUrl: `${this.frontendUrl}/sessions/${session.id}/evaluate`,
+              evaluationUrl,
             }),
           }),
         },
@@ -1325,7 +1335,7 @@ export class NotificationsService {
           isModified: affected.changeType === 'MODIFIED',
           isSlotDeleted: affected.changeType === 'SLOT_DELETED',
           changeReason: changeReason ?? 'No especificada',
-          rescheduleUrl: `${this.frontendUrl}/sessions/schedule`,
+          rescheduleUrl: this.generateRescheduleLink(affected.sessionId),
           tutorProfileUrl: `${this.frontendUrl}/tutors/${tutorId}`,
         });
 
@@ -1511,6 +1521,77 @@ export class NotificationsService {
     this.logger.log(
       `[RF-25] Anuncio colaborativo ${session.id} enviado a ${interestedStudentEmails.length} estudiantes`,
     );
+  }
+
+  // =====================================================
+  // HELPERS PRIVADOS - GENERACIÓN DE LINKS
+  // =====================================================
+
+  /**
+   * Genera URL para confirmar/rechazar sesión (emailScreens)
+   * Ruta: /dashboard?action=confirm-session&sessionId={{SESSION_ID}}
+   */
+  private generateConfirmSessionLink(sessionId: string): string {
+    const url = `${this.frontendUrl}/dashboard?action=confirm-session&sessionId=${sessionId}`;
+
+    return url;
+  }
+
+  /**
+   * Genera URL para rechazar sesión (emailScreens)
+   * Ruta: /dashboard?action=reject-session&sessionId={{SESSION_ID}}
+   */
+  private generateRejectSessionLink(sessionId: string): string {
+    const url = `${this.frontendUrl}/dashboard?action=reject-session&sessionId=${sessionId}`;
+
+    return url;
+  }
+
+  /**
+   * Genera URL para revisar una propuesta de modificación (emailScreens)
+   * Ruta: /dashboard?action=review-modification&requestId={{REQUEST_ID}}
+   */
+  private generateReviewModificationLink(requestId: string): string {
+    const url = `${this.frontendUrl}/dashboard?action=review-modification&requestId=${requestId}`;
+    return url;
+  }
+
+  /**
+   * Genera URL para aceptar una propuesta de modificación (emailScreens)
+   * Ruta: /dashboard?action=accept-modification&requestId={{REQUEST_ID}}
+   */
+  private generateAcceptModificationLink(requestId: string): string {
+    const url = `${this.frontendUrl}/dashboard?action=accept-modification&requestId=${requestId}`;
+    return url;
+  }
+
+  /**
+   * Genera URL para rechazar una propuesta de modificación (emailScreens)
+   * Ruta: /dashboard?action=reject-modification&requestId={{REQUEST_ID}}
+   */
+  private generateRejectModificationLink(requestId: string): string {
+    const url = `${this.frontendUrl}/dashboard?action=reject-modification&requestId=${requestId}`;
+    return url;
+  }
+
+  /**
+   * Genera URL para reprogramar sesión (emailScreens)
+   * Ruta: /dashboard?action=reschedule&sessionId={{SESSION_ID}}
+   */
+  private generateRescheduleLink(sessionId: string): string {
+    const url = `${this.frontendUrl}/dashboard?action=reschedule&sessionId=${sessionId}`;
+
+    return url;
+  }
+
+  /**
+   * Genera URL para evaluar sesión finalizada (emailScreens)
+   * Ruta: /dashboard?action=evaluate&sessionId={{SESSION_ID}}
+   */
+  private generateEvaluateLink(sessionId: string): string {
+    const url = `${this.frontendUrl}/dashboard?action=evaluate&sessionId=${sessionId}`;
+
+    return url;
   }
 
   // =====================================================

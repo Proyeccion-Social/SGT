@@ -232,6 +232,11 @@ export class SessionValidationService {
     durationHours: number,
     excludeSessionId?: string,
   ): Promise<void> {
+    const requestedDuration = Number(durationHours);
+    if (Number.isNaN(requestedDuration)) {
+      throw new BadRequestException('durationHours debe ser un numero válido');
+    }
+
     const qb = this.sessionRepository
       .createQueryBuilder('session')
       .where('session.idTutor = :tutorId', { tutorId })
@@ -260,11 +265,11 @@ export class SessionValidationService {
 
     const DAILY_HOURS_LIMIT = 4; // Máximo 4 horas por día
 
-    if (hoursThisDay + durationHours > DAILY_HOURS_LIMIT) {
+    if (hoursThisDay + requestedDuration > DAILY_HOURS_LIMIT) {
       throw new BadRequestException(
         `El tutor ha alcanzado su límite diario de ${DAILY_HOURS_LIMIT}h ` +
-          `(${hoursThisDay}h usadas + ${durationHours}h solicitadas = ` +
-          `${hoursThisDay + durationHours}h).`,
+          `(${hoursThisDay}h usadas + ${requestedDuration}h solicitadas = ` +
+          `${hoursThisDay + requestedDuration}h).`,
       );
     }
   }
@@ -282,13 +287,25 @@ export class SessionValidationService {
     scheduledDate: string, // 'YYYY-MM-DD'
     durationHours: number,
     excludeSessionId?: string,
+    queryRunner?: any, // QueryRunner opcional para transacciones
   ): Promise<void> {
+    const requestedDuration = Number(durationHours);
+    if (Number.isNaN(requestedDuration)) {
+      throw new BadRequestException('durationHours debe ser un numero válido');
+    }
+
     // parseISO('2025-04-07') → Date en UTC, sin ambigüedad de zona horaria
     const refDate = parseISO(scheduledDate);
     const weekStart = startOfWeek(refDate, { weekStartsOn: 1 }); // Lunes
     const weekEnd = endOfWeek(refDate, { weekStartsOn: 1 }); // Domingo
 
-    const qb = this.sessionRepository
+    // Si se proporciona queryRunner, usar su manager (dentro de transacción).
+    // Sino, usar el repositorio compartido.
+    const source = queryRunner
+      ? queryRunner.manager.getRepository(Session)
+      : this.sessionRepository;
+
+    const qb = source
       .createQueryBuilder('session')
       .where('session.idTutor = :tutorId', { tutorId })
       .andWhere('session.scheduledDate BETWEEN :weekStart AND :weekEnd', {
@@ -317,11 +334,11 @@ export class SessionValidationService {
 
     const weeklyLimit = await this.tutorService.getWeeklyHoursLimit(tutorId);
 
-    if (hoursThisWeek + durationHours > weeklyLimit) {
+    if (hoursThisWeek + requestedDuration > weeklyLimit) {
       throw new BadRequestException(
         `El tutor ha alcanzado su límite semanal de ${weeklyLimit}h ` +
-          `(${hoursThisWeek}h usadas + ${durationHours}h solicitadas = ` +
-          `${hoursThisWeek + durationHours}h).`,
+          `(${hoursThisWeek}h usadas + ${requestedDuration}h solicitadas = ` +
+          `${hoursThisWeek + requestedDuration}h).`,
       );
     }
   }

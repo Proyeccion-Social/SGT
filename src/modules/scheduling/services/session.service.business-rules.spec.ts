@@ -123,6 +123,8 @@ describe('SessionService — Business Rules (Integration)', () => {
       save: jest.fn(async (e) => ({ ...e, idSession: 'session-1' })),
       findOne: jest.fn().mockResolvedValue(null),
       find: jest.fn().mockResolvedValue([]),
+      count: jest.fn().mockResolvedValue(0),
+      update: jest.fn().mockResolvedValue({ affected: 0 }),
       remove: jest.fn().mockResolvedValue(undefined),
       createQueryBuilder: jest.fn(),
     };
@@ -261,7 +263,7 @@ describe('SessionService — Business Rules (Integration)', () => {
     it('permite agendamiento cuando la duración coincide exactamente con el único slot disponible', async () => {
       // happy path completo en el queryRunner
       qrManager.createQueryBuilder
-        .mockReturnValueOnce(makeQb('getRawOne', { totalHours: '0' })) // daily hours check
+        .mockReturnValueOnce(makeQb('getMany', [])) // dailySessions (new query with startTime/endTime)
         .mockReturnValueOnce(makeQb('getOne', null)) // confirmedInSlot
         .mockReturnValueOnce(makeQb('getCount', 0)); // pendingCount
 
@@ -285,7 +287,7 @@ describe('SessionService — Business Rules (Integration)', () => {
     it('permite reservar el mismo slot de disponibilidad en fechas distintas sin conflicto', async () => {
       // Primera llamada para '2030-01-06' (lunes semana 1)
       qrManager.createQueryBuilder
-        .mockReturnValueOnce(makeQb('getRawOne', { totalHours: '0' }))
+        .mockReturnValueOnce(makeQb('getMany', []))
         .mockReturnValueOnce(makeQb('getOne', null))
         .mockReturnValueOnce(makeQb('getCount', 0));
       sessionRepo.findOne.mockResolvedValue(
@@ -300,7 +302,7 @@ describe('SessionService — Business Rules (Integration)', () => {
 
       // Segunda llamada para '2030-01-13' (mismo slot, semana siguiente)
       qrManager.createQueryBuilder
-        .mockReturnValueOnce(makeQb('getRawOne', { totalHours: '0' }))
+        .mockReturnValueOnce(makeQb('getMany', []))
         .mockReturnValueOnce(makeQb('getOne', null))
         .mockReturnValueOnce(makeQb('getCount', 0));
       sessionRepo.findOne.mockResolvedValue(
@@ -328,7 +330,7 @@ describe('SessionService — Business Rules (Integration)', () => {
      */
     it('rechaza agendamiento cuando el slot ya está confirmado para otro estudiante (lock pesimista)', async () => {
       qrManager.createQueryBuilder
-        .mockReturnValueOnce(makeQb('getRawOne', { totalHours: '0' })) // daily hours
+        .mockReturnValueOnce(makeQb('getMany', [])) // dailySessions
         .mockReturnValueOnce(makeQb('getOne', { idSession: 'other-session' })); // confirmedInSlot
 
       await expect(
@@ -392,9 +394,9 @@ describe('SessionService — Business Rules (Integration)', () => {
     it('permite dos sesiones en la misma semana mientras no se supere el límite semanal', async () => {
       // Primera sesión — happy path
       qrManager.createQueryBuilder
-        .mockReturnValueOnce(makeQb('getRawOne', { totalHours: '0' }))
-        .mockReturnValueOnce(makeQb('getOne', null))
-        .mockReturnValueOnce(makeQb('getCount', 0));
+        .mockReturnValueOnce(makeQb('getMany', [])) // dailySessions (new query with startTime/endTime)
+        .mockReturnValueOnce(makeQb('getOne', null)) // confirmedInSlot
+        .mockReturnValueOnce(makeQb('getCount', 0)); // pendingCount
       sessionRepo.findOne.mockResolvedValue(makeSession());
 
       await service.createIndividualSession(
@@ -404,9 +406,9 @@ describe('SessionService — Business Rules (Integration)', () => {
 
       // Segunda sesión — misma semana, diferente día
       qrManager.createQueryBuilder
-        .mockReturnValueOnce(makeQb('getRawOne', { totalHours: '0' }))
-        .mockReturnValueOnce(makeQb('getOne', null))
-        .mockReturnValueOnce(makeQb('getCount', 0));
+        .mockReturnValueOnce(makeQb('getMany', [])) // dailySessions
+        .mockReturnValueOnce(makeQb('getOne', null)) // confirmedInSlot
+        .mockReturnValueOnce(makeQb('getCount', 0)); // pendingCount
       sessionRepo.findOne.mockResolvedValue(
         makeSession({ scheduledDate: '2030-01-07' }),
       );
@@ -506,7 +508,9 @@ describe('SessionService — Business Rules (Integration)', () => {
     it('permite sesiones back-to-back (fin de una == inicio de la siguiente)', async () => {
       // Segunda sesión 10:00–11:00 — no hay solapamiento
       qrManager.createQueryBuilder
-        .mockReturnValueOnce(makeQb('getRawOne', { totalHours: '1' })) // 1h ya usada
+        .mockReturnValueOnce(
+          makeQb('getMany', [{ startTime: '09:00', endTime: '10:00' }]),
+        ) // 1h ya usada
         .mockReturnValueOnce(makeQb('getOne', null))
         .mockReturnValueOnce(makeQb('getCount', 0));
       sessionRepo.findOne.mockResolvedValue(
@@ -571,7 +575,7 @@ describe('SessionService — Business Rules (Integration)', () => {
      */
     it('llama validateNoTimeConflict con la fecha y hora correctas al crear sesión', async () => {
       qrManager.createQueryBuilder
-        .mockReturnValueOnce(makeQb('getRawOne', { totalHours: '0' }))
+        .mockReturnValueOnce(makeQb('getMany', []))
         .mockReturnValueOnce(makeQb('getOne', null))
         .mockReturnValueOnce(makeQb('getCount', 0));
       sessionRepo.findOne.mockResolvedValue(makeSession());
@@ -647,7 +651,7 @@ describe('SessionService — Business Rules (Integration)', () => {
      */
     it('incluye el conteo de solicitudes pendientes en la respuesta al crear sesión', async () => {
       qrManager.createQueryBuilder
-        .mockReturnValueOnce(makeQb('getRawOne', { totalHours: '0' }))
+        .mockReturnValueOnce(makeQb('getMany', []))
         .mockReturnValueOnce(makeQb('getOne', null))
         .mockReturnValueOnce(makeQb('getCount', 3)); // 3 solicitudes pendientes
 
@@ -880,7 +884,7 @@ describe('SessionService — Business Rules (Integration)', () => {
       qrManager.find.mockResolvedValueOnce([{ idStudent: 'student-1' }]);
 
       await expect(
-        service.respondToModification('student-1', 'session-1', true),
+        service.respondToModification('student-1', 'session-1', true, 'req-1'),
       ).rejects.toThrow(BadRequestException);
     });
   });
@@ -990,7 +994,12 @@ describe('SessionService — Business Rules (Integration)', () => {
         .mockResolvedValueOnce(scheduledSession);
       qrManager.find.mockResolvedValueOnce([{ idStudent: 'student-1' }]);
 
-      await service.respondToModification('tutor-1', 'session-1', true);
+      await service.respondToModification(
+        'tutor-1',
+        'session-1',
+        true,
+        'req-1',
+      );
 
       // Deben haberse re-validado al momento de aceptar
       expect(
@@ -1015,6 +1024,13 @@ describe('SessionService — Business Rules (Integration)', () => {
         expect.any(Number),
         'session-1',
       );
+      expect(validationService.validateWeeklyHoursLimit).toHaveBeenCalledWith(
+        'tutor-1',
+        '2030-01-13',
+        expect.any(Number),
+        'session-1',
+        expect.any(Object), // queryRunner
+      );
     });
 
     /**
@@ -1038,7 +1054,7 @@ describe('SessionService — Business Rules (Integration)', () => {
       qrManager.find.mockResolvedValueOnce([{ idStudent: 'student-1' }]);
 
       await expect(
-        service.respondToModification('tutor-1', 'session-1', true),
+        service.respondToModification('tutor-1', 'session-1', true, 'req-1'),
       ).rejects.toThrow(BadRequestException);
       expect(request.status).toBe(ModificationStatus.EXPIRED);
       expect(session.status).toBe(SessionStatus.SCHEDULED);
@@ -1056,7 +1072,7 @@ describe('SessionService — Business Rules (Integration)', () => {
      */
     it('envía notificación al tutor y acuse de recibo al estudiante al crear sesión', async () => {
       qrManager.createQueryBuilder
-        .mockReturnValueOnce(makeQb('getRawOne', { totalHours: '0' }))
+        .mockReturnValueOnce(makeQb('getMany', []))
         .mockReturnValueOnce(makeQb('getOne', null))
         .mockReturnValueOnce(makeQb('getCount', 0));
       sessionRepo.findOne.mockResolvedValue(makeSession());
@@ -1076,7 +1092,7 @@ describe('SessionService — Business Rules (Integration)', () => {
      */
     it('no revierte la transacción si falla el envío de notificación', async () => {
       qrManager.createQueryBuilder
-        .mockReturnValueOnce(makeQb('getRawOne', { totalHours: '0' }))
+        .mockReturnValueOnce(makeQb('getMany', []))
         .mockReturnValueOnce(makeQb('getOne', null))
         .mockReturnValueOnce(makeQb('getCount', 0));
       sessionRepo.findOne.mockResolvedValue(makeSession());

@@ -5,6 +5,7 @@ import {
   BadRequestException,
   ConflictException,
   Logger,
+  NotFoundException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { JwtModule } from '@nestjs/jwt';
@@ -23,6 +24,19 @@ import { LoginDto } from '../dto/login.dto';
 import { ChangePasswordDto } from '../dto/change-password.dto';
 import { JwtPayload } from '../interfaces/jwt-payload.interface';
 import { AuditAction, AuditResult } from '../entities/audit-log.entity';
+
+export interface ConfirmEmailResponse {
+  message: string;
+  accessToken: string;
+  refreshToken: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    emailVerified: boolean;
+  };
+}
 
 @Injectable()
 export class AuthService {
@@ -128,7 +142,7 @@ export class AuthService {
   // =====================================================
   // CONFIRMAR EMAIL
   // =====================================================
-  async confirmEmail(token: string): Promise<{ message: string }> {
+  async confirmEmail(token: string): Promise<ConfirmEmailResponse> {
     // 1. Validar token
     const verificationToken =
       await this.emailVerificationService.validateToken(token);
@@ -141,21 +155,47 @@ export class AuthService {
     // 3. Actualizar usuario usando UserService
     await this.userService.markEmailAsVerified(verificationToken.id_user);
 
-    // 4. Auditar
-    await this.auditService.logEmailVerified(verificationToken.id_user);
+    // 4. Obtener datos completos del usuario ANTES de generar tokens
+    //    (generateAccessToken/generateRefreshToken necesitan idUser, email y role)
+    const user = await this.userService.findById(verificationToken.id_user);
 
-    // 5. Enviar email de bienvenida
-    try {
-      const user = await this.userService.findById(verificationToken.id_user);
-
-      if (user) {
-        await this.emailService.sendWelcomeEmail(user.email, user.name);
-      }
-    } catch (error) {
-      this.logger.error('Error sending welcome email:', error);
+    if (!user) {
+      throw new NotFoundException('User not found after email verification');
     }
 
-    return { message: 'Email verified successfully. You can now login.' };
+    // 5. Generar tokens con el objeto usuario completo
+    const accessToken = this.generateAccessToken(user);
+    const refreshToken = this.generateRefreshToken(user);
+
+    // 6. Persistir la sesión en BD para que refresh() pueda validarla
+    //    (mismo flujo que login())
+    await this.sessionService.createSession({
+      user,
+      refresh_token: refreshToken,
+    });
+
+    // 7. Auditoría
+    await this.auditService.logEmailVerified(user.idUser);
+
+    // 8. Enviar email de bienvenida (no bloqueante — no debe retrasar la respuesta)
+    this.emailService
+      .sendWelcomeEmail(user.email, user.name)
+      .catch((error) =>
+        this.logger.error('Error sending welcome email:', error),
+      );
+
+    return {
+      message: 'Email verified successfully. You are now logged in.',
+      accessToken,
+      refreshToken,
+      user: {
+        id: user.idUser,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        emailVerified: true,
+      },
+    };
   }
 
   // =====================================================
