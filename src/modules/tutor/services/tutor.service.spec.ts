@@ -278,7 +278,9 @@ describe('TutorService', () => {
     it('should reject avatar signature when tutor does not exist', async () => {
       tutorRepository.findOne.mockResolvedValue(null);
 
-      await expect(service.getAvatarUploadSignature('missing-tutor')).rejects.toMatchObject({
+      await expect(
+        service.getAvatarUploadSignature('missing-tutor'),
+      ).rejects.toMatchObject({
         response: {
           errorCode: 'RESOURCE_02',
           message: 'Tutor no encontrado',
@@ -311,7 +313,8 @@ describe('TutorService', () => {
       tutorRepository.findOne.mockResolvedValue(tutorEntity);
       tutorRepository.save.mockResolvedValue({
         ...tutorEntity,
-        urlImage: 'https://res.cloudinary.com/sgt-cloud/image/upload/v1/tutors/tutor-2/avatar.jpg',
+        urlImage:
+          'https://res.cloudinary.com/sgt-cloud/image/upload/v1/tutors/tutor-2/avatar.jpg',
       });
 
       const result = await service.confirmAvatarUpload(
@@ -325,7 +328,8 @@ describe('TutorService', () => {
       });
       expect(tutorRepository.save).toHaveBeenCalledWith({
         idUser: 'tutor-2',
-        urlImage: 'https://res.cloudinary.com/sgt-cloud/image/upload/v1/tutors/tutor-2/avatar.jpg',
+        urlImage:
+          'https://res.cloudinary.com/sgt-cloud/image/upload/v1/tutors/tutor-2/avatar.jpg',
       });
       expect(result).toEqual({
         message: 'Avatar actualizado correctamente',

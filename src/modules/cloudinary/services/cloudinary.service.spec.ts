@@ -1,4 +1,7 @@
-import { BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import {
+  BadRequestException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import { CloudinaryService } from './cloudinary.service';
@@ -26,11 +29,16 @@ describe('CloudinaryService', () => {
   it('should throw when cloudinary configuration is missing', () => {
     configService.get.mockReturnValue(undefined);
 
-    const missingService = new CloudinaryService(configService as unknown as ConfigService);
-
-    expect(() => missingService.generateUploadSignature('tutors/tutor-1', 'tutors/tutor-1/avatar')).toThrow(
-      InternalServerErrorException,
+    const missingService = new CloudinaryService(
+      configService as unknown as ConfigService,
     );
+
+    expect(() =>
+      missingService.generateUploadSignature(
+        'tutors/tutor-1',
+        'tutors/tutor-1/avatar',
+      ),
+    ).toThrow(InternalServerErrorException);
   });
 
   it('should generate a signed payload for uploads', () => {
@@ -39,11 +47,17 @@ describe('CloudinaryService', () => {
     const timestamp = '1710000000';
     const stringToSign = `folder=tutors/tutor-1&public_id=tutors/tutor-1/avatar&timestamp=${timestamp}`;
 
-    const result = service.generateUploadSignature('tutors/tutor-1', 'tutors/tutor-1/avatar');
+    const result = service.generateUploadSignature(
+      'tutors/tutor-1',
+      'tutors/tutor-1/avatar',
+    );
 
     expect(result).toEqual({
       timestamp,
-      signature: crypto.createHash('sha1').update(`${stringToSign}api-secret`).digest('hex'),
+      signature: crypto
+        .createHash('sha1')
+        .update(`${stringToSign}api-secret`)
+        .digest('hex'),
       api_key: 'api-key',
       cloud_name: 'sgt-cloud',
       folder: 'tutors/tutor-1',
@@ -54,9 +68,9 @@ describe('CloudinaryService', () => {
   });
 
   it('should reject missing folder or public_id', () => {
-    expect(() => service.generateUploadSignature('', 'tutors/tutor-1/avatar')).toThrow(
-      BadRequestException,
-    );
+    expect(() =>
+      service.generateUploadSignature('', 'tutors/tutor-1/avatar'),
+    ).toThrow(BadRequestException);
 
     expect(() => service.generateUploadSignature('tutors/tutor-1', '')).toThrow(
       BadRequestException,
@@ -65,9 +79,13 @@ describe('CloudinaryService', () => {
 
   it('should validate only cloudinary urls for the configured cloud', () => {
     expect(
-      service.isValidCloudinaryUrl('https://res.cloudinary.com/sgt-cloud/image/upload/v1/avatar.jpg'),
+      service.isValidCloudinaryUrl(
+        'https://res.cloudinary.com/sgt-cloud/image/upload/v1/avatar.jpg',
+      ),
     ).toBe(true);
-    expect(service.isValidCloudinaryUrl('https://example.com/avatar.jpg')).toBe(false);
+    expect(service.isValidCloudinaryUrl('https://example.com/avatar.jpg')).toBe(
+      false,
+    );
     expect(service.isValidCloudinaryUrl('')).toBe(false);
   });
 

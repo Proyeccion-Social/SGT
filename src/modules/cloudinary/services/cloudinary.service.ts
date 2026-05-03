@@ -1,4 +1,8 @@
-import { Injectable, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 
@@ -7,15 +11,17 @@ export class CloudinaryService {
   private cloudinaryName?: string;
   private cloudinaryApiKey?: string;
   private cloudinaryApiSecret?: string;
- 
 
   constructor(private configService: ConfigService) {
     // Do not throw at construction time so the app can start in environments
     // where Cloudinary is not configured (e.g., local development without uploads).
     // Defer validation to methods that actually require the credentials.
     this.cloudinaryName = this.configService.get<string>('CLOUDINARY_NAME');
-    this.cloudinaryApiKey = this.configService.get<string>('CLOUDINARY_API_KEY');
-    this.cloudinaryApiSecret = this.configService.get<string>('CLOUDINARY_API_SECRET');
+    this.cloudinaryApiKey =
+      this.configService.get<string>('CLOUDINARY_API_KEY');
+    this.cloudinaryApiSecret = this.configService.get<string>(
+      'CLOUDINARY_API_SECRET',
+    );
   }
 
   /**
@@ -34,7 +40,11 @@ export class CloudinaryService {
     }
 
     // Ensure Cloudinary credentials are present at the time we need them
-    if (!this.cloudinaryApiKey || !this.cloudinaryApiSecret || !this.cloudinaryName) {
+    if (
+      !this.cloudinaryApiKey ||
+      !this.cloudinaryApiSecret ||
+      !this.cloudinaryName
+    ) {
       throw new InternalServerErrorException(
         'Cloudinary configuration is missing. Set CLOUDINARY_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET to use uploads.',
       );
@@ -55,10 +65,7 @@ export class CloudinaryService {
 
     // Cloudinary requires the sorted param string plus the API secret.
     const string = `${stringToSign}${this.cloudinaryApiSecret}`;
-    const signature = crypto
-      .createHash('sha1')
-      .update(string)
-      .digest('hex');
+    const signature = crypto.createHash('sha1').update(string).digest('hex');
 
     return {
       timestamp,
@@ -95,4 +102,3 @@ export class CloudinaryService {
     return this.cloudinaryName || '';
   }
 }
-

@@ -16,7 +16,9 @@ describe('TutorsController', () => {
       | 'confirmAvatarUpload'
     >
   >;
-  let cloudinaryService: jest.Mocked<Pick<CloudinaryService, 'isValidCloudinaryUrl'>>;
+  let cloudinaryService: jest.Mocked<
+    Pick<CloudinaryService, 'isValidCloudinaryUrl'>
+  >;
 
   beforeEach(() => {
     tutorService = {
@@ -131,14 +133,17 @@ describe('TutorsController', () => {
 
       const result = await controller.getAvatarSignature(tutorId);
 
-      expect(tutorService.getAvatarUploadSignature).toHaveBeenCalledWith(tutorId);
+      expect(tutorService.getAvatarUploadSignature).toHaveBeenCalledWith(
+        tutorId,
+      );
       expect(result).toEqual(signature);
     });
 
     it('should confirm avatar upload when the url is valid and belongs to the tutor', async () => {
       const tutorId = '77777777-7777-7777-7777-777777777777';
       const dto = {
-        secure_url: 'https://res.cloudinary.com/sgt-cloud/image/upload/v1/tutors/77777777-7777-7777-7777-777777777777/avatar.jpg',
+        secure_url:
+          'https://res.cloudinary.com/sgt-cloud/image/upload/v1/tutors/77777777-7777-7777-7777-777777777777/avatar.jpg',
         public_id: 'tutors/77777777-7777-7777-7777-777777777777/avatar',
       };
 
@@ -150,8 +155,13 @@ describe('TutorsController', () => {
 
       const result = await controller.confirmAvatarUpload(tutorId, dto as any);
 
-      expect(cloudinaryService.isValidCloudinaryUrl).toHaveBeenCalledWith(dto.secure_url);
-      expect(tutorService.validateAvatarUrl).toHaveBeenCalledWith(dto.secure_url, tutorId);
+      expect(cloudinaryService.isValidCloudinaryUrl).toHaveBeenCalledWith(
+        dto.secure_url,
+      );
+      expect(tutorService.validateAvatarUrl).toHaveBeenCalledWith(
+        dto.secure_url,
+        tutorId,
+      );
       expect(tutorService.confirmAvatarUpload).toHaveBeenCalledWith(
         tutorId,
         dto.secure_url,
@@ -166,13 +176,10 @@ describe('TutorsController', () => {
       cloudinaryService.isValidCloudinaryUrl.mockReturnValue(false);
 
       await expect(
-        controller.confirmAvatarUpload(
-          '88888888-8888-8888-8888-888888888888',
-          {
-            secure_url: 'https://example.com/avatar.jpg',
-            public_id: 'tutors/88888888-8888-8888-8888-888888888888/avatar',
-          } as any,
-        ),
+        controller.confirmAvatarUpload('88888888-8888-8888-8888-888888888888', {
+          secure_url: 'https://example.com/avatar.jpg',
+          public_id: 'tutors/88888888-8888-8888-8888-888888888888/avatar',
+        } as any),
       ).rejects.toMatchObject({
         response: {
           errorCode: 'VALIDATION_02',
@@ -189,13 +196,11 @@ describe('TutorsController', () => {
       tutorService.validateAvatarUrl.mockReturnValue(false);
 
       await expect(
-        controller.confirmAvatarUpload(
-          '99999999-9999-9999-9999-999999999999',
-          {
-            secure_url: 'https://res.cloudinary.com/sgt-cloud/image/upload/v1/tutors/other/avatar.jpg',
-            public_id: 'tutors/other/avatar',
-          } as any,
-        ),
+        controller.confirmAvatarUpload('99999999-9999-9999-9999-999999999999', {
+          secure_url:
+            'https://res.cloudinary.com/sgt-cloud/image/upload/v1/tutors/other/avatar.jpg',
+          public_id: 'tutors/other/avatar',
+        } as any),
       ).rejects.toMatchObject({
         response: {
           errorCode: 'VALIDATION_03',
