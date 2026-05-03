@@ -35,7 +35,12 @@ import { SessionExpiryService } from './services/session-expiry.service';
     SubjectsModule,
     NotificationsModule,
   ],
-  providers: [SessionService, SessionValidationService, DashboardService,SessionExpiryService],
+  providers: [
+    SessionService,
+    SessionValidationService,
+    DashboardService,
+    SessionExpiryService,
+  ],
   controllers: [SessionController, DashboardController],
   exports: [TypeOrmModule, SessionService, DashboardService],
 })

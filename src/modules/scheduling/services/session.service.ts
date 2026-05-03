@@ -63,7 +63,7 @@ export class SessionService {
     private readonly userService: UserService,
     private readonly subjectsService: SubjectsService,
     private readonly notificationsService: NotificationsService,
-  ) { }
+  ) {}
 
   // ═══════════════════════════════════════════════════════════════════════════
   // RF-19 / RF-20: CREAR SESIÓN INDIVIDUAL
@@ -243,7 +243,11 @@ export class SessionService {
         title: dto.title,
         description: dto.description,
         tutorConfirmed: false,
-        confirmationExpiresAt: this.validationService.calculateConfirmationExpiry(dto.scheduledDate, startTime), //NUEVO precalcular el timestamp límite para la confirmación del tutor
+        confirmationExpiresAt:
+          this.validationService.calculateConfirmationExpiry(
+            dto.scheduledDate,
+            startTime,
+          ), //NUEVO precalcular el timestamp límite para la confirmación del tutor
       });
 
       const savedSession = await queryRunner.manager.save(session);
@@ -389,7 +393,7 @@ export class SessionService {
             !dayScheduled.session ||
             (dayScheduled.session.status !== SessionStatus.SCHEDULED &&
               dayScheduled.session.status !==
-              SessionStatus.PENDING_MODIFICATION)
+                SessionStatus.PENDING_MODIFICATION)
           ) {
             return total;
           }
@@ -1140,33 +1144,33 @@ export class SessionService {
     const changes = [
       dto.title !== undefined && dto.title !== previousDetails.title
         ? {
-          label: 'Título',
-          previous: previousDetails.title,
-          current: session.title,
-        }
+            label: 'Título',
+            previous: previousDetails.title,
+            current: session.title,
+          }
         : null,
       dto.description !== undefined &&
-        dto.description !== previousDetails.description
+      dto.description !== previousDetails.description
         ? {
-          label: 'Descripción',
-          previous: previousDetails.description,
-          current: session.description,
-        }
+            label: 'Descripción',
+            previous: previousDetails.description,
+            current: session.description,
+          }
         : null,
       dto.location !== undefined && dto.location !== previousDetails.location
         ? {
-          label: 'Ubicación',
-          previous: previousDetails.location,
-          current: session.location ?? null,
-        }
+            label: 'Ubicación',
+            previous: previousDetails.location,
+            current: session.location ?? null,
+          }
         : null,
       dto.virtualLink !== undefined &&
-        dto.virtualLink !== previousDetails.virtualLink
+      dto.virtualLink !== previousDetails.virtualLink
         ? {
-          label: 'Enlace virtual',
-          previous: previousDetails.virtualLink,
-          current: session.virtualLink ?? null,
-        }
+            label: 'Enlace virtual',
+            previous: previousDetails.virtualLink,
+            current: session.virtualLink ?? null,
+          }
         : null,
     ].filter(
       (
