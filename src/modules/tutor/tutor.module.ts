@@ -11,6 +11,7 @@ import { TutorsController } from './controllers/tutor.controller';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { SubjectsModule } from '../subjects/subjects.module'; // Importar el módulo de Subjects para poder usar su servicio dentro del TutorService
 import { UsersModule } from '../users/users.module'; // Importar el módulo de Users para poder usar su servicio dentro del TutorService
+import { CloudinaryModule } from '../cloudinary/cloudinary.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { UsersModule } from '../users/users.module'; // Importar el módulo de U
     SubjectsModule, //No había importado el módulo de Subjects, lo añado para poder usar el servicio de Subjects dentro del TutorService
     NotificationsModule, // Para EmailService
     UsersModule,
+    CloudinaryModule,
   ],
   controllers: [TutorsController],
   providers: [TutorService],

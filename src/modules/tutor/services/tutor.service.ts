@@ -21,6 +21,7 @@ import { Session } from '../../scheduling/entities/session.entity';
 import { SessionStatus } from '../../scheduling/enums/session-status.enum';
 import { startOfWeek, endOfWeek } from 'date-fns';
 import { format } from 'date-fns';
+import { CloudinaryService } from '../../cloudinary/services/cloudinary.service';
 
 @Injectable()
 export class TutorService {
@@ -32,6 +33,7 @@ export class TutorService {
     private readonly userService: UserService,
     private readonly subjectService: SubjectsService,
     private readonly notificationService: NotificationsService,
+    private readonly cloudinaryService: CloudinaryService,
   ) {}
 
   // =====================================================
@@ -135,7 +137,6 @@ export class TutorService {
 
     // 4. Actualizar datos del tutor
     tutor.phone = dto.phone;
-    tutor.urlImage = dto.url_image;
     tutor.limitDisponibility = dto.max_weekly_hours;
     tutor.profile_completed = true;
     tutor.isActive = true;
@@ -169,9 +170,6 @@ export class TutorService {
     // 3. Actualizar datos del tutor
     if (dto.phone !== undefined) {
       tutor.phone = dto.phone;
-    }
-    if (dto.url_image !== undefined) {
-      tutor.urlImage = dto.url_image;
     }
     if (dto.max_weekly_hours !== undefined) {
       tutor.limitDisponibility = dto.max_weekly_hours;
@@ -636,6 +634,73 @@ export class TutorService {
     return {
       weeklyHoursUsed: Number(weeklyHoursUsed.toFixed(1)),
       weeklyHoursRemaining: Number(weeklyHoursRemaining.toFixed(1)),
+    };
+  }
+
+  // =====================================================
+  // AVATAR (Cloudinary)
+  // =====================================================
+
+  /**
+   * Genera parámetros para que el frontend suba avatar a Cloudinary
+   * Responsabilidad: Lógica de NEGOCIO (estructura de carpetas del tutor)
+   */
+  async getAvatarUploadSignature(tutorId: string) {
+    const tutor = await this.tutorRepository.findOne({
+      where: { idUser: tutorId },
+    });
+
+    if (!tutor) {
+      throw new NotFoundException({
+        errorCode: 'RESOURCE_02',
+        message: 'Tutor no encontrado',
+      });
+    }
+
+    const folder = `tutors/${tutorId}`;
+    const public_id = `tutors/${tutorId}/avatar`;
+
+    return this.cloudinaryService.generateUploadSignature(folder, public_id);
+  }
+
+  /**
+   * Valida que la URL de avatar pertenece a este tutor
+   * Responsabilidad: Validación de NEGOCIO (pertenencia al tutor)
+   */
+  validateAvatarUrl(url: string, tutorId: string): boolean {
+    if (!url || !tutorId) {
+      return false;
+    }
+    return url.includes(`tutors/${tutorId}`);
+  }
+
+  /**
+   * Guardar URL del avatar de Cloudinary en BD
+   * @param tutorId UUID del tutor
+   * @param secure_url URL segura de Cloudinary
+   * @param public_id ID público en Cloudinary
+   */
+  async confirmAvatarUpload(
+    tutorId: string,
+    secure_url: string,
+    public_id: string,
+  ): Promise<{ message: string }> {
+    const tutor = await this.tutorRepository.findOne({
+      where: { idUser: tutorId },
+    });
+
+    if (!tutor) {
+      throw new NotFoundException({
+        errorCode: 'RESOURCE_02',
+        message: 'Tutor no encontrado',
+      });
+    }
+
+    tutor.urlImage = secure_url;
+    await this.tutorRepository.save(tutor);
+
+    return {
+      message: 'Avatar actualizado correctamente',
     };
   }
 
