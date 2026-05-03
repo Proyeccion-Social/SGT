@@ -153,6 +153,12 @@ describe('SessionService', () => {
       validateDailyHoursLimit: jest.fn().mockResolvedValue(undefined),
       validateCancellationTime: jest.fn().mockReturnValue(true),
       calculateEndTime: jest.fn().mockReturnValue('10:00'),
+      calculateConfirmationExpiry: jest
+        .fn()
+        .mockReturnValue(new Date('2030-01-05T23:59:59Z')), // NUEVO
+
+      validateMinimumBookingAdvance: jest.fn().mockReturnValue(undefined), //NUEVO
+      validateModificationAdvanceTime: jest.fn().mockReturnValue(undefined), // NUEVO
     };
     availabilityService = {
       getAvailabilityById: jest
@@ -994,6 +1000,7 @@ describe('SessionService', () => {
         expect.anything(),
         expect.objectContaining({
           status: SessionStatus.PENDING_TUTOR_CONFIRMATION,
+          confirmationExpiresAt: expect.any(Date), // NUEVO - verificar que se incluye
         }),
       );
       expect(result.success).toBe(true);
