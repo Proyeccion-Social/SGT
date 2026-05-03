@@ -61,7 +61,7 @@ export class NotificationsService {
       this.configService.get<string>('RESEND_FROM_EMAIL') ||
       'noreply@yourdomain.com';
     this.frontendUrl =
-      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:4321';
 
     // Registrar helpers de Handlebars una sola vez en el constructor
     Handlebars.registerHelper('eq', (a: any, b: any) => a === b);
@@ -80,6 +80,7 @@ export class NotificationsService {
     token: string,
   ): Promise<void> {
     const confirmationUrl = `${this.frontendUrl}/confirm-email?token=${token}`;
+
     const htmlContent = this.renderTemplate('email-confirmation', {
       fullName,
       confirmationUrl,
@@ -107,9 +108,11 @@ export class NotificationsService {
   }
 
   async sendWelcomeEmail(email: string, fullName: string): Promise<void> {
+    const loginUrl = `${this.frontendUrl}/login`;
+
     const htmlContent = this.renderTemplate('welcome-email', {
       fullName,
-      loginUrl: `${this.frontendUrl}/login`,
+      loginUrl,
     });
 
     try {
@@ -142,11 +145,13 @@ export class NotificationsService {
     name: string,
     temporaryPassword: string,
   ): Promise<void> {
+    const loginUrl = `${this.frontendUrl}/login`;
+
     const htmlContent = this.renderTemplate('tutor-credentials', {
       name,
       email,
       temporaryPassword,
-      loginUrl: `${this.frontendUrl}/login`,
+      loginUrl,
     });
 
     try {
@@ -174,9 +179,11 @@ export class NotificationsService {
     email: string,
     name: string,
   ): Promise<void> {
+    const dashboardUrl = `${this.frontendUrl}/dashboard`;
+
     const htmlContent = this.renderTemplate('tutor-profile-completed', {
       name,
-      dashboardUrl: `${this.frontendUrl}/dashboard`,
+      dashboardUrl,
     });
 
     try {
@@ -209,9 +216,11 @@ export class NotificationsService {
     name: string,
     resetToken: string,
   ): Promise<void> {
+    const resetUrl = `${this.frontendUrl}/reset-password?token=${resetToken}`;
+
     const htmlContent = this.renderTemplate('password-reset', {
       name,
-      resetUrl: `${this.frontendUrl}/reset-password?token=${resetToken}`,
+      resetUrl,
     });
 
     try {
@@ -293,7 +302,6 @@ export class NotificationsService {
         title: session.title,
         description: session.description,
         confirmUrl: this.generateConfirmSessionLink(session.id),
-        rejectUrl: this.generateRejectSessionLink(session.id),
         expiresAt: this.formatDateTime(
           new Date(Date.now() + 24 * 60 * 60 * 1000),
         ),
@@ -359,7 +367,7 @@ export class NotificationsService {
         title: session.title,
         description: session.description,
         status: 'Pendiente de confirmación del tutor',
-        sessionDetailsUrl: `${this.frontendUrl}/sessions/${session.id}`,
+        sessionDetailsUrl: this.generateConfirmSessionLink(session.id),
       });
 
       await this.settleAll([
@@ -768,6 +776,8 @@ export class NotificationsService {
         : (session.studentParticipateSessions?.[0]?.student?.user?.name ??
           'El estudiante');
 
+      const reviewUrl = this.generateReviewModificationLink(request.idRequest);
+
       const htmlContent = this.renderTemplate('session-modification-request', {
         recipientRole: isTutor ? 'estudiante' : 'tutor',
         requesterRole: isTutor ? 'tutor' : 'estudiante',
@@ -777,8 +787,7 @@ export class NotificationsService {
         title: session.title,
         proposedChanges: changes,
         expiresAt: this.formatDateTime(request.expiresAt),
-        acceptUrl: this.generateAcceptModificationLink(request.idRequest),
-        rejectUrl: this.generateRejectModificationLink(request.idRequest),
+        reviewUrl,
       });
 
       await this.settleAll([
@@ -1150,6 +1159,8 @@ export class NotificationsService {
         ? AppNotificationType.EVALUATION_REMINDER
         : AppNotificationType.EVALUATION_PENDING;
 
+      const evaluationUrl = this.generateEvaluateLink(session.id);
+
       await this.settleAll([
         {
           label: 'email',
@@ -1168,7 +1179,7 @@ export class NotificationsService {
               sessionTime: session.startTime,
               title: session.title,
               isReminder,
-              evaluationUrl: this.generateEvaluateLink(session.id),
+              evaluationUrl,
             }),
           }),
         },
@@ -1521,7 +1532,9 @@ export class NotificationsService {
    * Ruta: /dashboard?action=confirm-session&sessionId={{SESSION_ID}}
    */
   private generateConfirmSessionLink(sessionId: string): string {
-    return `${this.frontendUrl}/dashboard?action=confirm-session&sessionId=${sessionId}`;
+    const url = `${this.frontendUrl}/dashboard?action=confirm-session&sessionId=${sessionId}`;
+
+    return url;
   }
 
   /**
@@ -1529,7 +1542,9 @@ export class NotificationsService {
    * Ruta: /dashboard?action=reject-session&sessionId={{SESSION_ID}}
    */
   private generateRejectSessionLink(sessionId: string): string {
-    return `${this.frontendUrl}/dashboard?action=reject-session&sessionId=${sessionId}`;
+    const url = `${this.frontendUrl}/dashboard?action=reject-session&sessionId=${sessionId}`;
+
+    return url;
   }
 
   /**
@@ -1537,7 +1552,8 @@ export class NotificationsService {
    * Ruta: /dashboard?action=review-modification&requestId={{REQUEST_ID}}
    */
   private generateReviewModificationLink(requestId: string): string {
-    return `${this.frontendUrl}/dashboard?action=review-modification&requestId=${requestId}`;
+    const url = `${this.frontendUrl}/dashboard?action=review-modification&requestId=${requestId}`;
+    return url;
   }
 
   /**
@@ -1545,7 +1561,8 @@ export class NotificationsService {
    * Ruta: /dashboard?action=accept-modification&requestId={{REQUEST_ID}}
    */
   private generateAcceptModificationLink(requestId: string): string {
-    return `${this.frontendUrl}/dashboard?action=accept-modification&requestId=${requestId}`;
+    const url = `${this.frontendUrl}/dashboard?action=accept-modification&requestId=${requestId}`;
+    return url;
   }
 
   /**
@@ -1553,7 +1570,8 @@ export class NotificationsService {
    * Ruta: /dashboard?action=reject-modification&requestId={{REQUEST_ID}}
    */
   private generateRejectModificationLink(requestId: string): string {
-    return `${this.frontendUrl}/dashboard?action=reject-modification&requestId=${requestId}`;
+    const url = `${this.frontendUrl}/dashboard?action=reject-modification&requestId=${requestId}`;
+    return url;
   }
 
   /**
@@ -1561,7 +1579,9 @@ export class NotificationsService {
    * Ruta: /dashboard?action=reschedule&sessionId={{SESSION_ID}}
    */
   private generateRescheduleLink(sessionId: string): string {
-    return `${this.frontendUrl}/dashboard?action=reschedule&sessionId=${sessionId}`;
+    const url = `${this.frontendUrl}/dashboard?action=reschedule&sessionId=${sessionId}`;
+
+    return url;
   }
 
   /**
@@ -1569,7 +1589,9 @@ export class NotificationsService {
    * Ruta: /dashboard?action=evaluate&sessionId={{SESSION_ID}}
    */
   private generateEvaluateLink(sessionId: string): string {
-    return `${this.frontendUrl}/dashboard?action=evaluate&sessionId=${sessionId}`;
+    const url = `${this.frontendUrl}/dashboard?action=evaluate&sessionId=${sessionId}`;
+
+    return url;
   }
 
   // =====================================================
