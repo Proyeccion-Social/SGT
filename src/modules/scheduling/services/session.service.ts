@@ -63,7 +63,7 @@ export class SessionService {
     private readonly userService: UserService,
     private readonly subjectsService: SubjectsService,
     private readonly notificationsService: NotificationsService,
-  ) {}
+  ) { }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // RF-19 / RF-20: CREAR SESIÓN INDIVIDUAL
@@ -94,10 +94,17 @@ export class SessionService {
       dto.modality,
     );
 
-    //  NUEVO — validar coherencia día-slot
+    //  validar coherencia día-slot
     await this.validationService.validateScheduledDateMatchesSlotDay(
       dto.availabilityId,
       dto.scheduledDate, // string
+    );
+
+    // Validar que la sesión sea al menos 6 horas en el futuro. NUEVO
+    // startTime ya fue obtenido de la disponibilidad en el paso anterior.
+    this.validationService.validateMinimumBookingAdvance(
+      dto.scheduledDate,
+      startTime,
     );
 
     // Slot disponible para esa fecha + duración completa (Cara 1 y Cara 2).
@@ -228,7 +235,6 @@ export class SessionService {
         idTutor: dto.tutorId,
         idSubject: dto.subjectId,
         scheduledDate: dto.scheduledDate,
-        confirmationExpiresAt: this.validationService.calculateConfirmationExpiry(dto.scheduledDate,startTime), //NUEVO
         startTime,
         endTime,
         type: SessionType.INDIVIDUAL,
@@ -237,6 +243,7 @@ export class SessionService {
         title: dto.title,
         description: dto.description,
         tutorConfirmed: false,
+        confirmationExpiresAt: this.validationService.calculateConfirmationExpiry(dto.scheduledDate, startTime), //NUEVO precalcular el timestamp límite para la confirmación del tutor
       });
 
       const savedSession = await queryRunner.manager.save(session);
@@ -382,7 +389,7 @@ export class SessionService {
             !dayScheduled.session ||
             (dayScheduled.session.status !== SessionStatus.SCHEDULED &&
               dayScheduled.session.status !==
-                SessionStatus.PENDING_MODIFICATION)
+              SessionStatus.PENDING_MODIFICATION)
           ) {
             return total;
           }
@@ -652,6 +659,14 @@ export class SessionService {
         'Solo puedes modificar sesiones en estado SCHEDULED',
       );
     }
+
+    // Validar que la sesión es en más de 3 días.
+    // Si la sesión ya está muy próxima, no tiene sentido proponer modificarla
+    // porque la contraparte tendría muy poco tiempo para responder.
+    this.validationService.validateModificationAdvanceTime(
+      session.scheduledDate,
+      session.startTime,
+    );
 
     if (
       !dto.newScheduledDate &&
@@ -1125,33 +1140,33 @@ export class SessionService {
     const changes = [
       dto.title !== undefined && dto.title !== previousDetails.title
         ? {
-            label: 'Título',
-            previous: previousDetails.title,
-            current: session.title,
-          }
+          label: 'Título',
+          previous: previousDetails.title,
+          current: session.title,
+        }
         : null,
       dto.description !== undefined &&
-      dto.description !== previousDetails.description
+        dto.description !== previousDetails.description
         ? {
-            label: 'Descripción',
-            previous: previousDetails.description,
-            current: session.description,
-          }
+          label: 'Descripción',
+          previous: previousDetails.description,
+          current: session.description,
+        }
         : null,
       dto.location !== undefined && dto.location !== previousDetails.location
         ? {
-            label: 'Ubicación',
-            previous: previousDetails.location,
-            current: session.location ?? null,
-          }
+          label: 'Ubicación',
+          previous: previousDetails.location,
+          current: session.location ?? null,
+        }
         : null,
       dto.virtualLink !== undefined &&
-      dto.virtualLink !== previousDetails.virtualLink
+        dto.virtualLink !== previousDetails.virtualLink
         ? {
-            label: 'Enlace virtual',
-            previous: previousDetails.virtualLink,
-            current: session.virtualLink ?? null,
-          }
+          label: 'Enlace virtual',
+          previous: previousDetails.virtualLink,
+          current: session.virtualLink ?? null,
+        }
         : null,
     ].filter(
       (
