@@ -8,7 +8,6 @@ import {
   IsArray,
   ArrayMinSize,
   IsUUID,
-  IsUrl,
   IsOptional,
 } from 'class-validator';
 
@@ -20,9 +19,7 @@ export class UpdateTutorProfileDto {
   })
   phone?: string;
 
-  @IsOptional()
-  @IsUrl({}, { message: 'URL de imagen debe ser válida' })
-  url_image?: string;
+  // La URL de la imagen ahora la gestiona el administrador vía Cloudinary
 
   @IsOptional()
   @IsInt()

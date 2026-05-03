@@ -8,7 +8,6 @@ import {
   IsArray,
   ArrayMinSize,
   IsUUID,
-  IsUrl,
   IsOptional,
 } from 'class-validator';
 
@@ -19,8 +18,7 @@ export class CompleteTutorProfileDto {
   })
   phone!: string;
 
-  @IsUrl({}, { message: 'URL de imagen debe ser válida' })
-  url_image!: string;
+  // La URL de la imagen ahora la gestiona el administrador vía Cloudinary
 
   @IsInt()
   @Min(1, { message: 'Debe agendar mínimo 1 hora semanal' })

@@ -137,7 +137,6 @@ export class TutorService {
 
     // 4. Actualizar datos del tutor
     tutor.phone = dto.phone;
-    tutor.urlImage = dto.url_image;
     tutor.limitDisponibility = dto.max_weekly_hours;
     tutor.profile_completed = true;
     tutor.isActive = true;
@@ -171,9 +170,6 @@ export class TutorService {
     // 3. Actualizar datos del tutor
     if (dto.phone !== undefined) {
       tutor.phone = dto.phone;
-    }
-    if (dto.url_image !== undefined) {
-      tutor.urlImage = dto.url_image;
     }
     if (dto.max_weekly_hours !== undefined) {
       tutor.limitDisponibility = dto.max_weekly_hours;
