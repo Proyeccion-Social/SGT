@@ -63,8 +63,6 @@ export class NotificationsService {
     this.frontendUrl =
       this.configService.get<string>('FRONTEND_URL') || 'http://localhost:4321';
 
-    
-
     // Registrar helpers de Handlebars una sola vez en el constructor
     Handlebars.registerHelper('eq', (a: any, b: any) => a === b);
 
@@ -82,7 +80,7 @@ export class NotificationsService {
     token: string,
   ): Promise<void> {
     const confirmationUrl = `${this.frontendUrl}/confirm-email?token=${token}`;
-    
+
     const htmlContent = this.renderTemplate('email-confirmation', {
       fullName,
       confirmationUrl,
@@ -111,7 +109,7 @@ export class NotificationsService {
 
   async sendWelcomeEmail(email: string, fullName: string): Promise<void> {
     const loginUrl = `${this.frontendUrl}/login`;
-    
+
     const htmlContent = this.renderTemplate('welcome-email', {
       fullName,
       loginUrl,
@@ -148,7 +146,7 @@ export class NotificationsService {
     temporaryPassword: string,
   ): Promise<void> {
     const loginUrl = `${this.frontendUrl}/login`;
-    
+
     const htmlContent = this.renderTemplate('tutor-credentials', {
       name,
       email,
@@ -182,7 +180,7 @@ export class NotificationsService {
     name: string,
   ): Promise<void> {
     const dashboardUrl = `${this.frontendUrl}/dashboard`;
-    
+
     const htmlContent = this.renderTemplate('tutor-profile-completed', {
       name,
       dashboardUrl,
@@ -219,7 +217,7 @@ export class NotificationsService {
     resetToken: string,
   ): Promise<void> {
     const resetUrl = `${this.frontendUrl}/reset-password?token=${resetToken}`;
-    
+
     const htmlContent = this.renderTemplate('password-reset', {
       name,
       resetUrl,
@@ -437,7 +435,6 @@ export class NotificationsService {
         isVirtual: session.modality === 'VIRT',
         virtualLink: session.virtualLink ?? null,
       });
-      
 
       await this.settleAll([
         {
@@ -497,7 +494,6 @@ export class NotificationsService {
         sessionDetailsUrl: `${this.frontendUrl}/tutor/sessions/${session.id}`,
         isVirtual: session.modality === 'VIRT',
       });
-      
 
       await this.settleAll([
         {
@@ -781,7 +777,6 @@ export class NotificationsService {
           'El estudiante');
 
       const reviewUrl = this.generateReviewModificationLink(request.idRequest);
-      
 
       const htmlContent = this.renderTemplate('session-modification-request', {
         recipientRole: isTutor ? 'estudiante' : 'tutor',
@@ -938,7 +933,6 @@ export class NotificationsService {
         changes,
         hasChanges: changes.length > 0,
       });
-      
 
       const emailSubject = `Detalles actualizados — ${subjectName}`;
       const notifMessage = `Los detalles de tu sesión de ${subjectName} fueron actualizados`;
@@ -1248,7 +1242,6 @@ export class NotificationsService {
         // Link para que el estudiante contacte al tutor o reagende
         rescheduleUrl: `${this.frontendUrl}/sessions/schedule`,
       });
-      
 
       await this.settleAll([
         {
@@ -1540,7 +1533,7 @@ export class NotificationsService {
    */
   private generateConfirmSessionLink(sessionId: string): string {
     const url = `${this.frontendUrl}/dashboard?action=confirm-session&sessionId=${sessionId}`;
-    
+
     return url;
   }
 
@@ -1550,7 +1543,7 @@ export class NotificationsService {
    */
   private generateRejectSessionLink(sessionId: string): string {
     const url = `${this.frontendUrl}/dashboard?action=reject-session&sessionId=${sessionId}`;
-    
+
     return url;
   }
 
@@ -1587,7 +1580,7 @@ export class NotificationsService {
    */
   private generateRescheduleLink(sessionId: string): string {
     const url = `${this.frontendUrl}/dashboard?action=reschedule&sessionId=${sessionId}`;
-    
+
     return url;
   }
 
@@ -1597,7 +1590,7 @@ export class NotificationsService {
    */
   private generateEvaluateLink(sessionId: string): string {
     const url = `${this.frontendUrl}/dashboard?action=evaluate&sessionId=${sessionId}`;
-    
+
     return url;
   }
 
