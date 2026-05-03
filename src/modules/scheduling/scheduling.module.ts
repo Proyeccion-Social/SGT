@@ -15,6 +15,7 @@ import { AuthModule } from '../auth/auth.module';
 import { SessionValidationService } from './services/session-validation.service';
 import { DashboardController } from './controllers/dashboard.controller';
 import { DashboardService } from './services/dashboard.service';
+import { SessionExpiryService } from './services/session-expiry.service';
 
 @Module({
   imports: [
@@ -34,7 +35,12 @@ import { DashboardService } from './services/dashboard.service';
     SubjectsModule,
     NotificationsModule,
   ],
-  providers: [SessionService, SessionValidationService, DashboardService],
+  providers: [
+    SessionService,
+    SessionValidationService,
+    DashboardService,
+    SessionExpiryService,
+  ],
   controllers: [SessionController, DashboardController],
   exports: [TypeOrmModule, SessionService, DashboardService],
 })

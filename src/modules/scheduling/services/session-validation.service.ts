@@ -1,4 +1,19 @@
 // src/modules/scheduling/services/session-validation.service.ts
+// CAMBIOS RESPECTO A LA VERSIÓN ACTUAL:
+//
+// 1. validateMinimumBookingAdvance (NUEVO):
+//    La fecha+hora de la sesión debe ser al menos 6 horas en el futuro.
+//    Calcula el timestamp de la sesión en UTC y lo compara con now.
+//
+// 2. validateModificationAdvanceTime (NUEVO):
+//    Solo se puede proponer una modificación si la sesión es en más de 3 días.
+//    Usa el mismo patrón UTC-safe que validateCancellationTime.
+//
+// 3. calculateConfirmationExpiry (NUEVO, helper público):
+//    Calcula el timestamp confirmationExpiresAt = scheduledDateTime - 6h.
+//    Lo usa SessionService al crear la sesión para persistirlo.
+//
+// Todo lo demás permanece igual.
 
 import {
   Injectable,
@@ -20,10 +35,6 @@ import {
 } from 'date-fns';
 import { Modality } from '../../availability/enums/modality.enum';
 
-// Mapa de dayOfWeek numérico (guardado en Availability) al índice JS de día.
-// Availability usa: 0=Lunes, 1=Martes, ..., 5=Sábado  (sin domingo)
-// Date.getUTCDay() usa: 0=Domingo, 1=Lunes, ..., 6=Sábado
-// No usamos getDay() porque depende de la zona horaria del proceso.
 const AVAILABILITY_DAY_TO_UTC_DAY: Record<number, number> = {
   0: 1, // Lunes
   1: 2, // Martes
@@ -32,6 +43,12 @@ const AVAILABILITY_DAY_TO_UTC_DAY: Record<number, number> = {
   4: 5, // Viernes
   5: 6, // Sábado
 };
+
+/** Horas mínimas de anticipación para agendar una sesión. */
+const MIN_BOOKING_ADVANCE_HOURS = 6;
+
+/** Días máximos de anticipación para proponer una modificación. */
+const MAX_MODIFICATION_ADVANCE_DAYS = 3;
 
 @Injectable()
 export class SessionValidationService {
@@ -55,6 +72,84 @@ export class SessionValidationService {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // NUEVO — Anticipación mínima para agendar (6 horas)
+  //
+  // Se llama en createIndividualSession después de obtener el startTime
+  // de la disponibilidad, porque necesitamos la hora exacta de la sesión,
+  // no solo la fecha.
+  //
+  // Por qué Date.UTC:
+  //   scheduledDate es 'YYYY-MM-DD' y startTime es 'HH:mm'.
+  //   Construir con Date.UTC evita que la zona horaria del servidor
+  //   desplace el timestamp resultante.
+  // ─────────────────────────────────────────────────────────────────────────
+
+  validateMinimumBookingAdvance(
+    scheduledDate: string, // 'YYYY-MM-DD'
+    startTime: string, // 'HH:mm'
+  ): void {
+    const sessionDateTime = this.buildSessionDateTime(scheduledDate, startTime);
+    const hoursUntilSession = differenceInHours(sessionDateTime, new Date());
+
+    if (hoursUntilSession < MIN_BOOKING_ADVANCE_HOURS) {
+      throw new BadRequestException(
+        `Solo puedes agendar sesiones con al menos ${MIN_BOOKING_ADVANCE_HOURS} horas de anticipación. ` +
+          `Esta sesión comienza en ${hoursUntilSession < 0 ? 0 : hoursUntilSession} hora(s).`,
+      );
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // NUEVO — Anticipación máxima para proponer modificación (3 días)
+  //
+  // Solo se puede proponer una modificación si la sesión es en más de 3 días.
+  // Si quedan ≤ 3 días, el cambio de horario/disponibilidad ya no es viable
+  // porque la otra parte tiene poco tiempo para responder.
+  //
+  // Nota: esto valida la fecha ACTUAL de la sesión (antes del cambio),
+  // no la fecha propuesta. La lógica es: si la sesión ya está muy próxima,
+  // no se puede pedir modificarla aunque se proponga una fecha futura.
+  // ─────────────────────────────────────────────────────────────────────────
+
+  validateModificationAdvanceTime(
+    sessionScheduledDate: string, // 'YYYY-MM-DD' — fecha actual de la sesión
+    sessionStartTime: string, // 'HH:mm'
+  ): void {
+    const sessionDateTime = this.buildSessionDateTime(
+      sessionScheduledDate,
+      sessionStartTime,
+    );
+    const hoursUntilSession = differenceInHours(sessionDateTime, new Date());
+    const daysUntilSession = hoursUntilSession / 24;
+
+    if (daysUntilSession <= MAX_MODIFICATION_ADVANCE_DAYS) {
+      throw new BadRequestException(
+        `Solo puedes proponer modificaciones con más de ${MAX_MODIFICATION_ADVANCE_DAYS} días de anticipación. ` +
+          `Esta sesión es en ${Math.floor(daysUntilSession)} día(s).`,
+      );
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // NUEVO — Helper público para calcular confirmationExpiresAt
+  //
+  // Usado por SessionService al crear la sesión para precalcular y persistir
+  // el timestamp de expiración de la confirmación.
+  // confirmationExpiresAt = scheduledDateTime - 6 horas
+  // ─────────────────────────────────────────────────────────────────────────
+
+  calculateConfirmationExpiry(
+    scheduledDate: string, // 'YYYY-MM-DD'
+    startTime: string, // 'HH:mm'
+  ): Date {
+    const sessionDateTime = this.buildSessionDateTime(scheduledDate, startTime);
+    // Restar 6 horas = añadir -6 horas
+    return new Date(
+      sessionDateTime.getTime() - MIN_BOOKING_ADVANCE_HOURS * 60 * 60 * 1000,
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   // HU-19.1.3 — Modalidad coincide con la franja
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -71,30 +166,18 @@ export class SessionValidationService {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // NUEVO — El día de semana de scheduledDate coincide con el dayOfWeek
-  //         registrado en el slot de disponibilidad seleccionado.
-  //
-  // Se llama en createIndividualSession y proposeModification (cuando cambia
-  // availabilityId o scheduledDate).
-  //
-  // Por qué parseamos el string directamente en lugar de usar new Date():
-  //   new Date('2025-04-07') crea medianoche UTC. En servidores Colombia
-  //   (UTC-5) getDay() devuelve el día anterior. Parsear año/mes/día del
-  //   string y usar getUTCDay() es zona-horaria-seguro.
+  // Día de semana de scheduledDate coincide con dayOfWeek del slot
   // ─────────────────────────────────────────────────────────────────────────
 
   async validateScheduledDateMatchesSlotDay(
     availabilityId: number,
-    scheduledDate: string, // 'YYYY-MM-DD'
+    scheduledDate: string,
   ): Promise<void> {
     const availability =
       await this.availabilityService.getAvailabilityById(availabilityId);
 
-    // Parsear YYYY-MM-DD sin convertir zonas horarias
     const [year, month, day] = scheduledDate.split('-').map(Number);
-    // Usamos Date.UTC para construir la fecha en UTC puro y getUTCDay() para leer el día
     const utcDay = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
-
     const expectedUtcDay = AVAILABILITY_DAY_TO_UTC_DAY[availability.dayOfWeek];
 
     if (expectedUtcDay === undefined) {
@@ -121,17 +204,13 @@ export class SessionValidationService {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // HU-19.1.1 — Franja disponible para esa fecha + duración completa
-  //
-  // scheduledDate se recibe como string 'YYYY-MM-DD' y se pasa así al
-  // AvailabilityService, que lo compara directamente en la query de BD
-  // (columna tipo date). No construimos Date para evitar desfases.
+  // Franja disponible para esa fecha + duración completa
   // ─────────────────────────────────────────────────────────────────────────
 
   async validateAvailabilitySlotWithDuration(
     tutorId: string,
     availabilityId: number,
-    scheduledDate: string, // 'YYYY-MM-DD'
+    scheduledDate: string,
     durationHours: number,
     excludeSessionId?: string,
   ): Promise<void> {
@@ -172,14 +251,11 @@ export class SessionValidationService {
 
   // ─────────────────────────────────────────────────────────────────────────
   // Conflicto de horario con otras sesiones del tutor
-  //
-  // scheduledDate es string 'YYYY-MM-DD'. La comparación DATE(session.scheduledDate)
-  // funciona igual con strings en Postgres, sin conversión de zona horaria.
   // ─────────────────────────────────────────────────────────────────────────
 
   async validateNoTimeConflict(
     tutorId: string,
-    scheduledDate: string, // 'YYYY-MM-DD'
+    scheduledDate: string,
     startTime: string,
     durationHours: number,
     excludeSessionId?: string,
@@ -220,15 +296,12 @@ export class SessionValidationService {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // HU-19.1.4 — Límite diario del tutor
-  //
-  // Valida que las horas AGENDADAS en un día específico no excedan el límite
-  // diario (máximo 4 horas). Solo cuenta sesiones SCHEDULED + PENDING_MODIFICATION
+  // Límite diario del tutor (máximo 4 horas)
   // ─────────────────────────────────────────────────────────────────────────
 
   async validateDailyHoursLimit(
     tutorId: string,
-    scheduledDate: string, // 'YYYY-MM-DD'
+    scheduledDate: string,
     durationHours: number,
     excludeSessionId?: string,
   ): Promise<void> {
@@ -263,7 +336,7 @@ export class SessionValidationService {
       0,
     );
 
-    const DAILY_HOURS_LIMIT = 4; // Máximo 4 horas por día
+    const DAILY_HOURS_LIMIT = 4;
 
     if (hoursThisDay + requestedDuration > DAILY_HOURS_LIMIT) {
       throw new BadRequestException(
@@ -275,32 +348,25 @@ export class SessionValidationService {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // HU-19.1.4 — Límite semanal del tutor
-  //
-  // Usamos parseISO (date-fns) para construir el Date de referencia desde
-  // el string, que internamente usa UTC y luego startOfWeek/endOfWeek lo
-  // ajusta correctamente.
+  // Límite semanal del tutor
   // ─────────────────────────────────────────────────────────────────────────
 
   async validateWeeklyHoursLimit(
     tutorId: string,
-    scheduledDate: string, // 'YYYY-MM-DD'
+    scheduledDate: string,
     durationHours: number,
     excludeSessionId?: string,
-    queryRunner?: any, // QueryRunner opcional para transacciones
+    queryRunner?: any,
   ): Promise<void> {
     const requestedDuration = Number(durationHours);
     if (Number.isNaN(requestedDuration)) {
       throw new BadRequestException('durationHours debe ser un numero válido');
     }
 
-    // parseISO('2025-04-07') → Date en UTC, sin ambigüedad de zona horaria
     const refDate = parseISO(scheduledDate);
-    const weekStart = startOfWeek(refDate, { weekStartsOn: 1 }); // Lunes
-    const weekEnd = endOfWeek(refDate, { weekStartsOn: 1 }); // Domingo
+    const weekStart = startOfWeek(refDate, { weekStartsOn: 1 });
+    const weekEnd = endOfWeek(refDate, { weekStartsOn: 1 });
 
-    // Si se proporciona queryRunner, usar su manager (dentro de transacción).
-    // Sino, usar el repositorio compartido.
     const source = queryRunner
       ? queryRunner.manager.getRepository(Session)
       : this.sessionRepository;
@@ -351,11 +417,9 @@ export class SessionValidationService {
     sessionDate: string,
     sessionStartTime: string,
   ): boolean {
-    // Parsear 'YYYY-MM-DD' y 'HH:mm' sin ambigüedad de zona horaria
-    const [year, month, day] = sessionDate.split('-').map(Number);
-    const [hours, minutes] = sessionStartTime.split(':').map(Number);
-    const sessionDateTime = new Date(
-      Date.UTC(year, month - 1, day, hours, minutes),
+    const sessionDateTime = this.buildSessionDateTime(
+      sessionDate,
+      sessionStartTime,
     );
     return differenceInHours(sessionDateTime, new Date()) >= 24;
   }
@@ -378,6 +442,17 @@ export class SessionValidationService {
   // ─────────────────────────────────────────────────────────────────────────
   // HELPERS PRIVADOS
   // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Construye un Date en UTC a partir de 'YYYY-MM-DD' y 'HH:mm'.
+   * Centralizado aquí para que todas las comparaciones de fecha+hora
+   * sean consistentes y zona-horaria-seguras.
+   */
+  private buildSessionDateTime(scheduledDate: string, startTime: string): Date {
+    const [year, month, day] = scheduledDate.split('-').map(Number);
+    const [hours, minutes] = startTime.split(':').map(Number);
+    return new Date(Date.UTC(year, month - 1, day, hours, minutes));
+  }
 
   private calcDurationFromTimes(startTime: string, endTime: string): number {
     const toMin = (t: string) => {

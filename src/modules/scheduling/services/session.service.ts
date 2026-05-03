@@ -94,10 +94,17 @@ export class SessionService {
       dto.modality,
     );
 
-    //  NUEVO — validar coherencia día-slot
+    //  validar coherencia día-slot
     await this.validationService.validateScheduledDateMatchesSlotDay(
       dto.availabilityId,
       dto.scheduledDate, // string
+    );
+
+    // Validar que la sesión sea al menos 6 horas en el futuro. NUEVO
+    // startTime ya fue obtenido de la disponibilidad en el paso anterior.
+    this.validationService.validateMinimumBookingAdvance(
+      dto.scheduledDate,
+      startTime,
     );
 
     // Slot disponible para esa fecha + duración completa (Cara 1 y Cara 2).
@@ -236,6 +243,11 @@ export class SessionService {
         title: dto.title,
         description: dto.description,
         tutorConfirmed: false,
+        confirmationExpiresAt:
+          this.validationService.calculateConfirmationExpiry(
+            dto.scheduledDate,
+            startTime,
+          ), //NUEVO precalcular el timestamp límite para la confirmación del tutor
       });
 
       const savedSession = await queryRunner.manager.save(session);
@@ -651,6 +663,14 @@ export class SessionService {
         'Solo puedes modificar sesiones en estado SCHEDULED',
       );
     }
+
+    // Validar que la sesión es en más de 3 días.
+    // Si la sesión ya está muy próxima, no tiene sentido proponer modificarla
+    // porque la contraparte tendría muy poco tiempo para responder.
+    this.validationService.validateModificationAdvanceTime(
+      session.scheduledDate,
+      session.startTime,
+    );
 
     if (
       !dto.newScheduledDate &&
