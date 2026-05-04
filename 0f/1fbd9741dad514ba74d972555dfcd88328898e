@@ -1,0 +1,36 @@
+src/modules/scheduling/services/session.service.ts
+  fbc154c7284f1b61 320-321,483,506
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "0f1fbd9741dad514ba74d972555dfcd88328898e",
+  "prompts": {
+    "63047e9c15b37196": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "245a4a5c-8e6e-4bb6-8d6f-5d1c1f7da1fe",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "DanCmoo",
+      "messages": [],
+      "total_additions": 192,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    },
+    "fbc154c7284f1b61": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a9ed7aa1-f387-4b6b-abe7-e31f91b564a0",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "DanCmoo",
+      "messages": [],
+      "total_additions": 4,
+      "total_deletions": 1,
+      "accepted_lines": 4,
+      "overriden_lines": 0
+    }
+  }
+}
