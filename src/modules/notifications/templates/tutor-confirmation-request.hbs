@@ -4,75 +4,94 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Nueva solicitud de tutoría</title>
-  <style>
-    body { margin: 0; padding: 0; background-color: #f4f4f5; font-family: Arial, sans-serif; }
-    .wrapper { max-width: 600px; margin: 32px auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-    .header { background-color: #1d4ed8; padding: 32px 40px; }
-    .header h1 { margin: 0; color: #ffffff; font-size: 22px; font-weight: 700; }
-    .header p { margin: 6px 0 0; color: #bfdbfe; font-size: 14px; }
-    .body { padding: 32px 40px; }
-    .body p { color: #374151; font-size: 15px; line-height: 1.6; margin: 0 0 16px; }
-    .detail-box { background: #f0f4ff; border-left: 4px solid #1d4ed8; border-radius: 4px; padding: 16px 20px; margin: 24px 0; }
-    .detail-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #e0e7ff; font-size: 14px; }
-    .detail-row:last-child { border-bottom: none; }
-    .detail-label { color: #6b7280; font-weight: 600; }
-    .detail-value { color: #111827; text-align: right; }
-    .actions { margin: 28px 0; display: flex; gap: 12px; }
-    .btn { display: inline-block; padding: 12px 28px; border-radius: 6px; font-size: 15px; font-weight: 700; text-decoration: none; text-align: center; }
-    .btn-confirm { background-color: #16a34a; color: #ffffff; }
-    .btn-reject  { background-color: #ffffff; color: #dc2626; border: 2px solid #dc2626; }
-    .expiry { font-size: 13px; color: #9ca3af; margin-top: 8px; }
-    .footer { background: #f9fafb; padding: 20px 40px; text-align: center; font-size: 12px; color: #9ca3af; border-top: 1px solid #e5e7eb; }
-  </style>
 </head>
-<body>
-  <div class="wrapper">
-    <div class="header">
-      <h1>Nueva solicitud de tutoría</h1>
-      <p>Atlas — Sistema de Gestión de Tutorías</p>
-    </div>
-    <div class="body">
-      <p>Hola, <strong>{{tutorName}}</strong>.</p>
-      <p>El estudiante <strong>{{studentName}}</strong> ha solicitado una sesión de tutoría contigo. Revisa los detalles y confirma o rechaza la solicitud antes de que expire.</p>
+<body style="margin:0;padding:0;background-color:#f3edff;font-family:Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3edff;">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:16px;overflow:hidden;">
 
-      <div class="detail-box">
-        <div class="detail-row">
-          <span class="detail-label">Materia</span>
-          <span class="detail-value">{{subjectName}}</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Tema</span>
-          <span class="detail-value">{{title}}</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Fecha</span>
-          <span class="detail-value">{{date}}</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Horario</span>
-          <span class="detail-value">{{startTime}} – {{endTime}} ({{duration}} h)</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Modalidad</span>
-          <span class="detail-value">{{modality}}</span>
-        </div>
-        {{#if description}}
-        <div class="detail-row">
-          <span class="detail-label">Descripción</span>
-          <span class="detail-value">{{description}}</span>
-        </div>
-        {{/if}}
-      </div>
+          <!-- Logo -->
+          <tr>
+            <td align="center" style="padding:32px 40px 24px;border-bottom:1px solid #c6c6c6;">
+              <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
+                <tr>
+                  <td style="background-color:#8751ff;border-radius:14px;padding:14px;line-height:0;">
+                    <svg width="44" height="41" viewBox="0 0 100 93" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M43.7032 81.5984C45.261 79.8897 46.926 78.2651 48.3474 76.4491C49.8099 74.5805 49.7407 74.5036 51.2642 76.3976C55.9414 82.2111 61.7585 86.3171 69.3056 86.9591C74.7214 87.4198 80.2135 87.2399 85.6574 87.0117C89.2617 86.8604 92.2257 85.0133 94.4057 82.0802C98.4985 76.5732 98.2635 70.9549 94.9717 65.1403C84.8574 47.2746 74.8596 29.3428 64.676 11.5172C63.3817 9.25156 61.5478 7.06034 59.4574 5.52727C50.9614 -0.703734 39.231 2.17319 33.9803 11.5819C29.2299 20.0939 24.5617 28.6521 19.8078 37.1619C14.4249 46.7982 8.9753 56.3968 3.57673 66.0241C-1.74684 75.5176 3.86244 86.2849 14.6889 87.1369C18.7864 87.4595 22.9239 87.3079 27.0432 87.3072C33.1553 87.3065 38.7617 85.7494 43.7032 81.5984Z" fill="white"/><path d="M43.147 82.6675C38.292 86.7506 32.6856 88.3076 26.5734 88.3083C22.4541 88.3091 18.3166 88.4607 14.2191 88.1381C3.39272 87.2861 -2.21657 76.5192 3.107 67.0253C8.50557 57.398 13.9552 47.7993 19.3381 38.1631C24.092 29.6532 28.7602 21.0951 33.5106 12.5831C38.7613 3.17399 50.4916 0.297425 58.9877 6.52807C61.0781 8.06114 62.912 10.2527 64.2063 12.5183C74.3898 30.3439 84.3877 48.2758 94.502 66.1414C97.7938 71.9561 98.0288 77.5747 93.9359 83.0814C91.7559 86.0145 88.792 87.8619 85.1877 88.0129C79.7438 88.2411 74.2516 88.421 68.8359 87.9603C61.2888 87.3182 55.4716 83.2123 50.7945 77.3987C49.2709 75.5051 49.3402 75.5816 47.8777 77.4506C46.4563 79.2662 44.7913 80.8909 43.147 82.6675ZM68.6774 57.2889C70.3949 54.725 72.182 52.2043 73.8116 49.5853C75.5588 46.7767 75.6274 43.8364 74.0091 40.9159C69.2113 32.2569 64.4845 23.5567 59.5738 14.9617C54.6681 6.37569 43.1491 6.38785 38.2699 14.9743C33.2781 23.7592 28.4091 32.6149 23.5859 41.4936C22.2252 43.9988 21.7741 46.6683 23.8138 49.1789C24.1006 49.532 24.2599 49.9902 24.4731 50.4023C27.5456 56.3396 31.9491 61.0089 37.8516 64.1509C41.9527 66.3339 46.3052 67.839 51.0409 67.1376C58.0477 66.0999 63.7823 62.6396 68.6774 57.2889ZM17.732 51.8813C16.2566 54.4832 14.7699 57.0786 13.3091 59.6887C11.2691 63.3328 9.09664 66.913 7.257 70.6569C4.63807 75.9869 8.23164 83.0234 14.9588 82.8829C19.3352 82.7916 23.7163 82.9215 28.0938 82.8532C34.7688 82.7487 39.9549 79.8339 43.6891 74.3104C44.8391 72.6092 44.7016 72.2376 42.7066 71.6939C36.9209 70.1168 31.8695 67.2481 27.5249 63.1143C24.1652 59.9176 21.507 56.2058 19.3666 52.1038C19.0249 51.4481 18.7156 50.4037 17.732 51.8813ZM85.7931 61.5623L79.4127 50.5296C78.7077 51.7096 78.2213 52.4633 77.7938 53.2491C74.9684 58.4439 71.2763 62.8829 66.4488 66.3328C63.0609 68.754 59.3163 70.4294 55.3599 71.676C53.8766 72.1435 53.727 72.5677 54.6109 73.7381C57.9852 78.2078 62.1881 81.7586 67.8424 82.3681C73.3916 82.9666 79.0359 82.6836 84.6388 82.7727C84.9384 82.7773 85.2441 82.6568 85.5406 82.572C90.8081 81.0633 93.257 75.3327 90.6834 70.2477C89.2184 67.3533 87.5074 64.584 85.7931 61.5623Z" fill="white"/><path d="M85.793 61.562L79.4127 50.5293C78.7077 51.7093 78.2212 52.463 77.7937 53.2488C74.9684 58.4436 71.2762 62.8826 66.4487 66.3325C63.0609 68.7537 59.3162 70.4291 55.3598 71.6757C53.8766 72.1432 53.727 72.5674 54.6109 73.7378C57.9852 78.2075 62.188 81.7583 67.8423 82.3678C73.3916 82.9663 79.0359 82.6833 84.6388 82.7724C84.9384 82.777 85.2441 82.6565 85.5405 82.5717C90.808 81.063 93.257 75.3324 90.6834 70.2474C89.2184 67.353 87.5073 64.5837 85.793 61.562Z" fill="url(#tcr_lg0)"/><path d="M68.6778 57.2889C70.3953 54.725 72.1825 52.2043 73.8121 49.5853C75.5593 46.7767 75.6278 43.8364 74.0096 40.9159C69.2118 32.2569 64.485 23.5567 59.5743 14.9617C54.6685 6.37569 43.1496 6.38785 38.2703 14.9743C33.2785 23.7592 28.4096 32.6149 23.5864 41.4936C22.2257 43.9988 21.7746 46.6683 23.8143 49.1789C24.101 49.532 24.2603 49.9902 24.4735 50.4022C27.546 56.3396 31.9496 61.0089 37.8521 64.1509C41.9532 66.3339 46.3057 67.839 51.0414 67.1376C58.0482 66.0999 63.7828 62.6396 68.6778 57.2889Z" fill="url(#tcr_lg1)"/><path d="M18.2543 50.7934C19.185 49.4027 19.4943 50.4471 19.836 51.1028C21.9764 55.2048 24.6346 58.9166 27.9943 62.1133C32.3389 66.2471 37.3903 69.1158 43.1761 70.6929C45.1711 71.2366 45.3085 71.6082 44.1586 73.3094C40.4243 78.8325 35.2382 81.7477 28.5632 81.8522C24.1857 81.9205 19.8046 81.7903 15.4282 81.8818C8.70104 82.0224 5.10747 74.9859 7.72676 69.6556C9.56605 65.912 11.7385 62.3318 13.7785 58.6876C15.2393 56.0776 16.726 53.4822 18.2543 50.7934Z" fill="url(#tcr_lg2)"/><defs><linearGradient id="tcr_lg0" x1="49.03" y1="3.22" x2="49.03" y2="88.34" gradientUnits="userSpaceOnUse"><stop offset="0.5" stop-color="#CFB9FF"/><stop offset="1" stop-color="#8751FF"/></linearGradient><linearGradient id="tcr_lg1" x1="49.03" y1="3.22" x2="49.03" y2="88.34" gradientUnits="userSpaceOnUse"><stop stop-color="#CFB9FF"/><stop offset="1" stop-color="#9F74FF"/></linearGradient><linearGradient id="tcr_lg2" x1="25.88" y1="50.11" x2="25.88" y2="81.88" gradientUnits="userSpaceOnUse"><stop stop-color="#CFB9FF"/><stop offset="1" stop-color="#8751FF"/></linearGradient></defs></svg>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:10px 0 0;font-size:11px;font-weight:600;color:#a3a3a3;letter-spacing:0.08em;text-transform:uppercase;">Atlas · Gestión de Tutorías</p>
+            </td>
+          </tr>
 
-      <div class="actions">
-        <a href="{{confirmUrl}}" class="btn btn-confirm">Confirmar sesión</a>
-      </div>
-      <p class="expiry">Esta solicitud expira el <strong>{{expiresAt}}</strong>. Si no respondes, se rechazará automáticamente.</p>
-    </div>
-    <div class="footer">
-      Atlas · Universidad Distrital Francisco José de Caldas<br/>
-      Este mensaje fue generado automáticamente, por favor no respondas a este correo.
-    </div>
-  </div>
+          <!-- Content -->
+          <tr>
+            <td style="padding:36px 40px;">
+              <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#1a1a1a;">Nueva solicitud de tutoría</h1>
+              <p style="margin:0 0 6px;font-size:15px;color:#3c3c3c;line-height:1.6;">Hola, <strong>{{tutorName}}</strong>.</p>
+              <p style="margin:0 0 24px;font-size:15px;color:#3c3c3c;line-height:1.6;">El estudiante <strong>{{studentName}}</strong> ha solicitado una sesión de tutoria contigo. Revisa los detalles y confirma o rechaza la solicitud antes de que expire.</p>
+
+              <!-- Detail table -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;border-top:1px solid #c6c6c6;">
+                <tr>
+                  <td style="padding:11px 0;font-size:13px;color:#a3a3a3;font-weight:600;width:45%;border-bottom:1px solid #c6c6c6;">Materia</td>
+                  <td style="padding:11px 0;font-size:13px;color:#1a1a1a;text-align:right;border-bottom:1px solid #c6c6c6;">{{subjectName}}</td>
+                </tr>
+                <tr>
+                  <td style="padding:11px 0;font-size:13px;color:#a3a3a3;font-weight:600;border-bottom:1px solid #c6c6c6;">Tema</td>
+                  <td style="padding:11px 0;font-size:13px;color:#1a1a1a;text-align:right;border-bottom:1px solid #c6c6c6;">{{title}}</td>
+                </tr>
+                <tr>
+                  <td style="padding:11px 0;font-size:13px;color:#a3a3a3;font-weight:600;border-bottom:1px solid #c6c6c6;">Fecha</td>
+                  <td style="padding:11px 0;font-size:13px;color:#1a1a1a;text-align:right;border-bottom:1px solid #c6c6c6;">{{date}}</td>
+                </tr>
+                <tr>
+                  <td style="padding:11px 0;font-size:13px;color:#a3a3a3;font-weight:600;border-bottom:1px solid #c6c6c6;">Horario</td>
+                  <td style="padding:11px 0;font-size:13px;color:#1a1a1a;text-align:right;border-bottom:1px solid #c6c6c6;">{{startTime}} &#8211; {{endTime}} ({{duration}} h)</td>
+                </tr>
+                <tr>
+                  <td style="padding:11px 0;font-size:13px;color:#a3a3a3;font-weight:600;border-bottom:1px solid #c6c6c6;">Modalidad</td>
+                  <td style="padding:11px 0;font-size:13px;color:#1a1a1a;text-align:right;border-bottom:1px solid #c6c6c6;">{{modality}}</td>
+                </tr>
+                {{#if description}}
+                <tr>
+                  <td style="padding:11px 0;font-size:13px;color:#a3a3a3;font-weight:600;border-bottom:1px solid #c6c6c6;">Descripción</td>
+                  <td style="padding:11px 0;font-size:13px;color:#1a1a1a;text-align:right;border-bottom:1px solid #c6c6c6;">{{description}}</td>
+                </tr>
+                {{/if}}
+              </table>
+
+              <!-- Action buttons -->
+              <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 16px;">
+                <tr>
+                  <td style="background-color:#2ecc71;border-radius:8px;padding-right:12px;">
+                    <a href="{{confirmUrl}}" style="display:inline-block;padding:13px 24px;font-size:14px;font-weight:700;color:#ffffff;text-decoration:none;">Confirmar sesión</a>
+                  </td>
+                  <td style="width:12px;"></td>
+                  <td style="border-radius:8px;border:2px solid #f02d3a;">
+                    <a href="{{rejectUrl}}" style="display:inline-block;padding:11px 24px;font-size:14px;font-weight:700;color:#f02d3a;text-decoration:none;">Rechazar</a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0;font-size:13px;color:#a3a3a3;">Esta solicitud expira el <strong style="color:#3c3c3c;">{{expiresAt}}</strong>. Si no respondes, se rechazara automaticamente.</p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:20px 40px;border-top:1px solid #c6c6c6;text-align:center;">
+              <p style="margin:0;font-size:12px;color:#a3a3a3;line-height:1.6;">
+                Atlas · Universidad Distrital Francisco José de Caldas<br/>
+                Este mensaje fue generado automaticamente, por favor no respondas a este correo.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>
