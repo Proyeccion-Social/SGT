@@ -787,6 +787,30 @@ export class SessionService {
     }
 
     // ========================================
+    // VALIDACIÓN DE MODALIDAD (incluso sin cambio de slot)
+    // ========================================
+    // Si se propone cambiar la modalidad sin cambiar el slot,
+    // igual hay que validar que la disponibilidad ACTUAL soporte esa modalidad
+    if (dto.newModality && !dto.newAvailabilityId) {
+      const currentScheduledSession =
+        await this.scheduledSessionRepository.findOne({
+          where: { idSession: sessionId },
+        });
+
+      if (!currentScheduledSession) {
+        throw new NotFoundException(
+          'ScheduledSession not found for this session',
+        );
+      }
+
+      await this.validationService.validateModality(
+        currentScheduledSession.idAvailability,
+        session.idTutor,
+        dto.newModality,
+      );
+    }
+
+    // ========================================
     // CREACIÓN DE SOLICITUD
     // ========================================
     const expiresAt = addDays(new Date(), 1);
