@@ -400,13 +400,17 @@ export class AvailabilityController {
   @Get('tutors/subjects/detailed')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.STUDENT, UserRole.TUTOR, UserRole.ADMIN)
-  async getTutorsWithProfileAndDetailed(@Query() filters: FilterTutorsDetailedDto) {
-    return await this.availabilityService.getAllTutorsWithProfileAndAvailability({
-      onlyAvailable: filters.onlyAvailable,
-      modality: filters.modality,
-      page: filters.page,
-      limit: filters.limit,
-      weekStart: filters.weekStart,
-    });
+  async getTutorsWithProfileAndAvailability(
+    @Query() filters: FilterTutorsDetailedDto,
+  ) {
+    return await this.availabilityService.getAllTutorsWithProfileAndAvailability(
+      {
+        onlyAvailable: filters.onlyAvailable,
+        modality: filters.modality,
+        page: filters.page,
+        limit: filters.limit,
+        weekStart: filters.weekStart,
+      },
+    );
   }
 }
