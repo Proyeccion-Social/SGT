@@ -35,6 +35,7 @@ import { TutorService } from '../../tutor/services/tutor.service';
 import { AvailabilityService } from '../services/availability.service';
 import { GetAvailabilityQueryDto } from '../dto/GetAvailabilityQueryDto';
 import { buildPaginatedResponse } from '../../common/helpers/pagination.helper';
+import { FilterTutorsDetailedDto } from '../dto/filterTutorsDetailedDto';
 
 @Controller('availability')
 @UsePipes(
@@ -389,5 +390,23 @@ export class AvailabilityController {
         query.limit ?? 10,
       ),
     };
+  }
+
+  //====================================================
+  // GET /api/v1/availability/tutors/subjects/detailed
+  // Visualizar todos los tutores con perfil público + disponibilidad
+  // Útil para construir la vista compuesta del frontend en una sola respuesta
+  //====================================================
+  @Get('tutors/subjects/detailed')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.STUDENT, UserRole.TUTOR, UserRole.ADMIN)
+  async getTutorsWithProfileAndDetailed(@Query() filters: FilterTutorsDetailedDto) {
+    return await this.availabilityService.getAllTutorsWithProfileAndAvailability({
+      onlyAvailable: filters.onlyAvailable,
+      modality: filters.modality,
+      page: filters.page,
+      limit: filters.limit,
+      weekStart: filters.weekStart,
+    });
   }
 }

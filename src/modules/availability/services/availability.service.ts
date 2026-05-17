@@ -44,6 +44,7 @@ import { ScheduledSession } from '../../scheduling/entities/scheduled-session.en
 import { Modality } from '../enums/modality.enum';
 import { SessionStatus } from '../../scheduling/enums/session-status.enum';
 import { Session } from '../../scheduling/entities/session.entity';
+import { TutorService } from '../../tutor/services/tutor.service';
 
 export interface AvailabilitySlot {
   slotId: string;
@@ -87,6 +88,7 @@ export class AvailabilityService {
     private readonly scheduledSessionRepository: Repository<ScheduledSession>,
     @InjectRepository(Session, 'local')
     private readonly sessionRepository: Repository<Session>,
+    private readonly tutorService: TutorService,
   ) {}
 
   // =====================================================
@@ -1348,7 +1350,7 @@ export class AvailabilityService {
     }
   }
 
-  private async validateNoOverlapExcluding(
+  async validateNoOverlapExcluding(
     tutorId: string,
     dayOfWeek: number,
     startTime: string,
@@ -1368,5 +1370,184 @@ export class AvailabilityService {
         'Ya existe otra franja en ese horario para este día',
       );
     }
+  }
+
+  // =====================================================
+  // Método para retornar todos los tutores con perfil + disponibilidad
+  // =====================================================
+
+  /**
+   * Retorna todos los tutores activos con su perfil público (foto, materias)
+   * y disponibilidad agrupada por día, sin requerir materias específicas.
+   * Formato: { weekReference, tutors: [{ tutorId, tutorName, photo, subjects, groupedByDay }] }
+   */
+  async getAllTutorsWithProfileAndAvailability(options?: {
+    onlyAvailable?: boolean;
+    modality?: Modality;
+    page?: number;
+    limit?: number;
+    weekStart?: string;
+  }): Promise<{
+    weekReference: string;
+    tutors: Array<{
+      tutorId: string;
+      tutorName: string;
+      photo: string | null;
+      subjects: Array<{ id: string; name: string }>;
+      groupedByDay: Record<DayOfWeek, AvailabilitySlot[]>;
+    }>;
+  }> {
+    const page = options?.page ?? 1;
+    const limit = options?.limit ?? 10;
+    const offset = (page - 1) * limit;
+    const { weekStartStr, weekEndStr } = this.resolveWeekRange(
+      options?.weekStart,
+    );
+
+    // 1. Obtener todos los tutores activos con disponibilidad
+    const tutorsWithAvailability = await this.tutorHaveAvailabilityRepository
+      .createQueryBuilder('tha')
+      .innerJoinAndSelect('tha.tutor', 'tutor')
+      .innerJoinAndSelect('tutor.user', 'user')
+      .innerJoinAndSelect('tha.availability', 'availability')
+      .where('tutor.isActive = :isActive', { isActive: true })
+      .andWhere('tutor.profile_completed = :completed', { completed: true })
+      .orderBy('user.name', 'ASC')
+      .addOrderBy('tutor.idUser', 'ASC')
+      .getMany();
+
+    if (tutorsWithAvailability.length === 0) {
+      return {
+        weekReference: weekStartStr,
+        tutors: [],
+      };
+    }
+
+    // 2. Agrupar slots por tutor
+    const tutorMap = new Map<
+      string,
+      { tutorId: string; tutorName: string; slots: TutorHaveAvailability[] }
+    >();
+
+    for (const ta of tutorsWithAvailability) {
+      if (!tutorMap.has(ta.idTutor)) {
+        tutorMap.set(ta.idTutor, {
+          tutorId: ta.idTutor,
+          tutorName: ta.tutor.user.name,
+          slots: [],
+        });
+      }
+      tutorMap.get(ta.idTutor)!.slots.push(ta);
+    }
+
+    // 3. Obtener rangos ocupados para todos los tutores
+    const allTutorIds = Array.from(tutorMap.keys());
+    const occupiedRangesByTutor = await this.buildOccupiedRangesForTutors(
+      allTutorIds,
+      weekStartStr,
+      weekEndStr,
+    );
+
+    // 4. Filtrar tutores elegibles
+    const eligibleTutorIds: string[] = [];
+
+    for (const tutorId of allTutorIds) {
+      const tutor = tutorMap.get(tutorId)!;
+      const occupied = occupiedRangesByTutor.get(tutorId) ?? [];
+
+      let slots = tutor.slots;
+      if (options?.modality) {
+        slots = slots.filter((s) => s.modality === options.modality);
+      }
+
+      if (slots.length === 0) continue;
+
+      const availableCount = slots.filter(
+        (s) =>
+          !this.isSlotOccupiedByBlock(
+            s.availability.startTime,
+            s.availability.dayOfWeek,
+            occupied,
+          ),
+      ).length;
+
+      if (options?.onlyAvailable && availableCount === 0) continue;
+
+      eligibleTutorIds.push(tutorId);
+    }
+
+    const pagedIds = eligibleTutorIds.slice(offset, offset + limit);
+
+    if (pagedIds.length === 0) {
+      return {
+        weekReference: weekStartStr,
+        tutors: [],
+      };
+    }
+
+    // 5. Construir respuesta con groupedByDay y enriquecer con perfil
+    const tutorsWithProfile = await Promise.all(
+      pagedIds
+        .filter((id) => tutorMap.has(id))
+        .map(async (id) => {
+          const tutor = tutorMap.get(id)!;
+          const occupied = occupiedRangesByTutor.get(id) ?? [];
+
+          let slots = tutor.slots;
+          if (options?.modality) {
+            slots = slots.filter((s) => s.modality === options.modality);
+          }
+
+          const groupedByDay = {} as Record<DayOfWeek, AvailabilitySlot[]>;
+
+          for (const slot of slots) {
+            const dayOfWeek = NumberToDayOfWeek[slot.availability.dayOfWeek];
+            const startTime = slot.availability.startTime;
+            const endTime = this.calculateEndTime(startTime);
+            const isOccupied = this.isSlotOccupiedByBlock(
+              startTime,
+              slot.availability.dayOfWeek,
+              occupied,
+            );
+
+            const slotData: AvailabilitySlot = {
+              slotId: slot.idAvailability.toString(),
+              dayOfWeek,
+              dayOfWeekNumber: slot.availability.dayOfWeek,
+              startTime,
+              endTime,
+              modality: slot.modality,
+              duration: 0.5,
+              isAvailable: !isOccupied,
+            };
+
+            if (!groupedByDay[dayOfWeek]) groupedByDay[dayOfWeek] = [];
+            groupedByDay[dayOfWeek].push(slotData);
+          }
+
+          Object.keys(groupedByDay).forEach((day) => {
+            groupedByDay[day as DayOfWeek].sort((a, b) =>
+              a.startTime.localeCompare(b.startTime),
+            );
+          });
+
+          const profile = await this.tutorService.getPublicProfile(
+            tutor.tutorId,
+          );
+
+          return {
+            tutorId: tutor.tutorId,
+            tutorName: tutor.tutorName,
+            photo: profile.photo,
+            subjects: profile.subjects,
+            groupedByDay,
+          };
+        }),
+    );
+
+    return {
+      weekReference: weekStartStr,
+      tutors: tutorsWithProfile,
+    };
   }
 }
