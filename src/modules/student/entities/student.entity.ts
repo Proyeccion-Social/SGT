@@ -38,7 +38,6 @@ export class Student {
   @JoinColumn({ name: 'id_user' })
   user: User;
 
-
   @OneToMany(
     () => StudentInterestedSubject,
     (studentInterestedSubject) => studentInterestedSubject.student,

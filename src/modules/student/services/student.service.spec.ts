@@ -47,6 +47,7 @@ describe('StudentService', () => {
         idUser: 'user-1',
         career: null,
         preferredModality: null,
+        profile_completed: false,
       });
 
       const result = await service.createFromUser('user-1');
@@ -55,6 +56,7 @@ describe('StudentService', () => {
         idUser: 'user-1',
         career: null,
         preferredModality: null,
+        profile_completed: false,
       });
       expect(studentRepository.save).toHaveBeenCalled();
       expect(result.idUser).toBe('user-1');
