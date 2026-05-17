@@ -34,6 +34,7 @@ export class StudentService {
       idUser: userId,
       career: null,
       preferredModality: null,
+      profile_completed: false,
     });
 
     return await this.studentRepository.save(student);
@@ -47,7 +48,7 @@ export class StudentService {
       where: { idUser: userId },
     });
 
-    return student ? !!(student.career && student.preferredModality) : false;
+    return student?.profile_completed ?? false;
   }
 
   /**
@@ -98,6 +99,13 @@ export class StudentService {
 
     if (dto.preferredModality !== undefined) {
       student.preferredModality = dto.preferredModality;
+    }
+
+    // Marcar perfil como completo si ambas preferencias están establecidas
+    if (student.career && student.preferredModality) {
+      student.profile_completed = true;
+    } else {
+      student.profile_completed = false;
     }
 
     await this.studentRepository.save(student);

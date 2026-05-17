@@ -64,31 +64,19 @@ describe('StudentService', () => {
   // ─── isProfileComplete ────────────────────────────────────────────────────────
 
   describe('isProfileComplete', () => {
-    it('returns true when both career and preferredModality are set', async () => {
+    it('returns true when profile_completed is true', async () => {
       studentRepository.findOne.mockResolvedValue({
         idUser: 'user-1',
-        career: 'Systems Engineering',
-        preferredModality: 'VIRTUAL',
+        profile_completed: true,
       });
 
       expect(await service.isProfileComplete('user-1')).toBe(true);
     });
 
-    it('returns false when career is missing', async () => {
+    it('returns false when profile_completed is false', async () => {
       studentRepository.findOne.mockResolvedValue({
         idUser: 'user-1',
-        career: null,
-        preferredModality: 'VIRTUAL',
-      });
-
-      expect(await service.isProfileComplete('user-1')).toBe(false);
-    });
-
-    it('returns false when preferredModality is missing', async () => {
-      studentRepository.findOne.mockResolvedValue({
-        idUser: 'user-1',
-        career: 'Systems Engineering',
-        preferredModality: null,
+        profile_completed: false,
       });
 
       expect(await service.isProfileComplete('user-1')).toBe(false);
@@ -167,17 +155,19 @@ describe('StudentService', () => {
   // ─── updatePreferences ────────────────────────────────────────────────────────
 
   describe('updatePreferences', () => {
-    it('updates both career and modality', async () => {
+    it('updates both career and modality and marks profile as completed', async () => {
       const student = {
         idUser: 'user-1',
         career: null,
         preferredModality: null,
+        profile_completed: false,
       };
       studentRepository.findOne.mockResolvedValue(student);
       studentRepository.save.mockResolvedValue({
         ...student,
         career: 'Math',
         preferredModality: PreferredModality.PRES,
+        profile_completed: true,
       });
 
       const result = await service.updatePreferences('user-1', {
@@ -190,20 +180,23 @@ describe('StudentService', () => {
         expect.objectContaining({
           career: 'Math',
           preferredModality: PreferredModality.PRES,
+          profile_completed: true,
         }),
       );
     });
 
-    it('updates only career when modality is not provided', async () => {
+    it('updates only career and marks profile as incomplete when modality is missing', async () => {
       const student = {
         idUser: 'user-1',
         career: null,
-        preferredModality: PreferredModality.VIRT,
+        preferredModality: null,
+        profile_completed: false,
       };
       studentRepository.findOne.mockResolvedValue(student);
       studentRepository.save.mockResolvedValue({
         ...student,
         career: 'Biology',
+        profile_completed: false,
       });
 
       await service.updatePreferences('user-1', { career: 'Biology' });
@@ -211,7 +204,33 @@ describe('StudentService', () => {
       expect(studentRepository.save).toHaveBeenCalledWith(
         expect.objectContaining({
           career: 'Biology',
-          preferredModality: PreferredModality.VIRT,
+          profile_completed: false,
+        }),
+      );
+    });
+
+    it('marks profile as complete when both fields are already set and updated', async () => {
+      const student = {
+        idUser: 'user-1',
+        career: 'Math',
+        preferredModality: PreferredModality.VIRT,
+        profile_completed: false,
+      };
+      studentRepository.findOne.mockResolvedValue(student);
+      studentRepository.save.mockResolvedValue({
+        ...student,
+        profile_completed: true,
+      });
+
+      await service.updatePreferences('user-1', {
+        preferredModality: PreferredModality.PRES,
+      });
+
+      expect(studentRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          career: 'Math',
+          preferredModality: PreferredModality.PRES,
+          profile_completed: true,
         }),
       );
     });

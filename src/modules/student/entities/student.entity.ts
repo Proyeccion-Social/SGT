@@ -23,6 +23,9 @@ export class Student {
   @Column({ type: 'varchar', length: 100, nullable: true })
   career: string | null;
 
+  @Column({ type: 'boolean', default: false })
+  profile_completed: boolean;
+
   @Column({
     name: 'preferred_modality',
     type: 'enum',
@@ -34,6 +37,7 @@ export class Student {
   @OneToOne(() => User, (user) => user.student)
   @JoinColumn({ name: 'id_user' })
   user: User;
+
 
   @OneToMany(
     () => StudentInterestedSubject,
