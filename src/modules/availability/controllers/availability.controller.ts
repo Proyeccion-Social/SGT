@@ -15,6 +15,15 @@ import {
   ParseUUIDPipe,
   ValidationPipe,
 } from '@nestjs/common';
+import {
+  IsOptional,
+  IsEnum,
+  IsBoolean,
+  IsDateString,
+  IsArray,
+  IsUUID,
+} from 'class-validator';
+import { Transform, Type } from 'class-transformer';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -34,7 +43,48 @@ import { SubjectsService } from '../../subjects/services/subjects.service';
 import { TutorService } from '../../tutor/services/tutor.service';
 import { AvailabilityService } from '../services/availability.service';
 import { GetAvailabilityQueryDto } from '../dto/GetAvailabilityQueryDto';
+import { Modality } from '../enums/modality.enum';
+import { PaginationDto } from '../../common/dto/pagination.dto';
 import { buildPaginatedResponse } from '../../common/helpers/pagination.helper';
+
+class FilterTutorsDetailedDto extends PaginationDto {
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  @Transform(({ value }) => {
+    if (value === undefined || value === null || value === '') {
+      return undefined;
+    }
+
+    if (typeof value === 'string') {
+      return value
+        .split(',')
+        .map((id) => id.trim())
+        .filter(Boolean);
+    }
+
+    if (Array.isArray(value)) {
+      return value.map((id) => (typeof id === 'string' ? id.trim() : id));
+    }
+
+    return value;
+  })
+  @Type(() => String)
+  subjectIds?: string[];
+
+  @IsOptional()
+  @IsEnum(Modality)
+  modality?: Modality;
+
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => value === 'true' || value === true)
+  onlyAvailable?: boolean;
+
+  @IsOptional()
+  @IsDateString()
+  weekStart?: string;
+}
 
 @Controller('availability')
 @UsePipes(
@@ -157,6 +207,47 @@ export class AvailabilityController {
         filters.page ?? 1,
         filters.limit ?? 10,
       ),
+    };
+  }
+
+  //====================================================
+  // GET /api/v1/availability/tutors/subjects/detailed
+  // Visualizar tutores por múltiples materias con perfil público + disponibilidad
+  // Útil para construir la vista compuesta del frontend en una sola respuesta
+  //====================================================
+  @Get('tutors/subjects/detailed')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.STUDENT, UserRole.TUTOR, UserRole.ADMIN)
+  async getTutorsBySubjectsDetailed(@Query() filters: FilterTutorsDetailedDto) {
+    const { tutors, total, weekReference } =
+      await this.availabilityService.getTutorsBySubjectsWithAvailability(
+        filters.subjectIds,
+        {
+          onlyAvailable: filters.onlyAvailable,
+          modality: filters.modality,
+          page: filters.page,
+          limit: filters.limit,
+          weekStart: filters.weekStart,
+        },
+      );
+
+    const tutorsWithProfile = await Promise.all(
+      tutors.map(async (tutor) => {
+        const profile = await this.tutorService.getPublicProfile(tutor.tutorId);
+
+        return {
+          tutorId: tutor.tutorId,
+          tutorName: tutor.tutorName,
+          photo: profile.photo,
+          subjects: profile.subjects,
+          groupedByDay: tutor.availability.groupedByDay,
+        };
+      }),
+    );
+
+    return {
+      weekReference,
+      tutors: tutorsWithProfile,
     };
   }
 

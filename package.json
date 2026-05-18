@@ -20,7 +20,11 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "typeorm": "typeorm-ts-node-commonjs",
     "seed": "ts-node src/seeders/index.ts",
-    "seed:subjects": "ts-node src/seeders/index.ts"
+    "seed:subjects": "ts-node src/seeders/index.ts",
+    "seed:tutors": "ts-node src/seeders/register-tutors.ts",
+    "seed:tutors:prod": "ts-node src/seeders/register-tutors.ts --env production",
+    "upload:tutor-avatars": "ts-node src/seeders/upload-tutor-avatars.ts",
+    "upload:tutor-avatars:prod": "ts-node src/seeders/upload-tutor-avatars.ts --env production"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2",
