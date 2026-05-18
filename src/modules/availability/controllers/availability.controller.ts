@@ -393,7 +393,7 @@ export class AvailabilityController {
   }
 
   //====================================================
-  // GET /api/v1/availability/tutors/subjects/detailed
+  // GET /api/v1/availability/tutors/detailed
   // Visualizar todos los tutores con perfil público + disponibilidad
   // Útil para construir la vista compuesta del frontend en una sola respuesta
   //====================================================
@@ -403,14 +403,25 @@ export class AvailabilityController {
   async getTutorsWithProfileAndAvailability(
     @Query() filters: FilterTutorsDetailedDto,
   ) {
-    return await this.availabilityService.getAllTutorsWithProfileAndAvailability(
-      {
+    const { tutors, total, weekReference } =
+      await this.availabilityService.getAllTutorsWithProfileAndAvailability({
+        subjectIds: filters.subjectIds,
         onlyAvailable: filters.onlyAvailable,
         modality: filters.modality,
         page: filters.page,
         limit: filters.limit,
         weekStart: filters.weekStart,
-      },
-    );
+      });
+
+    return {
+      success: true,
+      weekReference,
+      ...buildPaginatedResponse(
+        tutors,
+        total,
+        filters.page ?? 1,
+        filters.limit ?? 10,
+      ),
+    };
   }
 }

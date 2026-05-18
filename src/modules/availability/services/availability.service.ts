@@ -1378,10 +1378,11 @@ export class AvailabilityService {
 
   /**
    * Retorna todos los tutores activos con su perfil público (foto, materias)
-   * y disponibilidad agrupada por día, sin requerir materias específicas.
-   * Formato: { weekReference, tutors: [{ tutorId, tutorName, photo, subjects, groupedByDay }] }
+   * y disponibilidad agrupada por día, con soporte para filtrado por materias.
+   * Formato: { weekReference, tutors, total }
    */
   async getAllTutorsWithProfileAndAvailability(options?: {
+    subjectIds?: string[];
     onlyAvailable?: boolean;
     modality?: Modality;
     page?: number;
@@ -1396,6 +1397,7 @@ export class AvailabilityService {
       subjects: Array<{ id: string; name: string }>;
       groupedByDay: Record<DayOfWeek, AvailabilitySlot[]>;
     }>;
+    total: number;
   }> {
     const page = options?.page ?? 1;
     const limit = options?.limit ?? 10;
@@ -1404,14 +1406,26 @@ export class AvailabilityService {
       options?.weekStart,
     );
 
-    // 1. Obtener todos los tutores activos con disponibilidad
-    const tutorsWithAvailability = await this.tutorHaveAvailabilityRepository
+    // 1. Obtener todos los tutores activos con disponibilidad (con filtro por materias si aplica)
+    let query = this.tutorHaveAvailabilityRepository
       .createQueryBuilder('tha')
       .innerJoinAndSelect('tha.tutor', 'tutor')
       .innerJoinAndSelect('tutor.user', 'user')
       .innerJoinAndSelect('tha.availability', 'availability')
       .where('tutor.isActive = :isActive', { isActive: true })
-      .andWhere('tutor.profile_completed = :completed', { completed: true })
+      .andWhere('tutor.profile_completed = :completed', { completed: true });
+
+    // Filtrar por materias si se proporcionan
+    if (options?.subjectIds && options.subjectIds.length > 0) {
+      query = query
+        .innerJoin('tutor.tutorImpartSubjects', 'tis')
+        .andWhere('tis.idSubject IN (:...subjectIds)', {
+          subjectIds: options.subjectIds,
+        });
+    }
+
+    const tutorsWithAvailability = await query
+      .distinct(true)
       .orderBy('user.name', 'ASC')
       .addOrderBy('tutor.idUser', 'ASC')
       .getMany();
@@ -1420,6 +1434,7 @@ export class AvailabilityService {
       return {
         weekReference: weekStartStr,
         tutors: [],
+        total: 0,
       };
     }
 
@@ -1476,12 +1491,14 @@ export class AvailabilityService {
       eligibleTutorIds.push(tutorId);
     }
 
+    const total = eligibleTutorIds.length;
     const pagedIds = eligibleTutorIds.slice(offset, offset + limit);
 
     if (pagedIds.length === 0) {
       return {
         weekReference: weekStartStr,
         tutors: [],
+        total,
       };
     }
 
@@ -1548,6 +1565,7 @@ export class AvailabilityService {
     return {
       weekReference: weekStartStr,
       tutors: tutorsWithProfile,
+      total,
     };
   }
 }
