@@ -397,7 +397,7 @@ export class AvailabilityController {
   // Visualizar todos los tutores con perfil público + disponibilidad
   // Útil para construir la vista compuesta del frontend en una sola respuesta
   //====================================================
-  @Get('tutors/subjects/detailed')
+  @Get('tutors/detailed')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.STUDENT, UserRole.TUTOR, UserRole.ADMIN)
   async getTutorsWithProfileAndAvailability(
