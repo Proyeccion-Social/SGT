@@ -79,7 +79,7 @@ describe('AvailabilityService (Integration Tests)', () => {
       const dto = {
         dayOfWeek: DayOfWeek.MONDAY,
         startTime: '08:00',
-        modality: Modality.PRES,
+        modality: [Modality.PRES],
       };
 
       // Create slot
@@ -88,7 +88,7 @@ describe('AvailabilityService (Integration Tests)', () => {
         tutorId,
         dayOfWeek: DayOfWeek.MONDAY,
         startTime: '08:00',
-        modality: Modality.PRES,
+        modality: [Modality.PRES],
       });
 
       // Retrieve availability
@@ -109,7 +109,7 @@ describe('AvailabilityService (Integration Tests)', () => {
         dayOfWeek: DayOfWeek.MONDAY,
         startTime: '08:00',
         endTime: '10:00',
-        modality: Modality.PRES,
+        modality: [Modality.PRES],
       };
 
       // Create range (4 slots of 30 minutes each)
@@ -133,25 +133,29 @@ describe('AvailabilityService (Integration Tests)', () => {
         dayOfWeek: DayOfWeek.MONDAY,
         startTime: '08:00',
         endTime: '10:00',
-        modality: Modality.PRES,
+        modality: [Modality.PRES],
       };
 
       // Create range as PRES
       const created = await service.createSlotsInRange(tutorId, rangeDto);
-      expect(created.every((s) => s.modality === Modality.PRES)).toBe(true);
+      expect(created.every((s) => s.modality.includes(Modality.PRES))).toBe(
+        true,
+      );
 
       // Update to VIRT
       const updateDto = {
         dayOfWeek: DayOfWeek.MONDAY,
         startTime: '08:00',
         endTime: '10:00',
-        modality: Modality.VIRT,
+        modality: [Modality.VIRT],
       };
       const updated = await service.updateSlotsInRange(tutorId, updateDto);
 
       // Verify that updateSlotsInRange returns updated slots with new modality
       expect(updated.length).toBe(4);
-      expect(updated.every((s) => s.modality === Modality.VIRT)).toBe(true);
+      expect(updated.every((s) => s.modality.includes(Modality.VIRT))).toBe(
+        true,
+      );
       expect(updated[0].startTime).toBe('08:00');
       expect(updated[1].startTime).toBe('08:30');
       expect(updated[2].startTime).toBe('09:00');
@@ -164,7 +168,7 @@ describe('AvailabilityService (Integration Tests)', () => {
         dayOfWeek: DayOfWeek.MONDAY,
         startTime: '08:00',
         endTime: '10:00',
-        modality: Modality.PRES,
+        modality: [Modality.PRES],
       };
 
       // Create range
@@ -177,7 +181,7 @@ describe('AvailabilityService (Integration Tests)', () => {
         dayOfWeek: DayOfWeek.MONDAY,
         startTime: '08:00',
         endTime: '10:00',
-        modality: Modality.PRES,
+        modality: [Modality.PRES],
       };
       await service.deleteSlotsInRange(tutorId, deleteDto);
 
@@ -198,7 +202,7 @@ describe('AvailabilityService (Integration Tests)', () => {
       const dto = {
         dayOfWeek: DayOfWeek.MONDAY,
         startTime: '08:00',
-        modality: Modality.PRES,
+        modality: [Modality.PRES],
       };
 
       // Create slot
@@ -241,7 +245,7 @@ describe('AvailabilityService (Integration Tests)', () => {
         const slot = await service.createSlot(tutorId, {
           dayOfWeek: DayOfWeek.MONDAY,
           startTime: time,
-          modality: Modality.PRES,
+          modality: [Modality.PRES],
         });
         slots.push(slot);
       }
@@ -283,14 +287,14 @@ describe('AvailabilityService (Integration Tests)', () => {
       await service.createSlot(tutor1Id, {
         dayOfWeek: DayOfWeek.MONDAY,
         startTime: '08:00',
-        modality: Modality.PRES,
+        modality: [Modality.PRES],
       });
 
       // Tutor2: create slot + add session (not available)
       const slot2 = await service.createSlot(tutor2Id, {
         dayOfWeek: DayOfWeek.MONDAY,
         startTime: '08:00',
-        modality: Modality.PRES,
+        modality: [Modality.PRES],
       });
 
       const mondayOfCurrentWeek = getMondayOfCurrentWeek();
@@ -333,7 +337,7 @@ describe('AvailabilityService (Integration Tests)', () => {
       const slot1 = await service.createSlot(tutorId, {
         dayOfWeek: DayOfWeek.MONDAY,
         startTime: '08:00',
-        modality: Modality.PRES,
+        modality: [Modality.PRES],
       });
 
       const slots: any[] = [];
@@ -342,7 +346,7 @@ describe('AvailabilityService (Integration Tests)', () => {
         await service.createSlot(tutorId, {
           dayOfWeek: DayOfWeek.MONDAY,
           startTime: '08:30',
-          modality: Modality.PRES,
+          modality: [Modality.PRES],
         }),
       );
 
@@ -352,6 +356,7 @@ describe('AvailabilityService (Integration Tests)', () => {
         parseInt(slot1.slotId),
         mondayOfCurrentWeek,
         1.0,
+        Modality.PRES,
       );
       // Should be successful because 2 slots cover 1.0h
       expect(result.available).toBe(true);
@@ -362,6 +367,7 @@ describe('AvailabilityService (Integration Tests)', () => {
         parseInt(slot1.slotId),
         mondayOfCurrentWeek,
         1.5,
+        Modality.PRES,
       );
       expect(result.available).toBe(false);
 
@@ -369,7 +375,7 @@ describe('AvailabilityService (Integration Tests)', () => {
       await service.createSlot(tutorId, {
         dayOfWeek: DayOfWeek.MONDAY,
         startTime: '09:00',
-        modality: Modality.PRES,
+        modality: [Modality.PRES],
       });
 
       result = await service.isSlotAvailableForDateWithDuration(
@@ -377,6 +383,7 @@ describe('AvailabilityService (Integration Tests)', () => {
         parseInt(slot1.slotId),
         mondayOfCurrentWeek,
         1.5,
+        Modality.PRES,
       );
       expect(result.available).toBe(true);
     });
@@ -392,7 +399,7 @@ describe('AvailabilityService (Integration Tests)', () => {
         const slot = await service.createSlot(tutorId, {
           dayOfWeek: DayOfWeek.MONDAY,
           startTime: time,
-          modality: Modality.PRES,
+          modality: [Modality.PRES],
         });
         slots.push(slot);
       }
@@ -421,6 +428,7 @@ describe('AvailabilityService (Integration Tests)', () => {
         parseInt(slots[0].slotId),
         mondayOfCurrentWeek,
         1.0,
+        Modality.PRES,
       );
       expect(result.available).toBe(false);
       expect(result.reason).toContain('solapa');
@@ -432,7 +440,7 @@ describe('AvailabilityService (Integration Tests)', () => {
       const slot = await service.createSlot(tutorId, {
         dayOfWeek: DayOfWeek.MONDAY,
         startTime: '08:00',
-        modality: Modality.PRES,
+        modality: [Modality.PRES],
       });
 
       // Should succeed with matching modality
@@ -492,19 +500,19 @@ describe('AvailabilityService (Integration Tests)', () => {
       const slot1 = await service.createSlot(tutor1Data.idUser, {
         dayOfWeek: DayOfWeek.MONDAY,
         startTime: '08:00',
-        modality: Modality.PRES,
+        modality: [Modality.PRES],
       });
 
       const slot2 = await service.createSlot(tutor2Data.idUser, {
         dayOfWeek: DayOfWeek.MONDAY,
         startTime: '08:00',
-        modality: Modality.PRES,
+        modality: [Modality.PRES],
       });
 
       const slot3 = await service.createSlot(tutor3Data.idUser, {
         dayOfWeek: DayOfWeek.MONDAY,
         startTime: '08:00',
-        modality: Modality.PRES,
+        modality: [Modality.PRES],
       });
 
       // Mock getAllAvailableTutors behavior - test filtering logic
@@ -524,23 +532,23 @@ describe('AvailabilityService (Integration Tests)', () => {
       const preSlot = await service.createSlot(tutorId, {
         dayOfWeek: DayOfWeek.MONDAY,
         startTime: '08:00',
-        modality: Modality.PRES,
+        modality: [Modality.PRES],
       });
 
       const virtSlot = await service.createSlot(tutorId, {
         dayOfWeek: DayOfWeek.TUESDAY,
         startTime: '10:00',
-        modality: Modality.VIRT,
+        modality: [Modality.VIRT],
       });
 
       // Get availability and filter by modality
       const availability = await service.getTutorAvailability(tutorId);
 
       const presSlots = availability.availableSlots.filter(
-        (s) => s.modality === Modality.PRES,
+        (s) => s.modality.includes(Modality.PRES),
       );
       const virtSlots = availability.availableSlots.filter(
-        (s) => s.modality === Modality.VIRT,
+        (s) => s.modality.includes(Modality.VIRT),
       );
 
       expect(presSlots.length).toBe(1);

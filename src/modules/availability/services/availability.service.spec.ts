@@ -104,7 +104,7 @@ describe('AvailabilityService', () => {
         dayOfWeek: DayOfWeek.MONDAY,
         startTime: '08:00',
         endTime: '09:00',
-        modality: Modality.PRES,
+        modality: [Modality.PRES],
       });
 
       expect(result).toEqual([
@@ -114,7 +114,7 @@ describe('AvailabilityService', () => {
           dayOfWeek: DayOfWeek.MONDAY,
           startTime: '08:00',
           endTime: '08:30',
-          modality: Modality.PRES,
+          modality: [Modality.PRES],
           duration: 0.5,
         },
         {
@@ -123,7 +123,7 @@ describe('AvailabilityService', () => {
           dayOfWeek: DayOfWeek.MONDAY,
           startTime: '08:30',
           endTime: '09:00',
-          modality: Modality.PRES,
+          modality: [Modality.PRES],
           duration: 0.5,
         },
       ]);
@@ -137,7 +137,7 @@ describe('AvailabilityService', () => {
           dayOfWeek: DayOfWeek.MONDAY,
           startTime: '05:30',
           endTime: '07:00',
-          modality: Modality.PRES,
+          modality: [Modality.PRES],
         }),
       ).rejects.toMatchObject({
         response: {
@@ -152,7 +152,7 @@ describe('AvailabilityService', () => {
           dayOfWeek: DayOfWeek.MONDAY,
           startTime: '08:15',
           endTime: '09:00',
-          modality: Modality.PRES,
+          modality: [Modality.PRES],
         }),
       ).rejects.toMatchObject({
         response: {
@@ -173,7 +173,7 @@ describe('AvailabilityService', () => {
           dayOfWeek: DayOfWeek.MONDAY,
           startTime: '08:00',
           endTime: '09:00',
-          modality: Modality.PRES,
+          modality: [Modality.PRES],
         }),
       ).rejects.toBeInstanceOf(ConflictException);
     });
@@ -186,13 +186,13 @@ describe('AvailabilityService', () => {
         {
           idTutor: 'tutor-1',
           idAvailability: 21,
-          modality: Modality.PRES,
+          modality: [Modality.PRES],
           availability: { startTime: '10:00' },
         },
         {
           idTutor: 'tutor-1',
           idAvailability: 22,
-          modality: Modality.PRES,
+          modality: [Modality.PRES],
           availability: { startTime: '10:30' },
         },
       ]);
@@ -206,7 +206,7 @@ describe('AvailabilityService', () => {
         dayOfWeek: DayOfWeek.TUESDAY,
         startTime: '10:00',
         endTime: '11:00',
-        modality: Modality.VIRT,
+        modality: [Modality.VIRT],
       });
 
       expect(updateQb.execute).toHaveBeenCalledTimes(1);
@@ -217,7 +217,7 @@ describe('AvailabilityService', () => {
           dayOfWeek: DayOfWeek.TUESDAY,
           startTime: '10:00',
           endTime: '10:30',
-          modality: Modality.VIRT,
+          modality: [Modality.VIRT],
           duration: 0.5,
         },
         {
@@ -226,7 +226,7 @@ describe('AvailabilityService', () => {
           dayOfWeek: DayOfWeek.TUESDAY,
           startTime: '10:30',
           endTime: '11:00',
-          modality: Modality.VIRT,
+          modality: [Modality.VIRT],
           duration: 0.5,
         },
       ]);
@@ -238,7 +238,7 @@ describe('AvailabilityService', () => {
           dayOfWeek: DayOfWeek.TUESDAY,
           startTime: '05:30',
           endTime: '07:00',
-          modality: Modality.VIRT,
+          modality: [Modality.VIRT],
         }),
       ).rejects.toMatchObject({
         response: {
@@ -257,7 +257,7 @@ describe('AvailabilityService', () => {
           dayOfWeek: DayOfWeek.TUESDAY,
           startTime: '10:00',
           endTime: '11:00',
-          modality: Modality.VIRT,
+          modality: [Modality.VIRT],
         }),
       ).rejects.toMatchObject({
         response: {
@@ -274,13 +274,13 @@ describe('AvailabilityService', () => {
         {
           idTutor: 'tutor-1',
           idAvailability: 31,
-          modality: Modality.PRES,
+          modality: [Modality.PRES],
           availability: { startTime: '14:00' },
         },
         {
           idTutor: 'tutor-1',
           idAvailability: 32,
-          modality: Modality.PRES,
+          modality: [Modality.PRES],
           availability: { startTime: '14:30' },
         },
       ]);
@@ -291,7 +291,7 @@ describe('AvailabilityService', () => {
         dayOfWeek: DayOfWeek.WEDNESDAY,
         startTime: '14:00',
         endTime: '15:00',
-        modality: Modality.PRES,
+        modality: [Modality.PRES],
       });
 
       expect(tutorHaveAvailabilityRepository.remove).toHaveBeenCalledWith([
@@ -303,7 +303,7 @@ describe('AvailabilityService', () => {
         dayOfWeek: DayOfWeek.WEDNESDAY,
         startTime: '14:00',
         endTime: '15:00',
-        modality: Modality.PRES,
+        modality: [Modality.PRES],
       });
     });
 
@@ -317,7 +317,7 @@ describe('AvailabilityService', () => {
           dayOfWeek: DayOfWeek.WEDNESDAY,
           startTime: '14:00',
           endTime: '15:00',
-          modality: Modality.PRES,
+          modality: [Modality.PRES],
         }),
       ).rejects.toMatchObject({
         response: {
@@ -343,7 +343,7 @@ describe('AvailabilityService', () => {
       const result = await service.createSlot('tutor-1', {
         dayOfWeek: DayOfWeek.MONDAY,
         startTime: '08:00',
-        modality: Modality.PRES,
+        modality: [Modality.PRES],
       });
 
       expect(result).toEqual({
@@ -351,7 +351,7 @@ describe('AvailabilityService', () => {
         tutorId: 'tutor-1',
         dayOfWeek: DayOfWeek.MONDAY,
         startTime: '08:00',
-        modality: Modality.PRES,
+        modality: [Modality.PRES],
         duration: 0.5,
       });
       expect(availabilityRepository.save).toHaveBeenCalled();
@@ -376,7 +376,7 @@ describe('AvailabilityService', () => {
         service.createSlot('tutor-1', {
           dayOfWeek: DayOfWeek.MONDAY,
           startTime: '08:00',
-          modality: Modality.PRES,
+          modality: [Modality.PRES],
         }),
       ).rejects.toBeInstanceOf(ConflictException);
     });
@@ -387,7 +387,7 @@ describe('AvailabilityService', () => {
       const tutorAvailability = {
         idTutor: 'tutor-1',
         idAvailability: 5,
-        modality: Modality.PRES,
+        modality: [Modality.PRES],
         availability: { dayOfWeek: 0, startTime: '08:00', idAvailability: 5 },
       };
 
@@ -428,7 +428,7 @@ describe('AvailabilityService', () => {
       const tutorAvailability = {
         idTutor: 'tutor-1',
         idAvailability: 5,
-        modality: Modality.PRES,
+        modality: [Modality.PRES],
         availability: { dayOfWeek: 0, startTime: '08:00', idAvailability: 5 },
       };
 
@@ -438,17 +438,17 @@ describe('AvailabilityService', () => {
 
       const result = await service.updateSlot('tutor-1', {
         slotId: 5,
-        modality: Modality.VIRT,
+        modality: [Modality.VIRT],
       });
 
       expect(result).toEqual(
         expect.objectContaining({
           slotId: 5,
-          modality: Modality.VIRT,
+          modality: [Modality.VIRT],
         }),
       );
       expect(tutorHaveAvailabilityRepository.save).toHaveBeenCalledWith(
-        expect.objectContaining({ modality: Modality.VIRT }),
+        expect.objectContaining({ modality: [Modality.VIRT] }),
       );
     });
 
@@ -458,7 +458,7 @@ describe('AvailabilityService', () => {
       await expect(
         service.updateSlot('tutor-1', {
           slotId: 999,
-          modality: Modality.VIRT,
+          modality: [Modality.VIRT],
         }),
       ).rejects.toBeInstanceOf(NotFoundException);
     });
@@ -467,7 +467,7 @@ describe('AvailabilityService', () => {
       const tutorAvailability = {
         idTutor: 'tutor-1',
         idAvailability: 5,
-        modality: Modality.PRES,
+        modality: [Modality.PRES],
         availability: { dayOfWeek: 0, startTime: '08:00', idAvailability: 5 },
       };
 
@@ -502,7 +502,7 @@ describe('AvailabilityService', () => {
       const tutorAvailability = {
         idTutor: 'tutor-1',
         idAvailability: 5,
-        modality: Modality.PRES,
+        modality: [Modality.PRES],
       };
 
       tutorHaveAvailabilityRepository.findOne.mockResolvedValue(
@@ -536,7 +536,7 @@ describe('AvailabilityService', () => {
         {
           idTutor: 'tutor-1',
           idAvailability: 10,
-          modality: Modality.PRES,
+          modality: [Modality.PRES],
           availability: {
             idAvailability: 10,
             dayOfWeek: 0,
@@ -547,7 +547,7 @@ describe('AvailabilityService', () => {
         {
           idTutor: 'tutor-1',
           idAvailability: 11,
-          modality: Modality.PRES,
+          modality: [Modality.PRES],
           availability: {
             idAvailability: 11,
             dayOfWeek: 0,
@@ -593,7 +593,7 @@ describe('AvailabilityService', () => {
         {
           idTutor: 'tutor-1',
           idAvailability: 10,
-          modality: Modality.PRES,
+          modality: [Modality.PRES],
           availability: {
             idAvailability: 10,
             dayOfWeek: 0,
@@ -629,7 +629,7 @@ describe('AvailabilityService', () => {
         {
           idTutor: 'tutor-1',
           idAvailability: 10,
-          modality: Modality.PRES,
+          modality: [Modality.PRES],
           availability: {
             idAvailability: 10,
             dayOfWeek: 0,
@@ -640,7 +640,7 @@ describe('AvailabilityService', () => {
         {
           idTutor: 'tutor-1',
           idAvailability: 11,
-          modality: Modality.PRES,
+          modality: [Modality.PRES],
           availability: {
             idAvailability: 11,
             dayOfWeek: 0,
@@ -717,7 +717,7 @@ describe('AvailabilityService', () => {
       const tutorAvailability = {
         idTutor: 'tutor-1',
         idAvailability: 10,
-        modality: Modality.PRES,
+        modality: [Modality.PRES],
       };
 
       tutorHaveAvailabilityRepository.findOne.mockResolvedValue(
@@ -733,7 +733,7 @@ describe('AvailabilityService', () => {
       const tutorAvailability = {
         idTutor: 'tutor-1',
         idAvailability: 10,
-        modality: Modality.PRES,
+        modality: [Modality.PRES],
       };
 
       tutorHaveAvailabilityRepository.findOne.mockResolvedValue(
@@ -815,8 +815,12 @@ describe('AvailabilityService', () => {
       });
 
       const qb = createQueryBuilderMock();
-      qb.getCount.mockResolvedValueOnce(2); // 2 slots needed for 1 hour
-      qb.getMany.mockResolvedValue([]); // No overlapping sessions
+      qb.getMany
+        .mockResolvedValueOnce([
+          { modality: [Modality.PRES] },
+          { modality: [Modality.PRES] },
+        ]) // Slots coverage OK
+        .mockResolvedValueOnce([]); // No overlapping sessions
 
       tutorHaveAvailabilityRepository.createQueryBuilder.mockReturnValue(qb);
       scheduledSessionRepository.createQueryBuilder.mockReturnValue(qb);
@@ -826,6 +830,7 @@ describe('AvailabilityService', () => {
         10,
         '2024-01-15',
         1,
+        Modality.PRES,
       );
 
       expect(result).toEqual({ available: true });
@@ -839,7 +844,7 @@ describe('AvailabilityService', () => {
       });
 
       const qb = createQueryBuilderMock();
-      qb.getCount.mockResolvedValueOnce(1); // Only 1 slot, but 2 needed for 1 hour
+      qb.getMany.mockResolvedValueOnce([{ modality: [Modality.PRES] }]); // Only 1 slot
 
       tutorHaveAvailabilityRepository.createQueryBuilder.mockReturnValue(qb);
 
@@ -848,6 +853,7 @@ describe('AvailabilityService', () => {
         10,
         '2024-01-15',
         1,
+        Modality.PRES,
       );
 
       expect(result.available).toBe(false);
@@ -862,15 +868,19 @@ describe('AvailabilityService', () => {
       });
 
       const qb = createQueryBuilderMock();
-      qb.getCount.mockResolvedValueOnce(2); // Slots coverage is OK
-      qb.getMany.mockResolvedValue([
-        {
-          idSession: 'session-1',
-          idTutor: 'tutor-1',
-          availability: { startTime: '08:00' },
-          session: { startTime: '08:00', endTime: '09:00' },
-        },
-      ]); // Overlapping session
+      qb.getMany
+        .mockResolvedValueOnce([
+          { modality: [Modality.PRES] },
+          { modality: [Modality.PRES] },
+        ]) // Slots coverage OK
+        .mockResolvedValueOnce([
+          {
+            idSession: 'session-1',
+            idTutor: 'tutor-1',
+            availability: { startTime: '08:00' },
+            session: { startTime: '08:00', endTime: '09:00' },
+          },
+        ]); // Overlapping session
 
       tutorHaveAvailabilityRepository.createQueryBuilder.mockReturnValue(qb);
       scheduledSessionRepository.createQueryBuilder.mockReturnValue(qb);
@@ -881,6 +891,7 @@ describe('AvailabilityService', () => {
         10,
         '2024-01-15',
         1,
+        Modality.PRES,
       );
 
       expect(result.available).toBe(false);
@@ -895,8 +906,12 @@ describe('AvailabilityService', () => {
       });
 
       const qb = createQueryBuilderMock();
-      qb.getCount.mockResolvedValueOnce(2);
-      qb.getMany.mockResolvedValue([]); // Query builder configured to exclude session
+      qb.getMany
+        .mockResolvedValueOnce([
+          { modality: [Modality.PRES] },
+          { modality: [Modality.PRES] },
+        ])
+        .mockResolvedValueOnce([]); // Query builder configured to exclude session
 
       tutorHaveAvailabilityRepository.createQueryBuilder.mockReturnValue(qb);
       scheduledSessionRepository.createQueryBuilder.mockReturnValue(qb);
@@ -906,6 +921,7 @@ describe('AvailabilityService', () => {
         10,
         '2024-01-15',
         1,
+        Modality.PRES,
         'session-to-exclude',
       );
 
@@ -924,7 +940,7 @@ describe('AvailabilityService', () => {
         {
           idTutor: 'tutor-1',
           idAvailability: 10,
-          modality: Modality.PRES,
+          modality: [Modality.PRES],
           availability: { dayOfWeek: 0, startTime: '08:00' },
           tutor: {
             isActive: true,
@@ -935,7 +951,7 @@ describe('AvailabilityService', () => {
         {
           idTutor: 'tutor-1',
           idAvailability: 11,
-          modality: Modality.PRES,
+          modality: [Modality.PRES],
           availability: { dayOfWeek: 0, startTime: '08:30' },
           tutor: {
             isActive: true,
@@ -980,7 +996,7 @@ describe('AvailabilityService', () => {
         {
           idTutor: 'tutor-1',
           idAvailability: 10,
-          modality: Modality.PRES,
+          modality: [Modality.PRES],
           availability: { dayOfWeek: 0, startTime: '08:00' },
           tutor: {
             isActive: true,
@@ -991,7 +1007,7 @@ describe('AvailabilityService', () => {
         {
           idTutor: 'tutor-2',
           idAvailability: 20,
-          modality: Modality.PRES,
+          modality: [Modality.PRES],
           availability: { dayOfWeek: 0, startTime: '09:00' },
           tutor: {
             isActive: true,
@@ -1002,7 +1018,7 @@ describe('AvailabilityService', () => {
         {
           idTutor: 'tutor-3',
           idAvailability: 30,
-          modality: Modality.PRES,
+          modality: [Modality.PRES],
           availability: { dayOfWeek: 0, startTime: '10:00' },
           tutor: {
             isActive: true,
@@ -1037,7 +1053,7 @@ describe('AvailabilityService', () => {
         {
           idTutor: 'tutor-1',
           idAvailability: 10,
-          modality: Modality.PRES,
+          modality: [Modality.PRES],
           availability: { dayOfWeek: 0, startTime: '08:00' },
           tutor: {
             isActive: true,
@@ -1070,7 +1086,7 @@ describe('AvailabilityService', () => {
         {
           idTutor: 'tutor-1',
           idAvailability: 10,
-          modality: Modality.PRES,
+          modality: [Modality.PRES],
           availability: { dayOfWeek: 0, startTime: '08:00' },
           tutor: {
             isActive: true,
@@ -1081,7 +1097,7 @@ describe('AvailabilityService', () => {
         {
           idTutor: 'tutor-2',
           idAvailability: 20,
-          modality: Modality.VIRT,
+          modality: [Modality.VIRT],
           availability: { dayOfWeek: 0, startTime: '09:00' },
           tutor: {
             isActive: true,
@@ -1152,7 +1168,7 @@ describe('AvailabilityService', () => {
         {
           idTutor: 'tutor-1',
           idAvailability: 10,
-          modality: Modality.PRES,
+          modality: [Modality.PRES],
           availability: {
             dayOfWeek: 0,
             startTime: '08:00',
@@ -1248,7 +1264,7 @@ describe('AvailabilityService', () => {
         {
           idTutor: 'tutor-1',
           idAvailability: 10,
-          modality: Modality.PRES,
+          modality: [Modality.PRES],
           availability: { dayOfWeek: 0, startTime: '08:00' },
           tutor: { user: { name: 'John Tutor' } },
         },
@@ -1287,7 +1303,7 @@ describe('AvailabilityService', () => {
         {
           idTutor: 'tutor-1',
           idAvailability: 10,
-          modality: Modality.PRES,
+          modality: [Modality.PRES],
           availability: {
             dayOfWeek: 0,
             startTime: '08:00',
@@ -1396,7 +1412,7 @@ describe('AvailabilityService', () => {
         {
           idTutor: 'tutor-1',
           idAvailability: 10,
-          modality: Modality.PRES,
+          modality: [Modality.PRES],
           availability: { dayOfWeek: 0, startTime: '08:00' },
           tutor: { user: { name: 'John Tutor' } },
         },
@@ -1433,14 +1449,14 @@ describe('AvailabilityService', () => {
         {
           idTutor: 'tutor-1',
           idAvailability: 10,
-          modality: Modality.PRES,
+          modality: [Modality.PRES],
           availability: { dayOfWeek: 0, startTime: '08:00' },
           tutor: { user: { name: 'John Tutor' } },
         },
         {
           idTutor: 'tutor-2',
           idAvailability: 20,
-          modality: Modality.VIRT,
+          modality: [Modality.VIRT],
           availability: { dayOfWeek: 0, startTime: '09:00' },
           tutor: { user: { name: 'Jane Tutor' } },
         },
@@ -1486,7 +1502,7 @@ describe('AvailabilityService', () => {
         {
           idTutor: 'tutor-1',
           idAvailability: 10,
-          modality: Modality.PRES,
+          modality: [Modality.PRES],
           availability: { dayOfWeek: 0, startTime: '08:00' },
           tutor: { user: { name: 'John Tutor' } },
         },
