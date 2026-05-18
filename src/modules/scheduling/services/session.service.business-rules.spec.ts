@@ -910,6 +910,7 @@ describe('SessionService — Business Rules (Integration)', () => {
           studentParticipateSessions: [{ idStudent: 'student-1' }],
         }),
       );
+      scheduledSessionRepo.findOne.mockResolvedValue({ idAvailability: 10 });
       modificationRequestRepo.save.mockResolvedValue({
         idRequest: 'req-1',
         expiresAt: new Date(),
