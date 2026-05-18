@@ -36,6 +36,7 @@ export interface ConfirmEmailResponse {
     role: string;
     emailVerified: boolean;
   };
+  requiresProfileCompletion?: boolean;
 }
 
 @Injectable()
@@ -184,6 +185,10 @@ export class AuthService {
         this.logger.error('Error sending welcome email:', error),
       );
 
+    // 9. Verificar perfil completo del estudiante
+    const requiresProfileCompletion =
+      !(await this.studentService.isProfileComplete(user.idUser));
+
     return {
       message: 'Email verified successfully. You are now logged in.',
       accessToken,
@@ -195,6 +200,7 @@ export class AuthService {
         role: user.role,
         emailVerified: true,
       },
+      requiresProfileCompletion,
     };
   }
 
@@ -383,6 +389,9 @@ export class AuthService {
       },
       ...(user.role === UserRole.TUTOR && {
         requiresPasswordChange,
+        requiresProfileCompletion,
+      }),
+      ...(user.role === UserRole.STUDENT && {
         requiresProfileCompletion,
       }),
     };
