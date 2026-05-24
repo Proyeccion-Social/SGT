@@ -317,6 +317,8 @@ export class SessionService {
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
+    let committed = false;
+
     try {
       const session = await queryRunner.manager
         .createQueryBuilder(Session, 'session')
@@ -478,6 +480,7 @@ export class SessionService {
       }
 
       await queryRunner.commitTransaction();
+      committed = true;
 
       // Notificaciones
       await this.fireAndLogNotifications([
@@ -500,7 +503,7 @@ export class SessionService {
         session: await this.getSessionById(sessionId),
       };
     } catch (error) {
-      await queryRunner.rollbackTransaction();
+      if (!committed) await queryRunner.rollbackTransaction();
       throw error;
     } finally {
       await queryRunner.release();
