@@ -1,0 +1,71 @@
+lambda/requirements.txt
+  s_194a7763fe7366::t_71fdad28da0f9d 1-8
+src/modules/notifications/notifications.module.ts
+  s_194a7763fe7366::t_663996b9d0deb3 4,11
+lambda/handler.py
+  s_194a7763fe7366::t_f4d17d91cb890d 1-86
+src/modules/notifications/services/notifications.service.ts
+  s_194a7763fe7366::t_910ef1ead628ed 1193
+  s_194a7763fe7366::t_157df299c000fc 333
+  s_194a7763fe7366::t_6b21873921ec1a 135
+  s_194a7763fe7366::t_72562d649eb1d4 398
+  s_194a7763fe7366::t_4a328469f97db3 1448
+  s_194a7763fe7366::t_8c82843eee756b 1014
+  s_194a7763fe7366::t_36a9f2f2fedd2e 271
+  s_194a7763fe7366::t_4b6d0121120f34 823
+  s_194a7763fe7366::t_a05b5b857285c7 48
+  s_194a7763fe7366::t_142a1a18f16264 456
+  s_194a7763fe7366::t_766a3285f0f445 531
+  s_194a7763fe7366::t_0a7af159a17207 901
+  s_194a7763fe7366::t_fffb4f0ac57a69 1288
+  s_194a7763fe7366::t_b9f259ae7a1abf 77
+  s_194a7763fe7366::t_5d0c611f4dfaa1 194
+  s_194a7763fe7366::t_3a87d1204dd8ad 1385
+  s_194a7763fe7366::t_d66ae53a215500 635
+  s_194a7763fe7366::t_fe34589105684f 5
+  s_194a7763fe7366::t_0b9ad35eedc2d5 162
+  s_194a7763fe7366::t_534fe1f4cb237f 927
+  s_194a7763fe7366::t_c812fa0743a8c9 600
+  s_194a7763fe7366::t_3ac687413c174d 101
+  s_194a7763fe7366::t_ba983c24cbf3c6 747
+  s_194a7763fe7366::t_f658f075fb6ea6 216
+  s_194a7763fe7366::t_0a767ae50345da 1045
+  s_194a7763fe7366::t_665f070cf0628d 1112
+package.json
+  s_194a7763fe7366::t_4600ac87ea8951 26
+src/config/env.config.ts
+  s_194a7763fe7366::t_50b94e62e15148 43-51
+lambda/tests/test_handler.py
+  s_194a7763fe7366::t_0711463790dc95 1-170
+src/modules/notifications/services/sqs-email.service.ts
+  s_194a7763fe7366::t_fef4fa9220e103 1-48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "10c98ce5384d6d9245db5df60283849d559b51c5",
+  "prompts": {
+    "2cf04ab1fd5412b6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6c01030e-e245-4f18-93ef-bd058de66214",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "DanCmoo <dankurso845@gmail.com>",
+      "total_additions": 129,
+      "total_deletions": 24,
+      "accepted_lines": 129,
+      "overriden_lines": 0
+    }
+  },
+  "sessions": {
+    "s_194a7763fe7366": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6538cad3-0b81-4550-b225-30442b52557f",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "DanCmoo <dankurso845@gmail.com>"
+    }
+  }
+}
