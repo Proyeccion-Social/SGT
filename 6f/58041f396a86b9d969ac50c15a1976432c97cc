@@ -1,0 +1,19 @@
+.github/workflows/ci.yml
+  s_194a7763fe7366::t_95595335304f99 28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "6f58041f396a86b9d969ac50c15a1976432c97cc",
+  "prompts": {},
+  "sessions": {
+    "s_194a7763fe7366": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6538cad3-0b81-4550-b225-30442b52557f",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "DanCmoo <dankurso845@gmail.com>"
+    }
+  }
+}
