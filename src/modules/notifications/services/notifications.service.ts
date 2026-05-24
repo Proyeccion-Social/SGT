@@ -2,7 +2,7 @@
 
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Resend } from 'resend';
+import { SqsEmailService } from './sqs-email.service';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as Handlebars from 'handlebars';
@@ -39,27 +39,14 @@ interface SessionDetailsChange {
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
-  private readonly resend: Resend;
-  private readonly fromEmail: string;
   private readonly frontendUrl: string;
 
   constructor(
     private readonly configService: ConfigService,
     private readonly usersService: UserService,
     private readonly appNotifications: AppNotificationsService,
+    private readonly sqsEmail: SqsEmailService,
   ) {
-    const apiKey = this.configService.get<string>('RESEND_API_KEY');
-    if (!apiKey) {
-      this.logger.error(
-        'RESEND_API_KEY no está definida en las variables de entorno',
-      );
-      throw new Error('RESEND_API_KEY is required');
-    }
-
-    this.resend = new Resend(apiKey);
-    this.fromEmail =
-      this.configService.get<string>('RESEND_FROM_EMAIL') ||
-      'noreply@yourdomain.com';
     this.frontendUrl =
       this.configService.get<string>('FRONTEND_URL') || 'http://localhost:4321';
 
@@ -87,16 +74,11 @@ export class NotificationsService {
     });
 
     try {
-      const { error } = await this.resend.emails.send({
-        from: this.fromEmail,
+      await this.sqsEmail.send({
         to: email,
         subject: 'Confirma tu cuenta en Atlas - Sistema de Gestión de Tutorías',
         html: htmlContent,
       });
-      if (error)
-        throw new Error(
-          (error as { message?: string }).message ?? 'Resend API error',
-        );
       this.logger.log(`Email de confirmación enviado a ${email}`);
     } catch (error) {
       this.logger.error(
@@ -116,16 +98,11 @@ export class NotificationsService {
     });
 
     try {
-      const { error } = await this.resend.emails.send({
-        from: this.fromEmail,
+      await this.sqsEmail.send({
         to: email,
         subject: 'Bienvenido a Atlas - Sistema de Gestión de Tutorías',
         html: htmlContent,
       });
-      if (error)
-        throw new Error(
-          (error as { message?: string }).message ?? 'Resend API error',
-        );
       this.logger.log(`Email de bienvenida enviado a ${email}`);
     } catch (error) {
       this.logger.error(
@@ -155,16 +132,11 @@ export class NotificationsService {
     });
 
     try {
-      const { error } = await this.resend.emails.send({
-        from: this.fromEmail,
+      await this.sqsEmail.send({
         to: email,
         subject: 'Bienvenido a Atlas - Credenciales de Tutor',
         html: htmlContent,
       });
-      if (error)
-        throw new Error(
-          (error as { message?: string }).message ?? 'Resend API error',
-        );
       this.logger.log(`Credenciales de tutor enviadas a ${email}`);
     } catch (error) {
       this.logger.error(
@@ -187,16 +159,11 @@ export class NotificationsService {
     });
 
     try {
-      const { error } = await this.resend.emails.send({
-        from: this.fromEmail,
+      await this.sqsEmail.send({
         to: email,
         subject: 'Perfil de Tutor Completado - Atlas',
         html: htmlContent,
       });
-      if (error)
-        throw new Error(
-          (error as { message?: string }).message ?? 'Resend API error',
-        );
       this.logger.log(`Notificación de perfil completado enviada a ${email}`);
     } catch (error) {
       this.logger.error(
@@ -224,16 +191,11 @@ export class NotificationsService {
     });
 
     try {
-      const { error } = await this.resend.emails.send({
-        from: this.fromEmail,
+      await this.sqsEmail.send({
         to: email,
         subject: 'Recupera tu contraseña - Atlas',
         html: htmlContent,
       });
-      if (error)
-        throw new Error(
-          (error as { message?: string }).message ?? 'Resend API error',
-        );
       this.logger.log(`Email de recuperación enviado a ${email}`);
     } catch (error) {
       this.logger.error(
@@ -251,16 +213,11 @@ export class NotificationsService {
     const htmlContent = this.renderTemplate('password-changed', { name });
 
     try {
-      const { error } = await this.resend.emails.send({
-        from: this.fromEmail,
+      await this.sqsEmail.send({
         to: email,
         subject: 'Tu contraseña ha sido cambiada - Atlas',
         html: htmlContent,
       });
-      if (error)
-        throw new Error(
-          (error as { message?: string }).message ?? 'Resend API error',
-        );
       this.logger.log(
         `Notificación de cambio de contraseña enviada a ${email}`,
       );
@@ -311,8 +268,7 @@ export class NotificationsService {
         {
           label: 'email',
           context: `tutor=${session.tutor.id} sesión=${session.id}`,
-          promise: this.resend.emails.send({
-            from: this.fromEmail,
+          promise: this.sqsEmail.send({
             to: tutorEmail,
             subject: `Nueva solicitud de tutoría: ${session.subject.name}`,
             html: htmlContent,
@@ -374,8 +330,7 @@ export class NotificationsService {
         {
           label: 'email',
           context: `estudiante=${studentId} sesión=${session.id}`,
-          promise: this.resend.emails.send({
-            from: this.fromEmail,
+          promise: this.sqsEmail.send({
             to: studentEmail,
             subject: `Solicitud enviada: ${session.subject.name} — pendiente de confirmación`,
             html: htmlContent,
@@ -440,8 +395,7 @@ export class NotificationsService {
         {
           label: 'email',
           context: `estudiante=${studentId} sesión=${session.id}`,
-          promise: this.resend.emails.send({
-            from: this.fromEmail,
+          promise: this.sqsEmail.send({
             to: studentEmail,
             subject: `¡Sesión confirmada! ${session.subject.name}`,
             html: htmlContent,
@@ -499,8 +453,7 @@ export class NotificationsService {
         {
           label: 'email',
           context: `tutor=${tutorId} sesión=${session.id}`,
-          promise: this.resend.emails.send({
-            from: this.fromEmail,
+          promise: this.sqsEmail.send({
             to: tutorEmail,
             subject: `Nueva sesión agendada: ${session.subject.name}`,
             html: htmlContent,
@@ -575,8 +528,7 @@ export class NotificationsService {
         {
           label: 'email',
           context: `estudiante=${studentId} sesión=${session.idSession}`,
-          promise: this.resend.emails.send({
-            from: this.fromEmail,
+          promise: this.sqsEmail.send({
             to: studentEmail,
             subject: `Solicitud no aceptada — ${subjectName}`,
             html: htmlContent,
@@ -645,8 +597,7 @@ export class NotificationsService {
         {
           label: 'email',
           context: `tutor=${session.idTutor} sesión=${session.idSession}`,
-          promise: this.resend.emails.send({
-            from: this.fromEmail,
+          promise: this.sqsEmail.send({
             to: tutorEmail,
             subject: `Sesión cancelada — ${subjectName}`,
             html: this.renderTemplate('session-cancelled', {
@@ -681,8 +632,7 @@ export class NotificationsService {
           {
             label: 'email',
             context: `estudiante=${participation.idStudent} sesión=${session.idSession}`,
-            promise: this.resend.emails.send({
-              from: this.fromEmail,
+            promise: this.sqsEmail.send({
               to: studentEmail,
               subject: `Sesión cancelada — ${subjectName}`,
               html: this.renderTemplate('session-cancelled', {
@@ -794,8 +744,7 @@ export class NotificationsService {
         {
           label: 'email',
           context: `destinatario=${recipientId} sesión=${session.idSession}`,
-          promise: this.resend.emails.send({
-            from: this.fromEmail,
+          promise: this.sqsEmail.send({
             to: recipientEmail,
             subject: `Propuesta de modificación — ${subjectName}`,
             html: htmlContent,
@@ -871,8 +820,7 @@ export class NotificationsService {
         {
           label: 'email',
           context: `solicitante=${request.requestedBy} sesión=${session.idSession}`,
-          promise: this.resend.emails.send({
-            from: this.fromEmail,
+          promise: this.sqsEmail.send({
             to: requesterEmail,
             subject: accepted
               ? `Modificación aceptada — ${subjectName}`
@@ -950,8 +898,7 @@ export class NotificationsService {
         {
           label: 'email',
           context: `tutor=${session.idTutor} sesión=${session.idSession}`,
-          promise: this.resend.emails.send({
-            from: this.fromEmail,
+          promise: this.sqsEmail.send({
             to: tutorEmail,
             subject: emailSubject,
             html: htmlContent,
@@ -977,8 +924,7 @@ export class NotificationsService {
           {
             label: 'email',
             context: `estudiante=${participation.idStudent} sesión=${session.idSession}`,
-            promise: this.resend.emails.send({
-              from: this.fromEmail,
+            promise: this.sqsEmail.send({
               to: studentEmail,
               subject: emailSubject,
               html: htmlContent,
@@ -1065,8 +1011,7 @@ export class NotificationsService {
         {
           label: 'email',
           context: `tutor=${session.tutor.id} tipo=${reminderType}`,
-          promise: this.resend.emails.send({
-            from: this.fromEmail,
+          promise: this.sqsEmail.send({
             to: tutorEmail,
             subject: reminderSubject,
             html: this.renderTemplate('session-reminder', {
@@ -1097,8 +1042,7 @@ export class NotificationsService {
           {
             label: 'email',
             context: `estudiante=${participant.id} tipo=${reminderType}`,
-            promise: this.resend.emails.send({
-              from: this.fromEmail,
+            promise: this.sqsEmail.send({
               to: studentEmail,
               subject: reminderSubject,
               html: this.renderTemplate('session-reminder', {
@@ -1165,8 +1109,7 @@ export class NotificationsService {
         {
           label: 'email',
           context: `estudiante=${studentId} sesión=${session.id} isReminder=${isReminder}`,
-          promise: this.resend.emails.send({
-            from: this.fromEmail,
+          promise: this.sqsEmail.send({
             to: studentEmail,
             subject: isReminder
               ? `Recordatorio: califica tu sesión de ${session.subject.name}`
@@ -1247,8 +1190,7 @@ export class NotificationsService {
         {
           label: 'email',
           context: `estudiante=${studentId} sesión=${sessionId}`,
-          promise: this.resend.emails.send({
-            from: this.fromEmail,
+          promise: this.sqsEmail.send({
             to: studentEmail,
             subject: `Inasistencia registrada — ${subjectName}`,
             html: htmlContent,
@@ -1343,8 +1285,7 @@ export class NotificationsService {
           {
             label: 'email',
             context: `estudiante=${affected.studentId} sesión=${affected.sessionId} changeType=${affected.changeType}`,
-            promise: this.resend.emails.send({
-              from: this.fromEmail,
+            promise: this.sqsEmail.send({
               to: affected.studentEmail,
               subject: `${subjectMap[affected.changeType]} — ${affected.subjectName}`,
               html: htmlContent,
@@ -1441,8 +1382,7 @@ export class NotificationsService {
         {
           label: 'email',
           context: `tutor=${tutorId} alertLevel=${alertLevel}`,
-          promise: this.resend.emails.send({
-            from: this.fromEmail,
+          promise: this.sqsEmail.send({
             to: tutorEmail,
             subject: subjectMap[alertLevel],
             html: htmlContent,
@@ -1505,8 +1445,7 @@ export class NotificationsService {
     // Difusión: un fallo individual no aborta al resto
     for (const email of interestedStudentEmails) {
       try {
-        await this.resend.emails.send({
-          from: this.fromEmail,
+        await this.sqsEmail.send({
           to: email,
           subject: `Nueva sesión colaborativa disponible: ${session.subject.name}`,
           html: htmlContent,
