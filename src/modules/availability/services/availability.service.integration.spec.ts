@@ -212,7 +212,7 @@ describe('AvailabilityService (Integration Tests)', () => {
       const mondayOfCurrentWeek = getMondayOfCurrentWeek();
       addScheduledSession({
         idTutor: tutorId,
-        idAvailability: parseInt(slot.slotId),
+        idAvailability: slot.slotId,
         idSession: 'session-001',
         scheduledDate: mondayOfCurrentWeek,
         session: {
@@ -353,7 +353,7 @@ describe('AvailabilityService (Integration Tests)', () => {
       // Request 1.0h (needs 2 slots) - should fail with only 2 slots that are consecutive
       let result = await service.isSlotAvailableForDateWithDuration(
         tutorId,
-        parseInt(slot1.slotId),
+        slot1.slotId,
         mondayOfCurrentWeek,
         1.0,
         Modality.PRES,
@@ -364,7 +364,7 @@ describe('AvailabilityService (Integration Tests)', () => {
       // Request 1.5h (needs 3 slots) - should fail
       result = await service.isSlotAvailableForDateWithDuration(
         tutorId,
-        parseInt(slot1.slotId),
+        slot1.slotId,
         mondayOfCurrentWeek,
         1.5,
         Modality.PRES,
@@ -380,7 +380,7 @@ describe('AvailabilityService (Integration Tests)', () => {
 
       result = await service.isSlotAvailableForDateWithDuration(
         tutorId,
-        parseInt(slot1.slotId),
+        slot1.slotId,
         mondayOfCurrentWeek,
         1.5,
         Modality.PRES,
@@ -407,7 +407,7 @@ describe('AvailabilityService (Integration Tests)', () => {
       // Create active session from 08:00 to 08:30
       addScheduledSession({
         idTutor: tutorId,
-        idAvailability: parseInt(slots[0].slotId),
+        idAvailability: slots[0].slotId,
         idSession: 'session-009',
         scheduledDate: mondayOfCurrentWeek,
         session: {
@@ -425,7 +425,7 @@ describe('AvailabilityService (Integration Tests)', () => {
       // Request 1.0h from 08:00 - should fail (overlaps with session)
       const result = await service.isSlotAvailableForDateWithDuration(
         tutorId,
-        parseInt(slots[0].slotId),
+        slots[0].slotId,
         mondayOfCurrentWeek,
         1.0,
         Modality.PRES,
@@ -446,7 +446,7 @@ describe('AvailabilityService (Integration Tests)', () => {
       // Should succeed with matching modality
       await expect(
         service.validateModalityForSlot(
-          parseInt(slot.slotId),
+          slot.slotId,
           tutorId,
           Modality.PRES,
         ),
@@ -455,7 +455,7 @@ describe('AvailabilityService (Integration Tests)', () => {
       // Should fail with mismatched modality
       await expect(
         service.validateModalityForSlot(
-          parseInt(slot.slotId),
+          slot.slotId,
           tutorId,
           Modality.VIRT,
         ),

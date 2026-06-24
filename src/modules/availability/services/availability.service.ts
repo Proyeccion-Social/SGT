@@ -425,6 +425,7 @@ export class AvailabilityService {
       weekStart?: string; //'YYYY-MM-DD' (lunes de la semana a consultar
     },
   ): Promise<TutorAvailabilityPublic> {
+    const modalityFilter = options?.modality;
     const tutorAvailabilities = await this.tutorHaveAvailabilityRepository.find(
       {
         where: { idTutor: tutorId },
@@ -475,8 +476,8 @@ export class AvailabilityService {
     });
 
     if (options?.onlyAvailable) slots = slots.filter((s) => s.isAvailable);
-    if (options?.modality)
-      slots = slots.filter((s) => s.modality.includes(options.modality));
+    if (modalityFilter)
+      slots = slots.filter((s) => s.modality.includes(modalityFilter));
 
     const groupedByDay = this.groupSlotsByDay(slots);
 
