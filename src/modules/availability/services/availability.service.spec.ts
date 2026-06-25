@@ -13,6 +13,7 @@ describe('AvailabilityService', () => {
   let tutorHaveAvailabilityRepository: any;
   let scheduledSessionRepository: any;
   let sessionRepository: any;
+  let tutorService: any;
 
   const createQueryBuilderMock = () => ({
     innerJoin: jest.fn().mockReturnThis(),
@@ -58,11 +59,16 @@ describe('AvailabilityService', () => {
       findOne: jest.fn(),
     };
 
+    tutorService = {
+      findOne: jest.fn(),
+    };
+
     service = new AvailabilityService(
       availabilityRepository,
       tutorHaveAvailabilityRepository,
       scheduledSessionRepository,
       sessionRepository,
+      tutorService
     );
 
     availabilityRepository.manager.transaction.mockImplementation(
