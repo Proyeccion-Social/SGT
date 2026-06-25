@@ -496,117 +496,87 @@ export class AvailabilityService {
    * @return Lista paginada de tutores con disponibilidad, sin importar la materia. Útil para el buscador general de tutores.
    */
   async getAllAvailableTutors(options?: {
-  modality?: Modality;
-  onlyAvailable?: boolean;
-  page?: number;
-  limit?: number;
-  weekStart?: string;
-}): Promise<{
-  tutors: Array<{
-    tutorId: string;
-    tutorName: string;
-    totalSlots: number;
-    availableSlots: number;
-    modalities: Modality[];
-  }>;
-  total: number;
-  weekReference: string;
-}> {
-  const page = options?.page ?? 1;
-  const limit = options?.limit ?? 10;
-  const offset = (page - 1) * limit;
-  const { weekStartStr, weekEndStr } = this.resolveWeekRange(options?.weekStart);
+    modality?: Modality;
+    onlyAvailable?: boolean;
+    page?: number;
+    limit?: number;
+    weekStart?: string;
+  }): Promise<{
+    tutors: Array<{
+      tutorId: string;
+      tutorName: string;
+      totalSlots: number;
+      availableSlots: number;
+      modalities: Modality[];
+    }>;
+    total: number;
+    weekReference: string;
+  }> {
+    const page = options?.page ?? 1;
+    const limit = options?.limit ?? 10;
+    const offset = (page - 1) * limit;
+    const { weekStartStr, weekEndStr } = this.resolveWeekRange(
+      options?.weekStart,
+    );
 
-  // ← Extraer aquí para que TypeScript la infiera como Modality (no Modality | undefined)
-  //   en todos los usos posteriores dentro del método.
-  const modalityFilter = options?.modality;
+    // ← Extraer aquí para que TypeScript la infiera como Modality (no Modality | undefined)
+    //   en todos los usos posteriores dentro del método.
+    const modalityFilter = options?.modality;
 
-  const tutorsWithAvailability = await this.tutorHaveAvailabilityRepository
-    .createQueryBuilder('tha')
-    .innerJoinAndSelect('tha.tutor', 'tutor')
-    .innerJoinAndSelect('tutor.user', 'user')
-    .innerJoinAndSelect('tha.availability', 'availability')
-    .where('tutor.isActive = :isActive', { isActive: true })
-    .andWhere('tutor.profile_completed = :completed', { completed: true })
-    .orderBy('user.name', 'ASC')
-    .addOrderBy('tutor.idUser', 'ASC')
-    .getMany();
+    const tutorsWithAvailability = await this.tutorHaveAvailabilityRepository
+      .createQueryBuilder('tha')
+      .innerJoinAndSelect('tha.tutor', 'tutor')
+      .innerJoinAndSelect('tutor.user', 'user')
+      .innerJoinAndSelect('tha.availability', 'availability')
+      .where('tutor.isActive = :isActive', { isActive: true })
+      .andWhere('tutor.profile_completed = :completed', { completed: true })
+      .orderBy('user.name', 'ASC')
+      .addOrderBy('tutor.idUser', 'ASC')
+      .getMany();
 
-  if (tutorsWithAvailability.length === 0) {
-    return { tutors: [], total: 0, weekReference: weekStartStr };
-  }
-
-  const tutorMap = new Map<
-    string,
-    { tutorId: string; tutorName: string; slots: TutorHaveAvailability[] }
-  >();
-
-  for (const ta of tutorsWithAvailability) {
-    if (!tutorMap.has(ta.idTutor)) {
-      tutorMap.set(ta.idTutor, {
-        tutorId: ta.idTutor,
-        tutorName: ta.tutor.user.name,
-        slots: [],
-      });
-    }
-    tutorMap.get(ta.idTutor)!.slots.push(ta);
-  }
-
-  const allTutorIds = Array.from(tutorMap.keys());
-  const occupiedRangesByTutor = await this.buildOccupiedRangesForTutors(
-    allTutorIds,
-    weekStartStr,
-    weekEndStr,
-  );
-
-  const eligibleTutorIds: string[] = [];
-
-  for (const tutorId of allTutorIds) {
-    const tutor = tutorMap.get(tutorId)!;
-    const occupied = occupiedRangesByTutor.get(tutorId) ?? [];
-
-    // ← Usar modalityFilter (ya tipada como Modality | undefined, no como propiedad de options)
-    let slots = tutor.slots;
-    if (modalityFilter) {
-      slots = slots.filter((s) => (s.modality ?? []).includes(modalityFilter));
+    if (tutorsWithAvailability.length === 0) {
+      return { tutors: [], total: 0, weekReference: weekStartStr };
     }
 
-    if (slots.length === 0) continue;
+    const tutorMap = new Map<
+      string,
+      { tutorId: string; tutorName: string; slots: TutorHaveAvailability[] }
+    >();
 
-    const availableCount = slots.filter(
-      (s) =>
-        !this.isSlotOccupiedByBlock(
-          s.availability.startTime,
-          s.availability.dayOfWeek,
-          occupied,
-        ),
-    ).length;
+    for (const ta of tutorsWithAvailability) {
+      if (!tutorMap.has(ta.idTutor)) {
+        tutorMap.set(ta.idTutor, {
+          tutorId: ta.idTutor,
+          tutorName: ta.tutor.user.name,
+          slots: [],
+        });
+      }
+      tutorMap.get(ta.idTutor)!.slots.push(ta);
+    }
 
-    if (options?.onlyAvailable && availableCount === 0) continue;
+    const allTutorIds = Array.from(tutorMap.keys());
+    const occupiedRangesByTutor = await this.buildOccupiedRangesForTutors(
+      allTutorIds,
+      weekStartStr,
+      weekEndStr,
+    );
 
-    eligibleTutorIds.push(tutorId);
-  }
+    const eligibleTutorIds: string[] = [];
 
-  const total = eligibleTutorIds.length;
-  const pagedIds = eligibleTutorIds.slice(offset, offset + limit);
+    for (const tutorId of allTutorIds) {
+      const tutor = tutorMap.get(tutorId)!;
+      const occupied = occupiedRangesByTutor.get(tutorId) ?? [];
 
-  if (pagedIds.length === 0) {
-    return { tutors: [], total, weekReference: weekStartStr };
-  }
-
-  const tutors = pagedIds
-    .filter((id) => tutorMap.has(id))
-    .map((id) => {
-      const tutor = tutorMap.get(id)!;
-      const occupied = occupiedRangesByTutor.get(id) ?? [];
-
+      // ← Usar modalityFilter (ya tipada como Modality | undefined, no como propiedad de options)
       let slots = tutor.slots;
       if (modalityFilter) {
-        // ← Mismo uso de modalityFilter extraída
-        slots = slots.filter((s) => (s.modality ?? []).includes(modalityFilter));
+        slots = slots.filter((s) =>
+          (s.modality ?? []).includes(modalityFilter),
+        );
       }
 
-      const totalSlots = slots.length;
+      if (slots.length === 0) continue;
+
       const availableCount = slots.filter(
         (s) =>
           !this.isSlotOccupiedByBlock(
@@ -616,21 +586,57 @@ export class AvailabilityService {
           ),
       ).length;
 
-      const modalities = [
-        ...new Set(slots.flatMap((s) => s.modality ?? [])),
-      ] as Modality[];
+      if (options?.onlyAvailable && availableCount === 0) continue;
 
-      return {
-        tutorId: tutor.tutorId,
-        tutorName: tutor.tutorName,
-        totalSlots,
-        availableSlots: availableCount,
-        modalities,
-      };
-    });
+      eligibleTutorIds.push(tutorId);
+    }
 
-  return { tutors, total, weekReference: weekStartStr };
-}
+    const total = eligibleTutorIds.length;
+    const pagedIds = eligibleTutorIds.slice(offset, offset + limit);
+
+    if (pagedIds.length === 0) {
+      return { tutors: [], total, weekReference: weekStartStr };
+    }
+
+    const tutors = pagedIds
+      .filter((id) => tutorMap.has(id))
+      .map((id) => {
+        const tutor = tutorMap.get(id)!;
+        const occupied = occupiedRangesByTutor.get(id) ?? [];
+
+        let slots = tutor.slots;
+        if (modalityFilter) {
+          // ← Mismo uso de modalityFilter extraída
+          slots = slots.filter((s) =>
+            (s.modality ?? []).includes(modalityFilter),
+          );
+        }
+
+        const totalSlots = slots.length;
+        const availableCount = slots.filter(
+          (s) =>
+            !this.isSlotOccupiedByBlock(
+              s.availability.startTime,
+              s.availability.dayOfWeek,
+              occupied,
+            ),
+        ).length;
+
+        const modalities = [
+          ...new Set(slots.flatMap((s) => s.modality ?? [])),
+        ] as Modality[];
+
+        return {
+          tutorId: tutor.tutorId,
+          tutorName: tutor.tutorName,
+          totalSlots,
+          availableSlots: availableCount,
+          modalities,
+        };
+      });
+
+    return { tutors, total, weekReference: weekStartStr };
+  }
 
   async getTutorsBySubjectWithAvailability(
     subjectId: string,
@@ -780,10 +786,10 @@ export class AvailabilityService {
       .where('tha.id_tutor IN (:...pagedIds)', { pagedIds });
 
     if (modalityFilter) {
-    slotsQuery.andWhere(':modality = ANY(tha.modality)', {
-      modality: modalityFilter, // ← usar modalityFilter
-    });
-  }
+      slotsQuery.andWhere(':modality = ANY(tha.modality)', {
+        modality: modalityFilter, // ← usar modalityFilter
+      });
+    }
 
     const slots = await slotsQuery.getMany();
 
@@ -898,7 +904,9 @@ export class AvailabilityService {
       );
     }
 
-    const modalities = this.normalizeModalities(tutorAvailability.modality ?? []);
+    const modalities = this.normalizeModalities(
+      tutorAvailability.modality ?? [],
+    );
 
     if (modalities.length === 0) {
       throw new BadRequestException(
@@ -1486,30 +1494,32 @@ export class AvailabilityService {
     // 4. Filtrar tutores elegibles
     const eligibleTutorIds: string[] = [];
 
-  for (const tutorId of allTutorIds) {
-    const tutor = tutorMap.get(tutorId)!;
-    const occupied = occupiedRangesByTutor.get(tutorId) ?? [];
+    for (const tutorId of allTutorIds) {
+      const tutor = tutorMap.get(tutorId)!;
+      const occupied = occupiedRangesByTutor.get(tutorId) ?? [];
 
-    let slots = tutor.slots;
-    if (modalityFilter) {
-      // ← Fix: modalityFilter en lugar de options.modality
-      slots = slots.filter((s) => (s.modality ?? []).includes(modalityFilter));
+      let slots = tutor.slots;
+      if (modalityFilter) {
+        // ← Fix: modalityFilter en lugar de options.modality
+        slots = slots.filter((s) =>
+          (s.modality ?? []).includes(modalityFilter),
+        );
+      }
+
+      if (slots.length === 0) continue;
+
+      const availableCount = slots.filter(
+        (s) =>
+          !this.isSlotOccupiedByBlock(
+            s.availability.startTime,
+            s.availability.dayOfWeek,
+            occupied,
+          ),
+      ).length;
+
+      if (options?.onlyAvailable && availableCount === 0) continue;
+      eligibleTutorIds.push(tutorId);
     }
-
-    if (slots.length === 0) continue;
-
-    const availableCount = slots.filter(
-      (s) =>
-        !this.isSlotOccupiedByBlock(
-          s.availability.startTime,
-          s.availability.dayOfWeek,
-          occupied,
-        ),
-    ).length;
-
-    if (options?.onlyAvailable && availableCount === 0) continue;
-    eligibleTutorIds.push(tutorId);
-  }
 
     const total = eligibleTutorIds.length;
     const pagedIds = eligibleTutorIds.slice(offset, offset + limit);
@@ -1532,11 +1542,11 @@ export class AvailabilityService {
 
           let slots = tutor.slots;
           if (modalityFilter) {
-          // Fix: modalityFilter en lugar de options.modality
-          slots = slots.filter((s) =>
-            (s.modality ?? []).includes(modalityFilter),
-          );
-        }
+            // Fix: modalityFilter en lugar de options.modality
+            slots = slots.filter((s) =>
+              (s.modality ?? []).includes(modalityFilter),
+            );
+          }
 
           const groupedByDay = {} as Record<DayOfWeek, AvailabilitySlot[]>;
 

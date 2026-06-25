@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddModalityArrayToTutorAvailability1771300000000
-  implements MigrationInterface
-{
+export class AddModalityArrayToTutorAvailability1771300000000 implements MigrationInterface {
   name = 'AddModalityArrayToTutorAvailability1771300000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

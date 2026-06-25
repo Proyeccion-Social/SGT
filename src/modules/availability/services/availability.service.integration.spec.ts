@@ -445,20 +445,12 @@ describe('AvailabilityService (Integration Tests)', () => {
 
       // Should succeed with matching modality
       await expect(
-        service.validateModalityForSlot(
-          slot.slotId,
-          tutorId,
-          Modality.PRES,
-        ),
+        service.validateModalityForSlot(slot.slotId, tutorId, Modality.PRES),
       ).resolves.not.toThrow();
 
       // Should fail with mismatched modality
       await expect(
-        service.validateModalityForSlot(
-          slot.slotId,
-          tutorId,
-          Modality.VIRT,
-        ),
+        service.validateModalityForSlot(slot.slotId, tutorId, Modality.VIRT),
       ).rejects.toThrow();
     });
   });
@@ -544,11 +536,11 @@ describe('AvailabilityService (Integration Tests)', () => {
       // Get availability and filter by modality
       const availability = await service.getTutorAvailability(tutorId);
 
-      const presSlots = availability.availableSlots.filter(
-        (s) => s.modality.includes(Modality.PRES),
+      const presSlots = availability.availableSlots.filter((s) =>
+        s.modality.includes(Modality.PRES),
       );
-      const virtSlots = availability.availableSlots.filter(
-        (s) => s.modality.includes(Modality.VIRT),
+      const virtSlots = availability.availableSlots.filter((s) =>
+        s.modality.includes(Modality.VIRT),
       );
 
       expect(presSlots.length).toBe(1);

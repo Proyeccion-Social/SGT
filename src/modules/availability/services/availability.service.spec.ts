@@ -68,7 +68,7 @@ describe('AvailabilityService', () => {
       tutorHaveAvailabilityRepository,
       scheduledSessionRepository,
       sessionRepository,
-      tutorService
+      tutorService,
     );
 
     availabilityRepository.manager.transaction.mockImplementation(
