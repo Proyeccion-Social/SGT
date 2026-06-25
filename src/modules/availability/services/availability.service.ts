@@ -496,90 +496,117 @@ export class AvailabilityService {
    * @return Lista paginada de tutores con disponibilidad, sin importar la materia. Útil para el buscador general de tutores.
    */
   async getAllAvailableTutors(options?: {
-    modality?: Modality;
-    onlyAvailable?: boolean;
-    page?: number;
-    limit?: number;
-    weekStart?: string; //'YYYY-MM-DD' (lunes de la semana a consultar)
-  }): Promise<{
-    tutors: Array<{
-      tutorId: string;
-      tutorName: string;
-      totalSlots: number;
-      availableSlots: number;
-      modalities: Modality[];
-    }>;
-    total: number;
-    weekReference: string;
-  }> {
-    const page = options?.page ?? 1;
-    const limit = options?.limit ?? 10;
-    const offset = (page - 1) * limit;
-    const { weekStartStr, weekEndStr } = this.resolveWeekRange(
-      options?.weekStart,
-    );
+  modality?: Modality;
+  onlyAvailable?: boolean;
+  page?: number;
+  limit?: number;
+  weekStart?: string;
+}): Promise<{
+  tutors: Array<{
+    tutorId: string;
+    tutorName: string;
+    totalSlots: number;
+    availableSlots: number;
+    modalities: Modality[];
+  }>;
+  total: number;
+  weekReference: string;
+}> {
+  const page = options?.page ?? 1;
+  const limit = options?.limit ?? 10;
+  const offset = (page - 1) * limit;
+  const { weekStartStr, weekEndStr } = this.resolveWeekRange(options?.weekStart);
 
-    // 1. Obtener todos los tutores activos con disponibilidad
-    const tutorsWithAvailability = await this.tutorHaveAvailabilityRepository
-      .createQueryBuilder('tha')
-      .innerJoinAndSelect('tha.tutor', 'tutor')
-      .innerJoinAndSelect('tutor.user', 'user')
-      .innerJoinAndSelect('tha.availability', 'availability')
-      .where('tutor.isActive = :isActive', { isActive: true })
-      .andWhere('tutor.profile_completed = :completed', { completed: true })
-      .orderBy('user.name', 'ASC')
-      .addOrderBy('tutor.idUser', 'ASC')
-      .getMany();
+  // ← Extraer aquí para que TypeScript la infiera como Modality (no Modality | undefined)
+  //   en todos los usos posteriores dentro del método.
+  const modalityFilter = options?.modality;
 
-    if (tutorsWithAvailability.length === 0) {
-      return {
-        tutors: [],
-        total: 0,
-        weekReference: weekStartStr,
-      };
+  const tutorsWithAvailability = await this.tutorHaveAvailabilityRepository
+    .createQueryBuilder('tha')
+    .innerJoinAndSelect('tha.tutor', 'tutor')
+    .innerJoinAndSelect('tutor.user', 'user')
+    .innerJoinAndSelect('tha.availability', 'availability')
+    .where('tutor.isActive = :isActive', { isActive: true })
+    .andWhere('tutor.profile_completed = :completed', { completed: true })
+    .orderBy('user.name', 'ASC')
+    .addOrderBy('tutor.idUser', 'ASC')
+    .getMany();
+
+  if (tutorsWithAvailability.length === 0) {
+    return { tutors: [], total: 0, weekReference: weekStartStr };
+  }
+
+  const tutorMap = new Map<
+    string,
+    { tutorId: string; tutorName: string; slots: TutorHaveAvailability[] }
+  >();
+
+  for (const ta of tutorsWithAvailability) {
+    if (!tutorMap.has(ta.idTutor)) {
+      tutorMap.set(ta.idTutor, {
+        tutorId: ta.idTutor,
+        tutorName: ta.tutor.user.name,
+        slots: [],
+      });
+    }
+    tutorMap.get(ta.idTutor)!.slots.push(ta);
+  }
+
+  const allTutorIds = Array.from(tutorMap.keys());
+  const occupiedRangesByTutor = await this.buildOccupiedRangesForTutors(
+    allTutorIds,
+    weekStartStr,
+    weekEndStr,
+  );
+
+  const eligibleTutorIds: string[] = [];
+
+  for (const tutorId of allTutorIds) {
+    const tutor = tutorMap.get(tutorId)!;
+    const occupied = occupiedRangesByTutor.get(tutorId) ?? [];
+
+    // ← Usar modalityFilter (ya tipada como Modality | undefined, no como propiedad de options)
+    let slots = tutor.slots;
+    if (modalityFilter) {
+      slots = slots.filter((s) => (s.modality ?? []).includes(modalityFilter));
     }
 
-    // 2. Agrupar slots por tutor
-    const tutorMap = new Map<
-      string,
-      { tutorId: string; tutorName: string; slots: TutorHaveAvailability[] }
-    >();
+    if (slots.length === 0) continue;
 
-    for (const ta of tutorsWithAvailability) {
-      if (!tutorMap.has(ta.idTutor)) {
-        tutorMap.set(ta.idTutor, {
-          tutorId: ta.idTutor,
-          tutorName: ta.tutor.user.name,
-          slots: [],
-        });
-      }
-      tutorMap.get(ta.idTutor)!.slots.push(ta);
-    }
+    const availableCount = slots.filter(
+      (s) =>
+        !this.isSlotOccupiedByBlock(
+          s.availability.startTime,
+          s.availability.dayOfWeek,
+          occupied,
+        ),
+    ).length;
 
-    // 3. Obtener rangos ocupados para todos los tutores
-    const allTutorIds = Array.from(tutorMap.keys());
-    const occupiedRangesByTutor = await this.buildOccupiedRangesForTutors(
-      allTutorIds,
-      weekStartStr,
-      weekEndStr,
-    );
+    if (options?.onlyAvailable && availableCount === 0) continue;
 
-    // 4. Filtrar tutores elegibles (aplica onlyAvailable y modality)
-    const eligibleTutorIds: string[] = [];
+    eligibleTutorIds.push(tutorId);
+  }
 
-    for (const tutorId of allTutorIds) {
-      const tutor = tutorMap.get(tutorId)!;
-      const occupied = occupiedRangesByTutor.get(tutorId) ?? [];
+  const total = eligibleTutorIds.length;
+  const pagedIds = eligibleTutorIds.slice(offset, offset + limit);
+
+  if (pagedIds.length === 0) {
+    return { tutors: [], total, weekReference: weekStartStr };
+  }
+
+  const tutors = pagedIds
+    .filter((id) => tutorMap.has(id))
+    .map((id) => {
+      const tutor = tutorMap.get(id)!;
+      const occupied = occupiedRangesByTutor.get(id) ?? [];
 
       let slots = tutor.slots;
-      if (options?.modality) {
-        slots = slots.filter((s) =>
-          (s.modality ?? []).includes(options.modality),
-        );
+      if (modalityFilter) {
+        // ← Mismo uso de modalityFilter extraída
+        slots = slots.filter((s) => (s.modality ?? []).includes(modalityFilter));
       }
 
-      if (slots.length === 0) continue;
-
+      const totalSlots = slots.length;
       const availableCount = slots.filter(
         (s) =>
           !this.isSlotOccupiedByBlock(
@@ -589,65 +616,21 @@ export class AvailabilityService {
           ),
       ).length;
 
-      if (options?.onlyAvailable && availableCount === 0) continue;
+      const modalities = [
+        ...new Set(slots.flatMap((s) => s.modality ?? [])),
+      ] as Modality[];
 
-      eligibleTutorIds.push(tutorId);
-    }
-
-    const total = eligibleTutorIds.length;
-    const pagedIds = eligibleTutorIds.slice(offset, offset + limit);
-
-    if (pagedIds.length === 0) {
       return {
-        tutors: [],
-        total,
-        weekReference: weekStartStr,
+        tutorId: tutor.tutorId,
+        tutorName: tutor.tutorName,
+        totalSlots,
+        availableSlots: availableCount,
+        modalities,
       };
-    }
+    });
 
-    // 5. Construir respuesta para la página
-    const tutors = pagedIds
-      .filter((id) => tutorMap.has(id))
-      .map((id) => {
-        const tutor = tutorMap.get(id)!;
-        const occupied = occupiedRangesByTutor.get(id) ?? [];
-
-        let slots = tutor.slots;
-        if (options?.modality) {
-          slots = slots.filter((s) =>
-            (s.modality ?? []).includes(options.modality),
-          );
-        }
-
-        const totalSlots = slots.length;
-        const availableCount = slots.filter(
-          (s) =>
-            !this.isSlotOccupiedByBlock(
-              s.availability.startTime,
-              s.availability.dayOfWeek,
-              occupied,
-            ),
-        ).length;
-
-        const modalities = [
-          ...new Set(slots.flatMap((s) => s.modality ?? [])),
-        ];
-
-        return {
-          tutorId: tutor.tutorId,
-          tutorName: tutor.tutorName,
-          totalSlots,
-          availableSlots: availableCount,
-          modalities,
-        };
-      });
-
-    return {
-      tutors,
-      total,
-      weekReference: weekStartStr,
-    };
-  }
+  return { tutors, total, weekReference: weekStartStr };
+}
 
   async getTutorsBySubjectWithAvailability(
     subjectId: string,
