@@ -212,6 +212,7 @@ export class SessionValidationService {
     availabilityId: number,
     scheduledDate: string,
     durationHours: number,
+    requestedModality: Modality,
     excludeSessionId?: string,
   ): Promise<void> {
     const result =
@@ -220,6 +221,7 @@ export class SessionValidationService {
         availabilityId,
         scheduledDate,
         durationHours,
+        requestedModality,
         excludeSessionId,
       );
 

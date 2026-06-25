@@ -119,6 +119,7 @@ export class SessionService {
       dto.availabilityId,
       dto.scheduledDate,
       dto.durationHours,
+      dto.modality,
       // Sin excludeSessionId: es una sesión nueva, no hay nada que excluir.
     );
 
@@ -684,6 +685,10 @@ export class SessionService {
       throw new BadRequestException('Debes proponer al menos un cambio');
     }
 
+    const hasTimeChange = Boolean(
+      dto.newScheduledDate || dto.newAvailabilityId || dto.newDurationHours,
+    );
+
     // ========================================
     // VALIDACIONES DE CAMBIO TEMPORAL
     // ========================================
@@ -719,6 +724,8 @@ export class SessionService {
         newDate,
       );
 
+      const effectiveModality = dto.newModality ?? session.modality;
+
       // ========================================
       // VALIDACIÓN DE DISPONIBILIDAD + DURACIÓN
       // ========================================
@@ -727,6 +734,7 @@ export class SessionService {
         effectiveAvailabilityId,
         newDate,
         newDuration,
+        effectiveModality,
         session.idSession,
       );
 
@@ -791,7 +799,7 @@ export class SessionService {
     // ========================================
     // Si se propone cambiar la modalidad sin cambiar el slot,
     // igual hay que validar que la disponibilidad ACTUAL soporte esa modalidad
-    if (dto.newModality && !dto.newAvailabilityId) {
+    if (dto.newModality && !dto.newAvailabilityId && !hasTimeChange) {
       const currentScheduledSession =
         await this.scheduledSessionRepository.findOne({
           where: { idSession: sessionId },
@@ -807,6 +815,15 @@ export class SessionService {
         currentScheduledSession.idAvailability,
         session.idTutor,
         dto.newModality,
+      );
+
+      await this.validationService.validateAvailabilitySlotWithDuration(
+        session.idTutor,
+        currentScheduledSession.idAvailability,
+        session.scheduledDate,
+        this.calcDuration(session),
+        dto.newModality,
+        session.idSession,
       );
     }
 
@@ -1014,6 +1031,8 @@ export class SessionService {
         scheduledSession.idAvailability = pendingRequest.newAvailabilityId;
       }
 
+      const effectiveModality = pendingRequest.newModality ?? session.modality;
+
       // Re-validar disponibilidad al momento de aceptar.
       // Pueden haber pasado hasta 24h desde que se propuso: alguien más pudo
       // haber reservado ese slot en ese tiempo.
@@ -1022,6 +1041,7 @@ export class SessionService {
         scheduledSession.idAvailability,
         newDate,
         newDuration,
+        effectiveModality,
         session.idSession, // excluir la sesión actual
       );
 
