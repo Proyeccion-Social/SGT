@@ -1422,6 +1422,9 @@ export class AvailabilityService {
       options?.weekStart,
     );
 
+    //Extraer para evitar el error de TypeScript en todos los usos posteriores
+    const modalityFilter = options?.modality;
+
     // 1. Obtener todos los tutores activos con disponibilidad (con filtro por materias si aplica)
     let query = this.tutorHaveAvailabilityRepository
       .createQueryBuilder('tha')
@@ -1482,32 +1485,30 @@ export class AvailabilityService {
     // 4. Filtrar tutores elegibles
     const eligibleTutorIds: string[] = [];
 
-    for (const tutorId of allTutorIds) {
-      const tutor = tutorMap.get(tutorId)!;
-      const occupied = occupiedRangesByTutor.get(tutorId) ?? [];
+  for (const tutorId of allTutorIds) {
+    const tutor = tutorMap.get(tutorId)!;
+    const occupied = occupiedRangesByTutor.get(tutorId) ?? [];
 
-      let slots = tutor.slots;
-      if (options?.modality) {
-        slots = slots.filter((s) =>
-          (s.modality ?? []).includes(options.modality),
-        );
-      }
-
-      if (slots.length === 0) continue;
-
-      const availableCount = slots.filter(
-        (s) =>
-          !this.isSlotOccupiedByBlock(
-            s.availability.startTime,
-            s.availability.dayOfWeek,
-            occupied,
-          ),
-      ).length;
-
-      if (options?.onlyAvailable && availableCount === 0) continue;
-
-      eligibleTutorIds.push(tutorId);
+    let slots = tutor.slots;
+    if (modalityFilter) {
+      // ← Fix: modalityFilter en lugar de options.modality
+      slots = slots.filter((s) => (s.modality ?? []).includes(modalityFilter));
     }
+
+    if (slots.length === 0) continue;
+
+    const availableCount = slots.filter(
+      (s) =>
+        !this.isSlotOccupiedByBlock(
+          s.availability.startTime,
+          s.availability.dayOfWeek,
+          occupied,
+        ),
+    ).length;
+
+    if (options?.onlyAvailable && availableCount === 0) continue;
+    eligibleTutorIds.push(tutorId);
+  }
 
     const total = eligibleTutorIds.length;
     const pagedIds = eligibleTutorIds.slice(offset, offset + limit);
@@ -1529,11 +1530,12 @@ export class AvailabilityService {
           const occupied = occupiedRangesByTutor.get(id) ?? [];
 
           let slots = tutor.slots;
-          if (options?.modality) {
-            slots = slots.filter((s) =>
-              (s.modality ?? []).includes(options.modality),
-            );
-          }
+          if (modalityFilter) {
+          // Fix: modalityFilter en lugar de options.modality
+          slots = slots.filter((s) =>
+            (s.modality ?? []).includes(modalityFilter),
+          );
+        }
 
           const groupedByDay = {} as Record<DayOfWeek, AvailabilitySlot[]>;
 
