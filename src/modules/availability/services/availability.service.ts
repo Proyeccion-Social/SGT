@@ -697,6 +697,7 @@ export class AvailabilityService {
     const { weekStartStr, weekEndStr } = this.resolveWeekRange(
       options?.weekStart,
     );
+    const modalityFilter = options?.modality;
 
     // 1. IDs elegibles - filtrar por una o más materias
     const eligibleTutorsQuery = this.tutorHaveAvailabilityRepository
@@ -778,11 +779,11 @@ export class AvailabilityService {
       .innerJoinAndSelect('tha.availability', 'availability')
       .where('tha.id_tutor IN (:...pagedIds)', { pagedIds });
 
-    if (options?.modality) {
-      slotsQuery.andWhere(':modality = ANY(tha.modality)', {
-        modality: options.modality,
-      });
-    }
+    if (modalityFilter) {
+    slotsQuery.andWhere(':modality = ANY(tha.modality)', {
+      modality: modalityFilter, // ← usar modalityFilter
+    });
+  }
 
     const slots = await slotsQuery.getMany();
 
