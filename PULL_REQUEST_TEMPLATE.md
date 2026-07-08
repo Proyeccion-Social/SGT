@@ -1,3 +1,5 @@
+_Para las preguntas que requieren de respuesta, añadirla en la descripción de la PR. Por ejemplo, "¿Qué cambia?", "Describe brevemente los casos probados", etc._
+
 ## Contexto
 <!-- Link al issue y/o spec con criterios de aceptación. Si no existe spec, este PR no debería abrirse todavía. -->
 Issue/Spec: #___
