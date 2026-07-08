@@ -1,3 +1,11 @@
+---
+name: Backend Spec
+about: Crear una especificación para tareas de backend
+title: "[Backend] "
+labels: ["backend"]
+assignees: []
+---
+
 ## Título
 
 

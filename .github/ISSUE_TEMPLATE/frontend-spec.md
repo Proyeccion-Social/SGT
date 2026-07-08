@@ -1,3 +1,18 @@
+---
+
+name: Frontend Spec
+
+about: Crear una especificación para tareas de frontend
+
+title: "[Frontend] "
+
+labels: ["frontend"]
+
+assignees: []
+
+---
+
+
 ## Título
 
 
