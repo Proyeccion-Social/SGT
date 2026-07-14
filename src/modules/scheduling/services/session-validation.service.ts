@@ -411,6 +411,55 @@ export class SessionValidationService {
     }
   }
 
+// ─────────────────────────────────────────────────────────────────────────
+// NUEVO — Conflicto de horario del ESTUDIANTE (no del tutor)
+//
+// Necesario para unirse a sesiones grupales: un estudiante no debe poder
+// unirse a dos sesiones que se solapen en el tiempo, sin importar el tutor.
+// Antes de sesiones grupales esto no hacía falta porque un estudiante solo
+// podía tener una sesión activa a la vez por construcción del flujo
+// individual (una solicitud = una sesión = un estudiante).
+// ─────────────────────────────────────────────────────────────────────────
+
+async validateStudentNoTimeConflict(
+  studentId: string,
+  scheduledDate: string, // 'YYYY-MM-DD'
+  startTime: string,
+  durationHours: number,
+): Promise<void> {
+  const endTime = this.calculateEndTime(startTime, durationHours);
+
+  const conflictingParticipations = await this.sessionRepository
+    .createQueryBuilder('session')
+    .innerJoin(
+      'student_participate_session',
+      'participation',
+      'participation.id_session = session.id_session',
+    )
+    .where('participation.id_student = :studentId', { studentId })
+    .andWhere('DATE(session.scheduledDate) = :scheduledDate', {
+      scheduledDate,
+    })
+    .andWhere('session.status IN (:...activeStatuses)', {
+      activeStatuses: [
+        SessionStatus.SCHEDULED,
+        SessionStatus.PENDING_MODIFICATION,
+      ],
+    })
+    .getMany();
+
+  for (const session of conflictingParticipations) {
+    const overlaps =
+      startTime < session.endTime && endTime > session.startTime;
+    if (overlaps) {
+      throw new BadRequestException(
+        `Ya tienes una sesión de ${session.startTime} a ${session.endTime} el ${scheduledDate}. ` +
+          `No puedes unirte a otra sesión que se solape con ese horario.`,
+      );
+    }
+  }
+}
+
   // ─────────────────────────────────────────────────────────────────────────
   // HU-21.1.1 — Cancelación con ≥ 24h de anticipación
   // ─────────────────────────────────────────────────────────────────────────
