@@ -28,6 +28,7 @@ import { UpdateSessionDetailsDto } from '../dto/update-session-details.dto';
 import { RejectSessionDto } from '../dto/reject-session.dto';
 import { ConfirmSessionDto } from '../dto/confirm-session.dto';
 import { SessionFilterDto } from '../dto/session-filter.dto';
+import { CreateGroupSessionDto } from '../dto/create-group-session.dto';
 
 @Controller('scheduling/sessions')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -39,7 +40,7 @@ import { SessionFilterDto } from '../dto/session-filter.dto';
   }),
 )
 export class SessionController {
-  constructor(private readonly sessionService: SessionService) {}
+  constructor(private readonly sessionService: SessionService) { }
 
   // ========================================
   // RF-19, RF-20: CREAR SESIÓN INDIVIDUAL
@@ -57,6 +58,24 @@ export class SessionController {
     @Body() dto: CreateIndividualSessionDto,
   ) {
     return await this.sessionService.createIndividualSession(user.idUser, dto);
+  }
+
+  // ========================================
+  // CREAR SESIÓN GRUPAL
+  // ========================================
+
+  /**
+ * POST /api/scheduling/sessions/group
+ * Crear sesión grupal (solo estudiantes) — el creador es el primer participante
+ */
+  @Post('group')
+  @Roles(UserRole.STUDENT)
+  @HttpCode(HttpStatus.CREATED)
+  async createGroupSession(
+    @CurrentUser() user: User,
+    @Body() dto: CreateGroupSessionDto,
+  ) {
+    return await this.sessionService.createGroupSession(user.idUser, dto);
   }
 
   // ========================================
