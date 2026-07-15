@@ -40,7 +40,7 @@ import { CreateGroupSessionDto } from '../dto/create-group-session.dto';
   }),
 )
 export class SessionController {
-  constructor(private readonly sessionService: SessionService) { }
+  constructor(private readonly sessionService: SessionService) {}
 
   // ========================================
   // RF-19, RF-20: CREAR SESIÓN INDIVIDUAL
@@ -65,9 +65,9 @@ export class SessionController {
   // ========================================
 
   /**
- * POST /api/scheduling/sessions/group
- * Crear sesión grupal (solo estudiantes) — el creador es el primer participante
- */
+   * POST /api/scheduling/sessions/group
+   * Crear sesión grupal (solo estudiantes) — el creador es el primer participante
+   */
   @Post('group')
   @Roles(UserRole.STUDENT)
   @HttpCode(HttpStatus.CREATED)
@@ -79,9 +79,9 @@ export class SessionController {
   }
 
   /**
- * POST /api/scheduling/sessions/:id/join
- * Unirse a una sesión grupal ya confirmada (solo estudiantes)
- */
+   * POST /api/scheduling/sessions/:id/join
+   * Unirse a una sesión grupal ya confirmada (solo estudiantes)
+   */
   @Post(':id/join')
   @Roles(UserRole.STUDENT)
   @HttpCode(HttpStatus.OK)

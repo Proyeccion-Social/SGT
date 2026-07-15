@@ -64,7 +64,7 @@ export class SessionService {
     private readonly userService: UserService,
     private readonly subjectsService: SubjectsService,
     private readonly notificationsService: NotificationsService,
-  ) { }
+  ) {}
 
   // ═══════════════════════════════════════════════════════════════════════════
   // RF-19 / RF-20: CREAR SESIÓN INDIVIDUAL
@@ -397,7 +397,7 @@ export class SessionService {
             !dayScheduled.session ||
             (dayScheduled.session.status !== SessionStatus.SCHEDULED &&
               dayScheduled.session.status !==
-              SessionStatus.PENDING_MODIFICATION)
+                SessionStatus.PENDING_MODIFICATION)
           ) {
             return total;
           }
@@ -641,7 +641,8 @@ export class SessionService {
 
       return {
         success: true,
-        message: 'Abandonaste la sesión grupal exitosamente. La sesión continúa para los demás participantes.',
+        message:
+          'Abandonaste la sesión grupal exitosamente. La sesión continúa para los demás participantes.',
       };
     }
 
@@ -712,7 +713,7 @@ export class SessionService {
     if (session.type === SessionType.GROUP) {
       throw new BadRequestException(
         'Las sesiones grupales no admiten propuestas de modificación de horario. ' +
-        'Si necesitas otro horario, cancela tu participación y busca otra sesión disponible.',
+          'Si necesitas otro horario, cancela tu participación y busca otra sesión disponible.',
       );
     }
 
@@ -1239,33 +1240,33 @@ export class SessionService {
     const changes = [
       dto.title !== undefined && dto.title !== previousDetails.title
         ? {
-          label: 'Título',
-          previous: previousDetails.title,
-          current: session.title,
-        }
+            label: 'Título',
+            previous: previousDetails.title,
+            current: session.title,
+          }
         : null,
       dto.description !== undefined &&
-        dto.description !== previousDetails.description
+      dto.description !== previousDetails.description
         ? {
-          label: 'Descripción',
-          previous: previousDetails.description,
-          current: session.description,
-        }
+            label: 'Descripción',
+            previous: previousDetails.description,
+            current: session.description,
+          }
         : null,
       dto.location !== undefined && dto.location !== previousDetails.location
         ? {
-          label: 'Ubicación',
-          previous: previousDetails.location,
-          current: session.location ?? null,
-        }
+            label: 'Ubicación',
+            previous: previousDetails.location,
+            current: session.location ?? null,
+          }
         : null,
       dto.virtualLink !== undefined &&
-        dto.virtualLink !== previousDetails.virtualLink
+      dto.virtualLink !== previousDetails.virtualLink
         ? {
-          label: 'Enlace virtual',
-          previous: previousDetails.virtualLink,
-          current: session.virtualLink ?? null,
-        }
+            label: 'Enlace virtual',
+            previous: previousDetails.virtualLink,
+            current: session.virtualLink ?? null,
+          }
         : null,
     ].filter(
       (
@@ -1439,10 +1440,7 @@ export class SessionService {
   // SESIONES GRUPALES
   // ═══════════════════════════════════════════════════════════════════════════
 
-  async createGroupSession(
-    studentId: string,
-    dto: CreateGroupSessionDto,
-  ) {
+  async createGroupSession(studentId: string, dto: CreateGroupSessionDto) {
     // ── Validaciones de dominio (idénticas a createIndividualSession) ──────
 
     this.validationService.validateStudentNotTutor(studentId, dto.tutorId);
@@ -1518,7 +1516,10 @@ export class SessionService {
           scheduledDate: new Date(dto.scheduledDate),
         })
         .andWhere('session.status IN (:...statuses)', {
-          statuses: [SessionStatus.SCHEDULED, SessionStatus.PENDING_MODIFICATION],
+          statuses: [
+            SessionStatus.SCHEDULED,
+            SessionStatus.PENDING_MODIFICATION,
+          ],
         })
         .setLock('pessimistic_write')
         .getMany();
@@ -1545,7 +1546,9 @@ export class SessionService {
         .andWhere('ss.scheduledDate = :scheduledDate', {
           scheduledDate: new Date(dto.scheduledDate),
         })
-        .andWhere('session.status = :status', { status: SessionStatus.SCHEDULED })
+        .andWhere('session.status = :status', {
+          status: SessionStatus.SCHEDULED,
+        })
         .setLock('pessimistic_write')
         .getOne();
 
@@ -1568,10 +1571,11 @@ export class SessionService {
         description: dto.description,
         tutorConfirmed: false,
         maxParticipants: dto.maxParticipants ?? 30,
-        confirmationExpiresAt: this.validationService.calculateConfirmationExpiry(
-          dto.scheduledDate,
-          startTime,
-        ),
+        confirmationExpiresAt:
+          this.validationService.calculateConfirmationExpiry(
+            dto.scheduledDate,
+            startTime,
+          ),
       });
 
       const savedSession = await queryRunner.manager.save(session);
@@ -1603,7 +1607,8 @@ export class SessionService {
 
       return {
         success: true,
-        message: 'Solicitud de sesión grupal enviada al tutor. Recibirás una notificación cuando confirme.',
+        message:
+          'Solicitud de sesión grupal enviada al tutor. Recibirás una notificación cuando confirme.',
         session: await this.getSessionById(savedSession.idSession),
       };
     } catch (error) {
@@ -1799,76 +1804,76 @@ export class SessionService {
   }
 
   private mapToDetailedDto(session: Session): any {
-  return {
-    id: session.idSession,
-    tutor: {
-      id: session.tutor.idUser,
-      name: session.tutor.user.name,
-      photo: session.tutor.urlImage,
-    },
-    subject: { id: session.subject.idSubject, name: session.subject.name },
-    scheduledDate: session.scheduledDate,
-    startTime: session.startTime,
-    endTime: session.endTime,
-    duration: this.calcDuration(session),
-    type: session.type,
-    modality: session.modality,
-    location: session.location,
-    virtualLink: session.virtualLink,
-    status: session.status,
-    title: session.title,
-    description: session.description,
-    // NUEVO — solo relevante cuando type = GROUP; null en sesiones individuales
-    maxParticipants: session.maxParticipants ?? null,
-    currentParticipants: session.studentParticipateSessions?.length ?? 0,
-    // Sin cambios: ya era un arreglo completo de estudiantes, no un solo participante
-    participants: session.studentParticipateSessions.map((p) => ({
-      id: p.student.idUser,
-      name: p.student.user.name,
-      status: p.status,
-      joinedAt: p.joinedAt, // NUEVO — útil para mostrar orden de llegada en el front
-    })),
-    createdAt: session.createdAt,
-    cancelledAt: session.cancelledAt,
-    cancellationReason: session.cancellationReason,
-  };
-}
-
-private mapToListDto(session: Session): any {
-  return {
-    id: session.idSession,
-    title: session.title,
-    description: session.description,
-    scheduledDate: session.scheduledDate,
-    startTime: session.startTime,
-    endTime: session.endTime,
-    duration: this.calcDuration(session),
-    type: session.type,
-    modality: session.modality,
-    location: session.location,
-    virtualLink: session.virtualLink,
-    status: session.status,
-    tutor: {
-      id: session.tutor.idUser,
-      name: session.tutor.user.name,
-      photo: session.tutor.urlImage,
-    },
-    subject: { id: session.subject.idSubject, name: session.subject.name },
-    // NUEVO — igual que en mapToDetailedDto
-    maxParticipants: session.maxParticipants ?? null,
-    currentParticipants: session.studentParticipateSessions?.length ?? 0,
-    participants:
-      session.studentParticipateSessions?.map((p) => ({
+    return {
+      id: session.idSession,
+      tutor: {
+        id: session.tutor.idUser,
+        name: session.tutor.user.name,
+        photo: session.tutor.urlImage,
+      },
+      subject: { id: session.subject.idSubject, name: session.subject.name },
+      scheduledDate: session.scheduledDate,
+      startTime: session.startTime,
+      endTime: session.endTime,
+      duration: this.calcDuration(session),
+      type: session.type,
+      modality: session.modality,
+      location: session.location,
+      virtualLink: session.virtualLink,
+      status: session.status,
+      title: session.title,
+      description: session.description,
+      // NUEVO — solo relevante cuando type = GROUP; null en sesiones individuales
+      maxParticipants: session.maxParticipants ?? null,
+      currentParticipants: session.studentParticipateSessions?.length ?? 0,
+      // Sin cambios: ya era un arreglo completo de estudiantes, no un solo participante
+      participants: session.studentParticipateSessions.map((p) => ({
         id: p.student.idUser,
         name: p.student.user.name,
         status: p.status,
-        joinedAt: p.joinedAt, // NUEVO
-      })) ?? [],
-    createdAt: session.createdAt,
-    cancelledAt: session.cancelledAt ?? null,
-    cancellationReason: session.cancellationReason ?? null,
-  };
-}
+        joinedAt: p.joinedAt, // NUEVO — útil para mostrar orden de llegada en el front
+      })),
+      createdAt: session.createdAt,
+      cancelledAt: session.cancelledAt,
+      cancellationReason: session.cancellationReason,
+    };
+  }
+
+  private mapToListDto(session: Session): any {
+    return {
+      id: session.idSession,
+      title: session.title,
+      description: session.description,
+      scheduledDate: session.scheduledDate,
+      startTime: session.startTime,
+      endTime: session.endTime,
+      duration: this.calcDuration(session),
+      type: session.type,
+      modality: session.modality,
+      location: session.location,
+      virtualLink: session.virtualLink,
+      status: session.status,
+      tutor: {
+        id: session.tutor.idUser,
+        name: session.tutor.user.name,
+        photo: session.tutor.urlImage,
+      },
+      subject: { id: session.subject.idSubject, name: session.subject.name },
+      // NUEVO — igual que en mapToDetailedDto
+      maxParticipants: session.maxParticipants ?? null,
+      currentParticipants: session.studentParticipateSessions?.length ?? 0,
+      participants:
+        session.studentParticipateSessions?.map((p) => ({
+          id: p.student.idUser,
+          name: p.student.user.name,
+          status: p.status,
+          joinedAt: p.joinedAt, // NUEVO
+        })) ?? [],
+      createdAt: session.createdAt,
+      cancelledAt: session.cancelledAt ?? null,
+      cancellationReason: session.cancellationReason ?? null,
+    };
+  }
 
   private resolveStatusFilter(filter?: SessionStatusFilter): {
     statuses: SessionStatus[] | undefined;
