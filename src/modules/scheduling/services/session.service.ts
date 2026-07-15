@@ -614,6 +614,37 @@ export class SessionService {
       );
     }
 
+    // ── NUEVO: rama de abandono para sesiones grupales ─────────────────────
+  //
+  // Si es un estudiante (no tutor, no admin) abandonando una sesión GRUPAL
+  // que tiene MÁS de un participante, la sesión continúa: solo se elimina
+  // su participación, sin afectar al resto ni liberar el slot.
+  const isGroupPartialLeave =
+    session.type === SessionType.GROUP &&
+    isParticipant &&
+    !isTutor &&
+    !isAdmin &&
+    session.studentParticipateSessions.length > 1;
+
+  if (isGroupPartialLeave) {
+    await this.studentParticipateRepository.delete({
+      idSession: sessionId,
+      idStudent: userId,
+    });
+
+    await this.fireAndLogNotifications([
+      this.notificationsService.sendGroupSessionParticipantLeft(
+        session,
+        userId,
+      ),
+    ]);
+
+    return {
+      success: true,
+      message: 'Abandonaste la sesión grupal exitosamente. La sesión continúa para los demás participantes.',
+    };
+  }
+
     session.status = isParticipant
       ? SessionStatus.CANCELLED_BY_STUDENT
       : isTutor
