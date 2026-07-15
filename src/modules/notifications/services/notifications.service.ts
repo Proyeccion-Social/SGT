@@ -1462,6 +1462,75 @@ export class NotificationsService {
     );
   }
 
+  /**
+ * Notifica al tutor y a los demás participantes que un estudiante
+ * abandonó una sesión grupal (la sesión continúa para el resto).
+ */
+async sendGroupSessionParticipantLeft(
+  session: Session,
+  leftStudentId: string,
+): Promise<void> {
+  try {
+    const leftParticipation = session.studentParticipateSessions?.find(
+      (p) => p.idStudent === leftStudentId,
+    );
+    const leftStudentName =
+      leftParticipation?.student?.user?.name ?? 'Un estudiante';
+    const subjectName = session.subject?.name ?? 'Materia';
+    const tutorName = session.tutor?.user?.name ?? 'Tutor';
+
+    const tutorEmail = await this.getUserEmail(session.idTutor);
+
+    const remainingStudentIds = (session.studentParticipateSessions ?? [])
+      .map((p) => p.idStudent)
+      .filter((id) => id !== leftStudentId);
+    const remainingEmails = await this.getUserEmails(remainingStudentIds);
+
+    const operations: LabeledOperation[] = [
+      {
+        label: 'persistencia',
+        context: `userId=${session.idTutor} type=SESSION_DETAILS_UPDATED`,
+        promise: this.appNotifications.create({
+          userId: session.idTutor,
+          type: AppNotificationType.SESSION_DETAILS_UPDATED,
+          message: `${leftStudentName} abandonó tu sesión grupal de ${subjectName}. La sesión continúa.`,
+          payload: { sessionId: session.idSession },
+        }),
+      },
+    ];
+
+    for (const participation of session.studentParticipateSessions ?? []) {
+      if (participation.idStudent === leftStudentId) continue;
+      const email = remainingEmails.get(participation.idStudent);
+      if (!email) continue;
+
+      operations.push({
+        label: 'persistencia',
+        context: `userId=${participation.idStudent} type=SESSION_DETAILS_UPDATED`,
+        promise: this.appNotifications.create({
+          userId: participation.idStudent,
+          type: AppNotificationType.SESSION_DETAILS_UPDATED,
+          message: `${leftStudentName} abandonó la sesión grupal de ${subjectName} con ${tutorName}. Tu sesión sigue programada normalmente.`,
+          payload: { sessionId: session.idSession },
+        }),
+      });
+    }
+
+    await this.settleAll(operations);
+
+    this.logger.log(
+      `Notificación de abandono de sesión grupal enviada — sesión ${session.idSession}`,
+    );
+  } catch (error) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    this.logger.error(
+      `Error en sendGroupSessionParticipantLeft: ${err.message}`,
+      err.stack,
+    );
+    throw error;
+  }
+}
+
   // =====================================================
   // HELPERS PRIVADOS - GENERACIÓN DE LINKS
   // =====================================================
