@@ -38,6 +38,7 @@ import { UserService } from '../../users/services/users.service';
 import { SubjectsService } from '../../subjects/services/subjects.service';
 import { NotificationsService } from '../../notifications/services/notifications.service';
 import { buildPaginatedResponse } from '../../common/helpers/pagination.helper';
+import { CreateGroupSessionDto } from '../dto/create-group-session.dto';
 
 @Injectable()
 export class SessionService {
@@ -1386,6 +1387,191 @@ export class SessionService {
       limit,
     );
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SESIONES GRUPALES
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  async createGroupSession(
+  studentId: string,
+  dto: CreateGroupSessionDto,
+) {
+  // ── Validaciones de dominio (idénticas a createIndividualSession) ──────
+
+  this.validationService.validateStudentNotTutor(studentId, dto.tutorId);
+  await this.tutorService.validateTutorActive(dto.tutorId);
+
+  const availability = await this.availabilityService.getAvailabilityById(
+    dto.availabilityId,
+  );
+  const startTime = availability.startTime;
+  const endTime = this.validationService.calculateEndTime(
+    startTime,
+    dto.durationHours,
+  );
+
+  await this.validationService.validateModality(
+    dto.availabilityId,
+    dto.tutorId,
+    dto.modality,
+  );
+
+  await this.validationService.validateScheduledDateMatchesSlotDay(
+    dto.availabilityId,
+    dto.scheduledDate,
+  );
+
+  this.validationService.validateMinimumBookingAdvance(
+    dto.scheduledDate,
+    startTime,
+  );
+
+  await this.validationService.validateAvailabilitySlotWithDuration(
+    dto.tutorId,
+    dto.availabilityId,
+    dto.scheduledDate,
+    dto.durationHours,
+    dto.modality,
+  );
+
+  await this.validationService.validateNoTimeConflict(
+    dto.tutorId,
+    dto.scheduledDate,
+    startTime,
+    dto.durationHours,
+  );
+
+  await this.validationService.validateWeeklyHoursLimit(
+    dto.tutorId,
+    dto.scheduledDate,
+    dto.durationHours,
+  );
+
+  // El estudiante creador tampoco puede tener otra sesión solapada
+  await this.validationService.validateStudentNoTimeConflict(
+    studentId,
+    dto.scheduledDate,
+    startTime,
+    dto.durationHours,
+  );
+
+  // ── Transacción con lock (idéntica lógica a createIndividualSession) ───
+
+  const queryRunner = this.dataSource.createQueryRunner();
+  await queryRunner.connect();
+  await queryRunner.startTransaction();
+
+  try {
+    const dailySessions = await queryRunner.manager
+      .createQueryBuilder(Session, 'session')
+      .innerJoin(ScheduledSession, 'ss', 'ss.idSession = session.idSession')
+      .select(['session.startTime', 'session.endTime'])
+      .where('ss.idTutor = :tutorId', { tutorId: dto.tutorId })
+      .andWhere('ss.scheduledDate = :scheduledDate', {
+        scheduledDate: new Date(dto.scheduledDate),
+      })
+      .andWhere('session.status IN (:...statuses)', {
+        statuses: [SessionStatus.SCHEDULED, SessionStatus.PENDING_MODIFICATION],
+      })
+      .setLock('pessimistic_write')
+      .getMany();
+
+    const existingDailyHours = dailySessions.reduce((sum, s) => {
+      const [sh, sm] = s.startTime.split(':').map(Number);
+      const [eh, em] = s.endTime.split(':').map(Number);
+      return sum + (eh * 60 + em - (sh * 60 + sm)) / 60;
+    }, 0);
+
+    if (existingDailyHours + dto.durationHours > 4) {
+      throw new BadRequestException(
+        'El tutor no puede superar 4 horas de sesiones en un mismo día.',
+      );
+    }
+
+    const confirmedInSlot = await queryRunner.manager
+      .createQueryBuilder(ScheduledSession, 'ss')
+      .innerJoin('ss.session', 'session')
+      .where('ss.idTutor = :tutorId', { tutorId: dto.tutorId })
+      .andWhere('ss.idAvailability = :availabilityId', {
+        availabilityId: dto.availabilityId,
+      })
+      .andWhere('ss.scheduledDate = :scheduledDate', {
+        scheduledDate: new Date(dto.scheduledDate),
+      })
+      .andWhere('session.status = :status', { status: SessionStatus.SCHEDULED })
+      .setLock('pessimistic_write')
+      .getOne();
+
+    if (confirmedInSlot) {
+      throw new BadRequestException(
+        'Esta franja ya fue confirmada para otra sesión. Por favor elige otro horario.',
+      );
+    }
+
+    const session = queryRunner.manager.create(Session, {
+      idTutor: dto.tutorId,
+      idSubject: dto.subjectId,
+      scheduledDate: dto.scheduledDate,
+      startTime,
+      endTime,
+      type: SessionType.GROUP,
+      modality: dto.modality,
+      status: SessionStatus.PENDING_TUTOR_CONFIRMATION,
+      title: dto.title,
+      description: dto.description,
+      tutorConfirmed: false,
+      maxParticipants: dto.maxParticipants ?? 30,
+      confirmationExpiresAt: this.validationService.calculateConfirmationExpiry(
+        dto.scheduledDate,
+        startTime,
+      ),
+    });
+
+    const savedSession = await queryRunner.manager.save(session);
+
+    await queryRunner.manager.save(
+      queryRunner.manager.create(ScheduledSession, {
+        idSession: savedSession.idSession,
+        idTutor: dto.tutorId,
+        idAvailability: dto.availabilityId,
+        scheduledDate: dto.scheduledDate,
+      }),
+    );
+
+    await queryRunner.manager.save(
+      queryRunner.manager.create(StudentParticipateSession, {
+        idStudent: studentId,
+        idSession: savedSession.idSession,
+        status: ParticipationStatus.CONFIRMED,
+        joinedAt: new Date(),
+      }),
+    );
+
+    await queryRunner.commitTransaction();
+
+    await this.fireAndLogNotifications([
+      this.sendTutorConfirmationRequestNotification(savedSession, studentId),
+      this.sendStudentRequestAckNotification(savedSession, studentId),
+    ]);
+
+    return {
+      success: true,
+      message: 'Solicitud de sesión grupal enviada al tutor. Recibirás una notificación cuando confirme.',
+      session: await this.getSessionById(savedSession.idSession),
+    };
+  } catch (error) {
+    await queryRunner.rollbackTransaction();
+    if (error.code === '23505') {
+      throw new BadRequestException(
+        'Esta franja ya está ocupada. Por favor elige otro horario.',
+      );
+    }
+    throw error;
+  } finally {
+    await queryRunner.release();
+  }
+}
+
 
   // ═══════════════════════════════════════════════════════════════════════════
   // HELPERS PRIVADOS — NOTIFICACIONES
