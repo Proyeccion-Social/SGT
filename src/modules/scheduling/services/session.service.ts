@@ -1681,6 +1681,25 @@ export class SessionService {
     }
   }
 
+  // Nuevo helper de notificación de sesion grupal
+  private async sendGroupJoinNotifications(
+    session: Session,
+    newStudentId: string,
+  ): Promise<void> {
+    const full = await this.getSessionById(session.idSession);
+    // Reutiliza sendSessionConfirmationStudent para el que se une
+    // (mismo contenido: "tu sesión está confirmada")
+    await this.notificationsService.sendSessionConfirmationStudent(
+      full,
+      newStudentId,
+    );
+    // Notifica al tutor de que alguien nuevo se unió
+    await this.notificationsService.sendSessionConfirmationTutor(
+      full,
+      session.idTutor,
+    );
+  }
+
   private async sendTutorConfirmationRequestNotification(
     session: Session,
     studentId: string,
