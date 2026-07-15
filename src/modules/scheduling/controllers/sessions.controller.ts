@@ -78,6 +78,20 @@ export class SessionController {
     return await this.sessionService.createGroupSession(user.idUser, dto);
   }
 
+  /**
+ * POST /api/scheduling/sessions/:id/join
+ * Unirse a una sesión grupal ya confirmada (solo estudiantes)
+ */
+  @Post(':id/join')
+  @Roles(UserRole.STUDENT)
+  @HttpCode(HttpStatus.OK)
+  async joinGroupSession(
+    @CurrentUser() user: User,
+    @Param('id') sessionId: string,
+  ) {
+    return await this.sessionService.joinGroupSession(user.idUser, sessionId);
+  }
+
   // ========================================
   // RF-20: CONFIRMAR SESIÓN (TUTOR)
   // ========================================
