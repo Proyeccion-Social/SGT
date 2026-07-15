@@ -615,35 +615,35 @@ export class SessionService {
     }
 
     // ── NUEVO: rama de abandono para sesiones grupales ─────────────────────
-  //
-  // Si es un estudiante (no tutor, no admin) abandonando una sesión GRUPAL
-  // que tiene MÁS de un participante, la sesión continúa: solo se elimina
-  // su participación, sin afectar al resto ni liberar el slot.
-  const isGroupPartialLeave =
-    session.type === SessionType.GROUP &&
-    isParticipant &&
-    !isTutor &&
-    !isAdmin &&
-    session.studentParticipateSessions.length > 1;
+    //
+    // Si es un estudiante (no tutor, no admin) abandonando una sesión GRUPAL
+    // que tiene MÁS de un participante, la sesión continúa: solo se elimina
+    // su participación, sin afectar al resto ni liberar el slot.
+    const isGroupPartialLeave =
+      session.type === SessionType.GROUP &&
+      isParticipant &&
+      !isTutor &&
+      !isAdmin &&
+      session.studentParticipateSessions.length > 1;
 
-  if (isGroupPartialLeave) {
-    await this.studentParticipateRepository.delete({
-      idSession: sessionId,
-      idStudent: userId,
-    });
+    if (isGroupPartialLeave) {
+      await this.studentParticipateRepository.delete({
+        idSession: sessionId,
+        idStudent: userId,
+      });
 
-    await this.fireAndLogNotifications([
-      this.notificationsService.sendGroupSessionParticipantLeft(
-        session,
-        userId,
-      ),
-    ]);
+      await this.fireAndLogNotifications([
+        this.notificationsService.sendGroupSessionParticipantLeft(
+          session,
+          userId,
+        ),
+      ]);
 
-    return {
-      success: true,
-      message: 'Abandonaste la sesión grupal exitosamente. La sesión continúa para los demás participantes.',
-    };
-  }
+      return {
+        success: true,
+        message: 'Abandonaste la sesión grupal exitosamente. La sesión continúa para los demás participantes.',
+      };
+    }
 
     session.status = isParticipant
       ? SessionStatus.CANCELLED_BY_STUDENT
@@ -697,6 +697,22 @@ export class SessionService {
     if (session.status !== SessionStatus.SCHEDULED) {
       throw new BadRequestException(
         'Solo puedes modificar sesiones en estado SCHEDULED',
+      );
+    }
+
+    if (session.status !== SessionStatus.SCHEDULED) {
+      throw new BadRequestException(
+        'Solo puedes modificar sesiones en estado SCHEDULED',
+      );
+    }
+
+    // NUEVO — Las sesiones grupales no admiten propuestas de modificación
+    // de horario/duración/modalidad, dado que requeriría consenso entre
+    // múltiples estudiantes. Solo INDIVIDUAL soporta este flujo.
+    if (session.type === SessionType.GROUP) {
+      throw new BadRequestException(
+        'Las sesiones grupales no admiten propuestas de modificación de horario. ' +
+        'Si necesitas otro horario, cancela tu participación y busca otra sesión disponible.',
       );
     }
 
