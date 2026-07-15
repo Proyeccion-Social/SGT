@@ -1829,37 +1829,41 @@ export class SessionService {
     };
   }
 
-  private mapToListDto(session: Session): any {
-    return {
-      id: session.idSession,
-      title: session.title,
-      description: session.description,
-      scheduledDate: session.scheduledDate,
-      startTime: session.startTime,
-      endTime: session.endTime,
-      duration: this.calcDuration(session),
-      type: session.type,
-      modality: session.modality,
-      location: session.location,
-      virtualLink: session.virtualLink,
-      status: session.status,
-      tutor: {
-        id: session.tutor.idUser,
-        name: session.tutor.user.name,
-        photo: session.tutor.urlImage,
-      },
-      subject: { id: session.subject.idSubject, name: session.subject.name },
-      participants:
-        session.studentParticipateSessions?.map((p) => ({
-          id: p.student.idUser,
-          name: p.student.user.name,
-          status: p.status,
-        })) ?? [],
-      createdAt: session.createdAt,
-      cancelledAt: session.cancelledAt ?? null,
-      cancellationReason: session.cancellationReason ?? null,
-    };
-  }
+  private mapToDetailedDto(session: Session): any {
+  return {
+    id: session.idSession,
+    tutor: {
+      id: session.tutor.idUser,
+      name: session.tutor.user.name,
+      photo: session.tutor.urlImage,
+    },
+    subject: { id: session.subject.idSubject, name: session.subject.name },
+    scheduledDate: session.scheduledDate,
+    startTime: session.startTime,
+    endTime: session.endTime,
+    duration: this.calcDuration(session),
+    type: session.type,
+    modality: session.modality,
+    location: session.location,
+    virtualLink: session.virtualLink,
+    status: session.status,
+    title: session.title,
+    description: session.description,
+    // NUEVO — solo relevante cuando type = GROUP; null en sesiones individuales
+    maxParticipants: session.maxParticipants ?? null,
+    currentParticipants: session.studentParticipateSessions?.length ?? 0,
+    // Sin cambios: ya era un arreglo completo de estudiantes, no un solo participante
+    participants: session.studentParticipateSessions.map((p) => ({
+      id: p.student.idUser,
+      name: p.student.user.name,
+      status: p.status,
+      joinedAt: p.joinedAt, // NUEVO — útil para mostrar orden de llegada en el front
+    })),
+    createdAt: session.createdAt,
+    cancelledAt: session.cancelledAt,
+    cancellationReason: session.cancellationReason,
+  };
+}
 
   private resolveStatusFilter(filter?: SessionStatusFilter): {
     statuses: SessionStatus[] | undefined;
