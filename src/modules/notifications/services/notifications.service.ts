@@ -1522,6 +1522,129 @@ export class NotificationsService {
   }
 
   // =====================================================
+  //  SESIÓN GRUPAL — Nuevo participante se unió
+  // =====================================================
+
+  /**
+   * Notifica al tutor y al estudiante que un nuevo participante
+   * se unió a una sesión grupal ya confirmada.
+   *
+   * A diferencia de sendSessionConfirmationStudent/Tutor, este método
+   * no comunica "sesión confirmada" (eso ya ocurrió antes), sino
+   * específicamente "alguien se sumó a tu sesión grupal".
+   */
+  async sendGroupSessionJoinedNotification(
+    session: any,
+    newStudentId: string,
+  ): Promise<void> {
+    try {
+      const newStudent = session.participants.find(
+        (p: any) => p.id === newStudentId,
+      );
+      const newStudentName = newStudent?.name ?? 'Un estudiante';
+      const tutorId = session.tutor.id;
+      const subjectName = session.subject.name;
+
+      const [tutorEmail, studentEmail] = await Promise.all([
+        this.getUserEmail(tutorId),
+        this.getUserEmail(newStudentId),
+      ]);
+
+      const currentParticipants = session.participants?.length ?? 1;
+      const maxParticipants = session.maxParticipants ?? 30;
+
+      // ── Notificación al tutor: alguien nuevo se unió ─────────────────────
+      const tutorHtml = this.renderTemplate(
+        'group-session-participant-joined',
+        {
+          tutorName: session.tutor.name,
+          newStudentName,
+          subjectName,
+          date: this.formatDate(session.scheduledDate),
+          startTime: session.startTime,
+          endTime: session.endTime,
+          title: session.title,
+          currentParticipants,
+          maxParticipants,
+          sessionDetailsUrl: `${this.frontendUrl}/tutor/sessions/${session.id}`,
+        },
+      );
+
+      // ── Notificación al estudiante: confirmación de que se unió ──────────
+      const studentHtml = this.renderTemplate(
+        'group-session-join-confirmation',
+        {
+          studentName: newStudentName,
+          tutorName: session.tutor.name,
+          subjectName,
+          date: this.formatDate(session.scheduledDate),
+          startTime: session.startTime,
+          endTime: session.endTime,
+          duration: session.duration,
+          modality: this.translateModality(session.modality),
+          title: session.title,
+          description: session.description,
+          sessionDetailsUrl: `${this.frontendUrl}/sessions/${session.id}`,
+          isVirtual: session.modality === 'VIRT',
+          virtualLink: session.virtualLink ?? null,
+        },
+      );
+
+      await this.settleAll([
+        {
+          label: 'email',
+          context: `tutor=${tutorId} sesión=${session.id} nuevoParticipante=${newStudentId}`,
+          promise: this.sqsEmail.send({
+            to: tutorEmail,
+            subject: `Nuevo estudiante en tu sesión grupal: ${subjectName}`,
+            html: tutorHtml,
+          }),
+        },
+        {
+          label: 'persistencia',
+          context: `userId=${tutorId} type=SESSION_DETAILS_UPDATED`,
+          promise: this.appNotifications.create({
+            userId: tutorId,
+            type: AppNotificationType.SESSION_DETAILS_UPDATED,
+            message: `${newStudentName} se unió a tu sesión grupal de ${subjectName} (${currentParticipants}/${maxParticipants})`,
+            payload: { sessionId: session.id },
+          }),
+        },
+        {
+          label: 'email',
+          context: `estudiante=${newStudentId} sesión=${session.id}`,
+          promise: this.sqsEmail.send({
+            to: studentEmail,
+            subject: `Te uniste a la sesión grupal — ${subjectName}`,
+            html: studentHtml,
+          }),
+        },
+        {
+          label: 'persistencia',
+          context: `userId=${newStudentId} type=SESSION_CONFIRMED`,
+          promise: this.appNotifications.create({
+            userId: newStudentId,
+            type: AppNotificationType.SESSION_CONFIRMED,
+            message: `Te uniste a la sesión grupal de ${subjectName} con ${session.tutor.name}`,
+            payload: { sessionId: session.id },
+          }),
+        },
+      ]);
+
+      this.logger.log(
+        `[RF-25] Notificación de nueva unión enviada — sesión ${session.id}, estudiante ${newStudentId}`,
+      );
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      this.logger.error(
+        `Error en sendGroupSessionJoinedNotification: ${err.message}`,
+        err.stack,
+      );
+      throw error;
+    }
+  }
+
+  // =====================================================
   // HELPERS PRIVADOS - GENERACIÓN DE LINKS
   // =====================================================
 
