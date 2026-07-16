@@ -1735,7 +1735,7 @@ export class SessionService {
     const full = await this.getSessionById(session.idSession);
     // Reutiliza sendSessionConfirmationStudent para el que se une
     // (mismo contenido: "tu sesión está confirmada")
-    await this.notificationsService.sendSessionConfirmationStudent(
+    await this.notificationsService.sendGroupSessionJoinedNotification(
       full,
       newStudentId,
     );
