@@ -701,11 +701,6 @@ export class SessionService {
       );
     }
 
-    if (session.status !== SessionStatus.SCHEDULED) {
-      throw new BadRequestException(
-        'Solo puedes modificar sesiones en estado SCHEDULED',
-      );
-    }
 
     // NUEVO — Las sesiones grupales no admiten propuestas de modificación
     // de horario/duración/modalidad, dado que requeriría consenso entre
