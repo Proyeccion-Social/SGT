@@ -1,4 +1,8 @@
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { SessionService } from './session.service';
 import { SessionStatus } from '../enums/session-status.enum';
 import { SessionType } from '../enums/session-type.enum';
@@ -141,10 +145,14 @@ describe('SessionService — Sesiones Grupales', () => {
     validationService = {
       validateStudentNotTutor: jest.fn(),
       validateModality: jest.fn().mockResolvedValue(undefined),
-      validateScheduledDateMatchesSlotDay: jest.fn().mockResolvedValue(undefined),
+      validateScheduledDateMatchesSlotDay: jest
+        .fn()
+        .mockResolvedValue(undefined),
       validateMinimumBookingAdvance: jest.fn(),
       validateModificationAdvanceTime: jest.fn(), // usado por proposeModification
-      validateAvailabilitySlotWithDuration: jest.fn().mockResolvedValue(undefined),
+      validateAvailabilitySlotWithDuration: jest
+        .fn()
+        .mockResolvedValue(undefined),
       validateNoTimeConflict: jest.fn().mockResolvedValue(undefined),
       validateStudentNoTimeConflict: jest.fn().mockResolvedValue(undefined),
       validateWeeklyHoursLimit: jest.fn().mockResolvedValue(undefined),
@@ -161,7 +169,9 @@ describe('SessionService — Sesiones Grupales', () => {
         startTime: '09:00',
       }),
     };
-    tutorService = { validateTutorActive: jest.fn().mockResolvedValue(undefined) };
+    tutorService = {
+      validateTutorActive: jest.fn().mockResolvedValue(undefined),
+    };
     userService = { isAdmin: jest.fn().mockResolvedValue(false) };
     subjectsService = {};
     notificationsService = {
@@ -205,7 +215,10 @@ describe('SessionService — Sesiones Grupales', () => {
     it('crea la sesión con type=GROUP y estado PENDING_TUTOR_CONFIRMATION', async () => {
       setupHappyPath();
 
-      const result = await service.createGroupSession('student-1', makeCreateGroupDto());
+      const result = await service.createGroupSession(
+        'student-1',
+        makeCreateGroupDto(),
+      );
 
       expect(qrManager.create).toHaveBeenCalledWith(
         expect.anything(),
@@ -247,12 +260,9 @@ describe('SessionService — Sesiones Grupales', () => {
 
       await service.createGroupSession('student-1', makeCreateGroupDto());
 
-      expect(validationService.validateStudentNoTimeConflict).toHaveBeenCalledWith(
-        'student-1',
-        FUTURE_DATE,
-        '09:00',
-        1,
-      );
+      expect(
+        validationService.validateStudentNoTimeConflict,
+      ).toHaveBeenCalledWith('student-1', FUTURE_DATE, '09:00', 1);
     });
 
     it('crea la primera participación (creador) con joinedAt', async () => {
@@ -278,9 +288,15 @@ describe('SessionService — Sesiones Grupales', () => {
       expect(validationService.validateStudentNotTutor).toHaveBeenCalled();
       expect(tutorService.validateTutorActive).toHaveBeenCalled();
       expect(validationService.validateModality).toHaveBeenCalled();
-      expect(validationService.validateScheduledDateMatchesSlotDay).toHaveBeenCalled();
-      expect(validationService.validateMinimumBookingAdvance).toHaveBeenCalled();
-      expect(validationService.validateAvailabilitySlotWithDuration).toHaveBeenCalled();
+      expect(
+        validationService.validateScheduledDateMatchesSlotDay,
+      ).toHaveBeenCalled();
+      expect(
+        validationService.validateMinimumBookingAdvance,
+      ).toHaveBeenCalled();
+      expect(
+        validationService.validateAvailabilitySlotWithDuration,
+      ).toHaveBeenCalled();
       expect(validationService.validateNoTimeConflict).toHaveBeenCalled();
       expect(validationService.validateWeeklyHoursLimit).toHaveBeenCalled();
     });
@@ -304,7 +320,10 @@ describe('SessionService — Sesiones Grupales', () => {
       );
 
       await expect(
-        service.createGroupSession('student-1', makeCreateGroupDto({ durationHours: 1 })),
+        service.createGroupSession(
+          'student-1',
+          makeCreateGroupDto({ durationHours: 1 }),
+        ),
       ).rejects.toThrow(BadRequestException);
     });
   });
@@ -316,12 +335,17 @@ describe('SessionService — Sesiones Grupales', () => {
   describe('joinGroupSession', () => {
     it('permite unirse exitosamente a una sesión grupal SCHEDULED con cupo disponible', async () => {
       const session = makeGroupSession();
-      qrManager.createQueryBuilder.mockReturnValueOnce(makeQb('getOne', session));
+      qrManager.createQueryBuilder.mockReturnValueOnce(
+        makeQb('getOne', session),
+      );
       qrManager.findOne.mockResolvedValueOnce(null); // no existingParticipation
       qrManager.count.mockResolvedValueOnce(1); // 1 participante actual
       sessionRepo.findOne.mockResolvedValue(session);
 
-      const result = await service.joinGroupSession('student-2', 'group-session-1');
+      const result = await service.joinGroupSession(
+        'student-2',
+        'group-session-1',
+      );
 
       expect(result.success).toBe(true);
       expect(qrManager.create).toHaveBeenCalledWith(
@@ -345,8 +369,12 @@ describe('SessionService — Sesiones Grupales', () => {
     });
 
     it('rechaza si la sesión no es de tipo GROUP', async () => {
-      const individualSession = makeGroupSession({ type: SessionType.INDIVIDUAL });
-      qrManager.createQueryBuilder.mockReturnValueOnce(makeQb('getOne', individualSession));
+      const individualSession = makeGroupSession({
+        type: SessionType.INDIVIDUAL,
+      });
+      qrManager.createQueryBuilder.mockReturnValueOnce(
+        makeQb('getOne', individualSession),
+      );
 
       await expect(
         service.joinGroupSession('student-2', 'group-session-1'),
@@ -357,7 +385,9 @@ describe('SessionService — Sesiones Grupales', () => {
       const pendingSession = makeGroupSession({
         status: SessionStatus.PENDING_TUTOR_CONFIRMATION,
       });
-      qrManager.createQueryBuilder.mockReturnValueOnce(makeQb('getOne', pendingSession));
+      qrManager.createQueryBuilder.mockReturnValueOnce(
+        makeQb('getOne', pendingSession),
+      );
 
       await expect(
         service.joinGroupSession('student-2', 'group-session-1'),
@@ -368,7 +398,9 @@ describe('SessionService — Sesiones Grupales', () => {
       const cancelledSession = makeGroupSession({
         status: SessionStatus.CANCELLED_BY_STUDENT,
       });
-      qrManager.createQueryBuilder.mockReturnValueOnce(makeQb('getOne', cancelledSession));
+      qrManager.createQueryBuilder.mockReturnValueOnce(
+        makeQb('getOne', cancelledSession),
+      );
 
       await expect(
         service.joinGroupSession('student-2', 'group-session-1'),
@@ -377,7 +409,9 @@ describe('SessionService — Sesiones Grupales', () => {
 
     it('rechaza si el tutor intenta unirse a su propia sesión', async () => {
       const session = makeGroupSession();
-      qrManager.createQueryBuilder.mockReturnValueOnce(makeQb('getOne', session));
+      qrManager.createQueryBuilder.mockReturnValueOnce(
+        makeQb('getOne', session),
+      );
 
       await expect(
         service.joinGroupSession('tutor-1', 'group-session-1'),
@@ -386,7 +420,9 @@ describe('SessionService — Sesiones Grupales', () => {
 
     it('rechaza si el estudiante ya es participante', async () => {
       const session = makeGroupSession();
-      qrManager.createQueryBuilder.mockReturnValueOnce(makeQb('getOne', session));
+      qrManager.createQueryBuilder.mockReturnValueOnce(
+        makeQb('getOne', session),
+      );
       qrManager.findOne.mockResolvedValueOnce({ idStudent: 'student-1' }); // ya participa
 
       await expect(
@@ -396,7 +432,9 @@ describe('SessionService — Sesiones Grupales', () => {
 
     it('rechaza si la sesión alcanzó su cupo máximo', async () => {
       const fullSession = makeGroupSession({ maxParticipants: 2 });
-      qrManager.createQueryBuilder.mockReturnValueOnce(makeQb('getOne', fullSession));
+      qrManager.createQueryBuilder.mockReturnValueOnce(
+        makeQb('getOne', fullSession),
+      );
       qrManager.findOne.mockResolvedValueOnce(null);
       qrManager.count.mockResolvedValueOnce(2); // ya al límite
 
@@ -407,38 +445,52 @@ describe('SessionService — Sesiones Grupales', () => {
 
     it('permite unirse cuando faltan cupos por llenar (justo antes del límite)', async () => {
       const session = makeGroupSession({ maxParticipants: 3 });
-      qrManager.createQueryBuilder.mockReturnValueOnce(makeQb('getOne', session));
+      qrManager.createQueryBuilder.mockReturnValueOnce(
+        makeQb('getOne', session),
+      );
       qrManager.findOne.mockResolvedValueOnce(null);
       qrManager.count.mockResolvedValueOnce(2); // 2 de 3, cabe uno más
       sessionRepo.findOne.mockResolvedValue(session);
 
-      const result = await service.joinGroupSession('student-3', 'group-session-1');
+      const result = await service.joinGroupSession(
+        'student-3',
+        'group-session-1',
+      );
 
       expect(result.success).toBe(true);
     });
 
     it('usa cupo por defecto de 30 si maxParticipants es null', async () => {
       const session = makeGroupSession({ maxParticipants: null });
-      qrManager.createQueryBuilder.mockReturnValueOnce(makeQb('getOne', session));
+      qrManager.createQueryBuilder.mockReturnValueOnce(
+        makeQb('getOne', session),
+      );
       qrManager.findOne.mockResolvedValueOnce(null);
       qrManager.count.mockResolvedValueOnce(29);
       sessionRepo.findOne.mockResolvedValue(session);
 
-      const result = await service.joinGroupSession('student-30', 'group-session-1');
+      const result = await service.joinGroupSession(
+        'student-30',
+        'group-session-1',
+      );
 
       expect(result.success).toBe(true);
     });
 
     it('valida que el estudiante no tenga conflicto de horario con otra sesión propia', async () => {
       const session = makeGroupSession();
-      qrManager.createQueryBuilder.mockReturnValueOnce(makeQb('getOne', session));
+      qrManager.createQueryBuilder.mockReturnValueOnce(
+        makeQb('getOne', session),
+      );
       qrManager.findOne.mockResolvedValueOnce(null);
       qrManager.count.mockResolvedValueOnce(1);
       sessionRepo.findOne.mockResolvedValue(session);
 
       await service.joinGroupSession('student-2', 'group-session-1');
 
-      expect(validationService.validateStudentNoTimeConflict).toHaveBeenCalledWith(
+      expect(
+        validationService.validateStudentNoTimeConflict,
+      ).toHaveBeenCalledWith(
         'student-2',
         session.scheduledDate,
         session.startTime,
@@ -448,7 +500,9 @@ describe('SessionService — Sesiones Grupales', () => {
 
     it('rechaza si el estudiante tiene conflicto de horario con otra sesión', async () => {
       const session = makeGroupSession();
-      qrManager.createQueryBuilder.mockReturnValueOnce(makeQb('getOne', session));
+      qrManager.createQueryBuilder.mockReturnValueOnce(
+        makeQb('getOne', session),
+      );
       qrManager.findOne.mockResolvedValueOnce(null);
       qrManager.count.mockResolvedValueOnce(1);
       validationService.validateStudentNoTimeConflict.mockRejectedValue(
@@ -463,21 +517,21 @@ describe('SessionService — Sesiones Grupales', () => {
 
     it('notifica al nuevo estudiante y al tutor tras unirse', async () => {
       const session = makeGroupSession();
-      qrManager.createQueryBuilder.mockReturnValueOnce(makeQb('getOne', session));
+      qrManager.createQueryBuilder.mockReturnValueOnce(
+        makeQb('getOne', session),
+      );
       qrManager.findOne.mockResolvedValueOnce(null);
       qrManager.count.mockResolvedValueOnce(1);
       sessionRepo.findOne.mockResolvedValue(session);
 
       await service.joinGroupSession('student-2', 'group-session-1');
 
-      expect(notificationsService.sendSessionConfirmationStudent).toHaveBeenCalledWith(
-        expect.anything(),
-        'student-2',
-      );
-      expect(notificationsService.sendSessionConfirmationTutor).toHaveBeenCalledWith(
-        expect.anything(),
-        'tutor-1',
-      );
+      expect(
+        notificationsService.sendSessionConfirmationStudent,
+      ).toHaveBeenCalledWith(expect.anything(), 'student-2');
+      expect(
+        notificationsService.sendSessionConfirmationTutor,
+      ).toHaveBeenCalledWith(expect.anything(), 'tutor-1');
     });
 
     it('adquiere lock pesimista sobre la sesión para serializar uniones concurrentes', async () => {
@@ -521,9 +575,13 @@ describe('SessionService — Sesiones Grupales', () => {
       const session = sessionWithTwoParticipants();
       sessionRepo.findOne.mockResolvedValue(session);
 
-      const result = await service.cancelSession('student-1', 'group-session-1', {
-        reason: 'no puedo asistir',
-      });
+      const result = await service.cancelSession(
+        'student-1',
+        'group-session-1',
+        {
+          reason: 'no puedo asistir',
+        },
+      );
 
       expect(result.message).toContain('Abandonaste');
       // No debe tocar la Session ni el ScheduledSession
@@ -540,22 +598,29 @@ describe('SessionService — Sesiones Grupales', () => {
       const session = sessionWithTwoParticipants();
       sessionRepo.findOne.mockResolvedValue(session);
 
-      await service.cancelSession('student-1', 'group-session-1', { reason: 'x' });
+      await service.cancelSession('student-1', 'group-session-1', {
+        reason: 'x',
+      });
 
-      expect(notificationsService.sendGroupSessionParticipantLeft).toHaveBeenCalledWith(
-        session,
-        'student-1',
-      );
-      expect(notificationsService.sendSessionCancellation).not.toHaveBeenCalled();
+      expect(
+        notificationsService.sendGroupSessionParticipantLeft,
+      ).toHaveBeenCalledWith(session, 'student-1');
+      expect(
+        notificationsService.sendSessionCancellation,
+      ).not.toHaveBeenCalled();
     });
 
     it('si es el último participante restante, cancela la sesión completa y libera el slot', async () => {
       const session = makeGroupSession(); // solo 1 participante
       sessionRepo.findOne.mockResolvedValue(session);
 
-      const result = await service.cancelSession('student-1', 'group-session-1', {
-        reason: 'x',
-      });
+      const result = await service.cancelSession(
+        'student-1',
+        'group-session-1',
+        {
+          reason: 'x',
+        },
+      );
 
       expect(session.status).toBe(SessionStatus.CANCELLED_BY_STUDENT);
       expect(sessionRepo.save).toHaveBeenCalled();
@@ -622,9 +687,13 @@ describe('SessionService — Sesiones Grupales', () => {
       });
       sessionRepo.findOne.mockResolvedValue(individualSession);
 
-      const result = await service.cancelSession('student-1', 'group-session-1', {
-        reason: 'x',
-      });
+      const result = await service.cancelSession(
+        'student-1',
+        'group-session-1',
+        {
+          reason: 'x',
+        },
+      );
 
       expect(individualSession.status).toBe(SessionStatus.CANCELLED_BY_STUDENT);
       expect(scheduledSessionRepo.delete).toHaveBeenCalled();
