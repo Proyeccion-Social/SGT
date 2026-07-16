@@ -1733,8 +1733,7 @@ export class SessionService {
     newStudentId: string,
   ): Promise<void> {
     const full = await this.getSessionById(session.idSession);
-    // Reutiliza sendSessionConfirmationStudent para el que se une
-    // (mismo contenido: "tu sesión está confirmada")
+    
     await this.notificationsService.sendGroupSessionJoinedNotification(
       full,
       newStudentId,
