@@ -1479,13 +1479,6 @@ export class NotificationsService {
       const subjectName = session.subject?.name ?? 'Materia';
       const tutorName = session.tutor?.user?.name ?? 'Tutor';
 
-      const tutorEmail = await this.getUserEmail(session.idTutor);
-
-      const remainingStudentIds = (session.studentParticipateSessions ?? [])
-        .map((p) => p.idStudent)
-        .filter((id) => id !== leftStudentId);
-      const remainingEmails = await this.getUserEmails(remainingStudentIds);
-
       const operations: LabeledOperation[] = [
         {
           label: 'persistencia',
@@ -1501,9 +1494,6 @@ export class NotificationsService {
 
       for (const participation of session.studentParticipateSessions ?? []) {
         if (participation.idStudent === leftStudentId) continue;
-        const email = remainingEmails.get(participation.idStudent);
-        if (!email) continue;
-
         operations.push({
           label: 'persistencia',
           context: `userId=${participation.idStudent} type=SESSION_DETAILS_UPDATED`,
