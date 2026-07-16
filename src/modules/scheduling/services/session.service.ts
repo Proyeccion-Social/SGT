@@ -1733,15 +1733,10 @@ export class SessionService {
     newStudentId: string,
   ): Promise<void> {
     const full = await this.getSessionById(session.idSession);
-    
+
     await this.notificationsService.sendGroupSessionJoinedNotification(
       full,
       newStudentId,
-    );
-    // Notifica al tutor de que alguien nuevo se unió
-    await this.notificationsService.sendSessionConfirmationTutor(
-      full,
-      session.idTutor,
     );
   }
 

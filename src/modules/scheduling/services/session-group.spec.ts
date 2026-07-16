@@ -179,7 +179,9 @@ describe('SessionService — Sesiones Grupales', () => {
       sendStudentSessionRequestAck: jest.fn().mockResolvedValue(undefined),
       sendSessionConfirmationStudent: jest.fn().mockResolvedValue(undefined),
       sendSessionConfirmationTutor: jest.fn().mockResolvedValue(undefined),
-      sendGroupSessionJoinedNotification: jest.fn().mockResolvedValue(undefined),
+      sendGroupSessionJoinedNotification: jest
+        .fn()
+        .mockResolvedValue(undefined),
       sendSessionCancellation: jest.fn().mockResolvedValue(undefined),
       sendGroupSessionParticipantLeft: jest.fn().mockResolvedValue(undefined),
       sendSessionRejection: jest.fn().mockResolvedValue(undefined),
@@ -517,23 +519,28 @@ describe('SessionService — Sesiones Grupales', () => {
     });
 
     it('notifica al nuevo estudiante y al tutor tras unirse', async () => {
-  const session = makeGroupSession();
-  qrManager.createQueryBuilder.mockReturnValueOnce(makeQb('getOne', session));
-  qrManager.findOne.mockResolvedValueOnce(null);
-  qrManager.count.mockResolvedValueOnce(1);
-  sessionRepo.findOne.mockResolvedValue(session);
+      const session = makeGroupSession();
+      qrManager.createQueryBuilder.mockReturnValueOnce(
+        makeQb('getOne', session),
+      );
+      qrManager.findOne.mockResolvedValueOnce(null);
+      qrManager.count.mockResolvedValueOnce(1);
+      sessionRepo.findOne.mockResolvedValue(session);
 
-  await service.joinGroupSession('student-2', 'group-session-1');
+      await service.joinGroupSession('student-2', 'group-session-1');
 
-  // Ya no se reutilizan los métodos de "confirmación" —
-  // ahora se usa el método dedicado a unión grupal
-  expect(notificationsService.sendGroupSessionJoinedNotification).toHaveBeenCalledWith(
-    expect.anything(),
-    'student-2',
-  );
-  expect(notificationsService.sendSessionConfirmationStudent).not.toHaveBeenCalled();
-  expect(notificationsService.sendSessionConfirmationTutor).not.toHaveBeenCalled();
-});
+      // Ya no se reutilizan los métodos de "confirmación" —
+      // ahora se usa el método dedicado a unión grupal
+      expect(
+        notificationsService.sendGroupSessionJoinedNotification,
+      ).toHaveBeenCalledWith(expect.anything(), 'student-2');
+      expect(
+        notificationsService.sendSessionConfirmationStudent,
+      ).not.toHaveBeenCalled();
+      expect(
+        notificationsService.sendSessionConfirmationTutor,
+      ).not.toHaveBeenCalled();
+    });
 
     it('adquiere lock pesimista sobre la sesión para serializar uniones concurrentes', async () => {
       const session = makeGroupSession();
