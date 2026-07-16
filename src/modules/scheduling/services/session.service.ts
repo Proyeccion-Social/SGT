@@ -701,7 +701,6 @@ export class SessionService {
       );
     }
 
-
     // NUEVO — Las sesiones grupales no admiten propuestas de modificación
     // de horario/duración/modalidad, dado que requeriría consenso entre
     // múltiples estudiantes. Solo INDIVIDUAL soporta este flujo.
