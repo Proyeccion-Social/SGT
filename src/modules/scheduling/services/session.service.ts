@@ -38,6 +38,7 @@ import { UserService } from '../../users/services/users.service';
 import { SubjectsService } from '../../subjects/services/subjects.service';
 import { NotificationsService } from '../../notifications/services/notifications.service';
 import { buildPaginatedResponse } from '../../common/helpers/pagination.helper';
+import { CreateGroupSessionDto } from '../dto/create-group-session.dto';
 
 @Injectable()
 export class SessionService {
@@ -613,6 +614,38 @@ export class SessionService {
       );
     }
 
+    // ── NUEVO: rama de abandono para sesiones grupales ─────────────────────
+    //
+    // Si es un estudiante (no tutor, no admin) abandonando una sesión GRUPAL
+    // que tiene MÁS de un participante, la sesión continúa: solo se elimina
+    // su participación, sin afectar al resto ni liberar el slot.
+    const isGroupPartialLeave =
+      session.type === SessionType.GROUP &&
+      isParticipant &&
+      !isTutor &&
+      !isAdmin &&
+      session.studentParticipateSessions.length > 1;
+
+    if (isGroupPartialLeave) {
+      await this.studentParticipateRepository.delete({
+        idSession: sessionId,
+        idStudent: userId,
+      });
+
+      await this.fireAndLogNotifications([
+        this.notificationsService.sendGroupSessionParticipantLeft(
+          session,
+          userId,
+        ),
+      ]);
+
+      return {
+        success: true,
+        message:
+          'Abandonaste la sesión grupal exitosamente. La sesión continúa para los demás participantes.',
+      };
+    }
+
     session.status = isParticipant
       ? SessionStatus.CANCELLED_BY_STUDENT
       : isTutor
@@ -665,6 +698,16 @@ export class SessionService {
     if (session.status !== SessionStatus.SCHEDULED) {
       throw new BadRequestException(
         'Solo puedes modificar sesiones en estado SCHEDULED',
+      );
+    }
+
+    // NUEVO — Las sesiones grupales no admiten propuestas de modificación
+    // de horario/duración/modalidad, dado que requeriría consenso entre
+    // múltiples estudiantes. Solo INDIVIDUAL soporta este flujo.
+    if (session.type === SessionType.GROUP) {
+      throw new BadRequestException(
+        'Las sesiones grupales no admiten propuestas de modificación de horario. ' +
+          'Si necesitas otro horario, cancela tu participación y busca otra sesión disponible.',
       );
     }
 
@@ -1388,6 +1431,285 @@ export class SessionService {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // SESIONES GRUPALES
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  async createGroupSession(studentId: string, dto: CreateGroupSessionDto) {
+    // ── Validaciones de dominio (idénticas a createIndividualSession) ──────
+
+    this.validationService.validateStudentNotTutor(studentId, dto.tutorId);
+    await this.tutorService.validateTutorActive(dto.tutorId);
+
+    const availability = await this.availabilityService.getAvailabilityById(
+      dto.availabilityId,
+    );
+    const startTime = availability.startTime;
+    const endTime = this.validationService.calculateEndTime(
+      startTime,
+      dto.durationHours,
+    );
+
+    await this.validationService.validateModality(
+      dto.availabilityId,
+      dto.tutorId,
+      dto.modality,
+    );
+
+    await this.validationService.validateScheduledDateMatchesSlotDay(
+      dto.availabilityId,
+      dto.scheduledDate,
+    );
+
+    this.validationService.validateMinimumBookingAdvance(
+      dto.scheduledDate,
+      startTime,
+    );
+
+    await this.validationService.validateAvailabilitySlotWithDuration(
+      dto.tutorId,
+      dto.availabilityId,
+      dto.scheduledDate,
+      dto.durationHours,
+      dto.modality,
+    );
+
+    await this.validationService.validateNoTimeConflict(
+      dto.tutorId,
+      dto.scheduledDate,
+      startTime,
+      dto.durationHours,
+    );
+
+    await this.validationService.validateWeeklyHoursLimit(
+      dto.tutorId,
+      dto.scheduledDate,
+      dto.durationHours,
+    );
+
+    // El estudiante creador tampoco puede tener otra sesión solapada
+    await this.validationService.validateStudentNoTimeConflict(
+      studentId,
+      dto.scheduledDate,
+      startTime,
+      dto.durationHours,
+    );
+
+    // ── Transacción con lock (idéntica lógica a createIndividualSession) ───
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const dailySessions = await queryRunner.manager
+        .createQueryBuilder(Session, 'session')
+        .innerJoin(ScheduledSession, 'ss', 'ss.idSession = session.idSession')
+        .select(['session.startTime', 'session.endTime'])
+        .where('ss.idTutor = :tutorId', { tutorId: dto.tutorId })
+        .andWhere('ss.scheduledDate = :scheduledDate', {
+          scheduledDate: new Date(dto.scheduledDate),
+        })
+        .andWhere('session.status IN (:...statuses)', {
+          statuses: [
+            SessionStatus.SCHEDULED,
+            SessionStatus.PENDING_MODIFICATION,
+          ],
+        })
+        .setLock('pessimistic_write')
+        .getMany();
+
+      const existingDailyHours = dailySessions.reduce((sum, s) => {
+        const [sh, sm] = s.startTime.split(':').map(Number);
+        const [eh, em] = s.endTime.split(':').map(Number);
+        return sum + (eh * 60 + em - (sh * 60 + sm)) / 60;
+      }, 0);
+
+      if (existingDailyHours + dto.durationHours > 4) {
+        throw new BadRequestException(
+          'El tutor no puede superar 4 horas de sesiones en un mismo día.',
+        );
+      }
+
+      const confirmedInSlot = await queryRunner.manager
+        .createQueryBuilder(ScheduledSession, 'ss')
+        .innerJoin('ss.session', 'session')
+        .where('ss.idTutor = :tutorId', { tutorId: dto.tutorId })
+        .andWhere('ss.idAvailability = :availabilityId', {
+          availabilityId: dto.availabilityId,
+        })
+        .andWhere('ss.scheduledDate = :scheduledDate', {
+          scheduledDate: new Date(dto.scheduledDate),
+        })
+        .andWhere('session.status = :status', {
+          status: SessionStatus.SCHEDULED,
+        })
+        .setLock('pessimistic_write')
+        .getOne();
+
+      if (confirmedInSlot) {
+        throw new BadRequestException(
+          'Esta franja ya fue confirmada para otra sesión. Por favor elige otro horario.',
+        );
+      }
+
+      const session = queryRunner.manager.create(Session, {
+        idTutor: dto.tutorId,
+        idSubject: dto.subjectId,
+        scheduledDate: dto.scheduledDate,
+        startTime,
+        endTime,
+        type: SessionType.GROUP,
+        modality: dto.modality,
+        status: SessionStatus.PENDING_TUTOR_CONFIRMATION,
+        title: dto.title,
+        description: dto.description,
+        tutorConfirmed: false,
+        maxParticipants: dto.maxParticipants ?? 30,
+        confirmationExpiresAt:
+          this.validationService.calculateConfirmationExpiry(
+            dto.scheduledDate,
+            startTime,
+          ),
+      });
+
+      const savedSession = await queryRunner.manager.save(session);
+
+      await queryRunner.manager.save(
+        queryRunner.manager.create(ScheduledSession, {
+          idSession: savedSession.idSession,
+          idTutor: dto.tutorId,
+          idAvailability: dto.availabilityId,
+          scheduledDate: dto.scheduledDate,
+        }),
+      );
+
+      await queryRunner.manager.save(
+        queryRunner.manager.create(StudentParticipateSession, {
+          idStudent: studentId,
+          idSession: savedSession.idSession,
+          status: ParticipationStatus.CONFIRMED,
+          joinedAt: new Date(),
+        }),
+      );
+
+      await queryRunner.commitTransaction();
+
+      await this.fireAndLogNotifications([
+        this.sendTutorConfirmationRequestNotification(savedSession, studentId),
+        this.sendStudentRequestAckNotification(savedSession, studentId),
+      ]);
+
+      return {
+        success: true,
+        message:
+          'Solicitud de sesión grupal enviada al tutor. Recibirás una notificación cuando confirme.',
+        session: await this.getSessionById(savedSession.idSession),
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      if (error.code === '23505') {
+        throw new BadRequestException(
+          'Esta franja ya está ocupada. Por favor elige otro horario.',
+        );
+      }
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  async joinGroupSession(studentId: string, sessionId: string) {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // Lock sobre la sesión para serializar uniones concurrentes
+      const session = await queryRunner.manager
+        .createQueryBuilder(Session, 'session')
+        .where('session.idSession = :sessionId', { sessionId })
+        .setLock('pessimistic_write')
+        .getOne();
+
+      if (!session) throw new NotFoundException('Session not found');
+
+      if (session.type !== SessionType.GROUP) {
+        throw new BadRequestException(
+          'Solo puedes unirte a sesiones de tipo grupal.',
+        );
+      }
+
+      // Decisión de negocio: solo se puede unir a sesiones ya confirmadas
+      if (session.status !== SessionStatus.SCHEDULED) {
+        throw new BadRequestException(
+          'Solo puedes unirte a sesiones grupales ya confirmadas por el tutor.',
+        );
+      }
+
+      if (session.idTutor === studentId) {
+        throw new BadRequestException(
+          'No puedes unirte a tu propia sesión como tutor.',
+        );
+      }
+
+      const existingParticipation = await queryRunner.manager.findOne(
+        StudentParticipateSession,
+        { where: { idSession: sessionId, idStudent: studentId } },
+      );
+
+      if (existingParticipation) {
+        throw new BadRequestException('Ya eres participante de esta sesión.');
+      }
+
+      const currentParticipants = await queryRunner.manager.count(
+        StudentParticipateSession,
+        { where: { idSession: sessionId } },
+      );
+
+      const capacity = session.maxParticipants ?? 30;
+      if (currentParticipants >= capacity) {
+        throw new BadRequestException(
+          `Esta sesión ya alcanzó su cupo máximo de ${capacity} estudiantes.`,
+        );
+      }
+
+      // El estudiante no puede tener otra sesión solapada en ese horario
+      await this.validationService.validateStudentNoTimeConflict(
+        studentId,
+        session.scheduledDate,
+        session.startTime,
+        this.calcDuration(session),
+      );
+
+      await queryRunner.manager.save(
+        queryRunner.manager.create(StudentParticipateSession, {
+          idStudent: studentId,
+          idSession: sessionId,
+          status: ParticipationStatus.CONFIRMED,
+          joinedAt: new Date(),
+        }),
+      );
+
+      await queryRunner.commitTransaction();
+
+      await this.fireAndLogNotifications([
+        this.sendGroupJoinNotifications(session, studentId),
+      ]);
+
+      return {
+        success: true,
+        message: 'Te uniste a la sesión grupal exitosamente.',
+        session: await this.getSessionById(sessionId),
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // HELPERS PRIVADOS — NOTIFICACIONES
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1403,6 +1725,19 @@ export class SessionService {
         );
       }
     }
+  }
+
+  // Nuevo helper de notificación de sesion grupal
+  private async sendGroupJoinNotifications(
+    session: Session,
+    newStudentId: string,
+  ): Promise<void> {
+    const full = await this.getSessionById(session.idSession);
+
+    await this.notificationsService.sendGroupSessionJoinedNotification(
+      full,
+      newStudentId,
+    );
   }
 
   private async sendTutorConfirmationRequestNotification(
@@ -1476,10 +1811,15 @@ export class SessionService {
       status: session.status,
       title: session.title,
       description: session.description,
+      // NUEVO — solo relevante cuando type = GROUP; null en sesiones individuales
+      maxParticipants: session.maxParticipants ?? null,
+      currentParticipants: session.studentParticipateSessions?.length ?? 0,
+      // Sin cambios: ya era un arreglo completo de estudiantes, no un solo participante
       participants: session.studentParticipateSessions.map((p) => ({
         id: p.student.idUser,
         name: p.student.user.name,
         status: p.status,
+        joinedAt: p.joinedAt, // NUEVO — útil para mostrar orden de llegada en el front
       })),
       createdAt: session.createdAt,
       cancelledAt: session.cancelledAt,
@@ -1507,11 +1847,15 @@ export class SessionService {
         photo: session.tutor.urlImage,
       },
       subject: { id: session.subject.idSubject, name: session.subject.name },
+      // NUEVO — igual que en mapToDetailedDto
+      maxParticipants: session.maxParticipants ?? null,
+      currentParticipants: session.studentParticipateSessions?.length ?? 0,
       participants:
         session.studentParticipateSessions?.map((p) => ({
           id: p.student.idUser,
           name: p.student.user.name,
           status: p.status,
+          joinedAt: p.joinedAt, // NUEVO
         })) ?? [],
       createdAt: session.createdAt,
       cancelledAt: session.cancelledAt ?? null,
