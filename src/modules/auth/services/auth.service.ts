@@ -529,7 +529,7 @@ export class AuthService {
 
     // 3. Validar contraseña (mismos requisitos que registro)
     const passwordRegex =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/;
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]/;
     if (!passwordRegex.test(password)) {
       throw new BadRequestException(
         'Password must include uppercase, lowercase, numbers and special characters',
@@ -613,7 +613,7 @@ export class AuthService {
 
     // 5. Validar nueva contraseña (requisitos de seguridad)
     const passwordRegex =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/;
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]/;
     if (!passwordRegex.test(dto.newPassword)) {
       throw new BadRequestException(
         'New password must include uppercase, lowercase, numbers and special characters',

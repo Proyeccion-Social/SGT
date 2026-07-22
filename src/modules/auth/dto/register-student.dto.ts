@@ -29,7 +29,7 @@ export class RegisterStudentDto {
     message: 'La contraseña debe tener menos de 128 caracteres',
   })
   @Matches(
-    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$/,
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&#])[A-Za-z\\d@$!%*?&#]{8,}$/,
     {
       message:
         'La contraseña debe tener al menos una letra mayúscula, una letra minúscula, un número y un carácter especial',
