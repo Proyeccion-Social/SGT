@@ -36,6 +36,7 @@ export interface ConfirmEmailResponse {
     role: string;
     emailVerified: boolean;
   };
+  requiresProfileCompletion?: boolean;
 }
 
 @Injectable()
@@ -184,6 +185,10 @@ export class AuthService {
         this.logger.error('Error sending welcome email:', error),
       );
 
+    // 9. Verificar perfil completo del estudiante
+    const requiresProfileCompletion =
+      !(await this.studentService.isProfileComplete(user.idUser));
+
     return {
       message: 'Email verified successfully. You are now logged in.',
       accessToken,
@@ -195,6 +200,7 @@ export class AuthService {
         role: user.role,
         emailVerified: true,
       },
+      requiresProfileCompletion,
     };
   }
 
@@ -383,6 +389,9 @@ export class AuthService {
       },
       ...(user.role === UserRole.TUTOR && {
         requiresPasswordChange,
+        requiresProfileCompletion,
+      }),
+      ...(user.role === UserRole.STUDENT && {
         requiresProfileCompletion,
       }),
     };
@@ -696,7 +705,7 @@ export class AuthService {
       throw new UnauthorizedException('Account is not active');
     }
 
-    // 3. Verificar si es tutor y necesita acciones adicionales
+    // 3. Verificar si es tutor o estudiante y necesita acciones adicionales
     let requiresPasswordChange = false;
     let requiresProfileCompletion = false;
 
@@ -705,6 +714,10 @@ export class AuthService {
         user.idUser,
       );
       requiresProfileCompletion = !(await this.tutorService.isProfileComplete(
+        user.idUser,
+      ));
+    } else if (user.role === UserRole.STUDENT) {
+      requiresProfileCompletion = !(await this.studentService.isProfileComplete(
         user.idUser,
       ));
     }
@@ -720,6 +733,9 @@ export class AuthService {
       },
       ...(user.role === UserRole.TUTOR && {
         requiresPasswordChange,
+        requiresProfileCompletion,
+      }),
+      ...(user.role === UserRole.STUDENT && {
         requiresProfileCompletion,
       }),
     };

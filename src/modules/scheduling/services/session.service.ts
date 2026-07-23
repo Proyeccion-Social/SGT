@@ -317,6 +317,8 @@ export class SessionService {
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
+    let committed = false;
+
     try {
       const session = await queryRunner.manager
         .createQueryBuilder(Session, 'session')
@@ -478,6 +480,7 @@ export class SessionService {
       }
 
       await queryRunner.commitTransaction();
+      committed = true;
 
       // Notificaciones
       await this.fireAndLogNotifications([
@@ -500,7 +503,7 @@ export class SessionService {
         session: await this.getSessionById(sessionId),
       };
     } catch (error) {
-      await queryRunner.rollbackTransaction();
+      if (!committed) await queryRunner.rollbackTransaction();
       throw error;
     } finally {
       await queryRunner.release();
@@ -780,6 +783,30 @@ export class SessionService {
         newDate,
         newDuration,
         session.idSession,
+      );
+    }
+
+    // ========================================
+    // VALIDACIÓN DE MODALIDAD (incluso sin cambio de slot)
+    // ========================================
+    // Si se propone cambiar la modalidad sin cambiar el slot,
+    // igual hay que validar que la disponibilidad ACTUAL soporte esa modalidad
+    if (dto.newModality && !dto.newAvailabilityId) {
+      const currentScheduledSession =
+        await this.scheduledSessionRepository.findOne({
+          where: { idSession: sessionId },
+        });
+
+      if (!currentScheduledSession) {
+        throw new NotFoundException(
+          'ScheduledSession not found for this session',
+        );
+      }
+
+      await this.validationService.validateModality(
+        currentScheduledSession.idAvailability,
+        session.idTutor,
+        dto.newModality,
       );
     }
 

@@ -25,7 +25,7 @@ jobs:
 
       # ── Dependencies ──────────────────────────────────────────────────────────
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       # ── Lint ──────────────────────────────────────────────────────────────────
       # Run without --fix so the pipeline fails on lint errors instead of

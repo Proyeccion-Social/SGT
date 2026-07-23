@@ -1,0 +1,8 @@
+# boto3 ya viene incluido en el runtime de Lambda (Python 3.12).
+# Se lista aquí únicamente para desarrollo y pruebas locales.
+boto3>=1.34.0
+botocore>=1.34.0
+
+# Testing
+pytest>=8.0.0
+moto[sqs,sesv2]>=5.0.0

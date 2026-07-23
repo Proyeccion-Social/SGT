@@ -1,0 +1,4 @@
+allowBuilds:
+  '@nestjs/core': false
+  bcrypt: false
+  unrs-resolver: false

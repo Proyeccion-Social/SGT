@@ -1,26 +1,18 @@
 import { NotFoundException } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
-
-// Mock Resend before importing the service so the constructor can instantiate it.
-jest.mock('resend', () => ({
-  Resend: jest.fn().mockImplementation(() => ({
-    emails: { send: jest.fn() },
-  })),
-}));
+import { SqsEmailService } from './sqs-email.service';
 
 describe('NotificationsService', () => {
   let service: NotificationsService;
   let configService: any;
   let usersService: any;
   let appNotifications: any;
-  let resendSendMock: jest.Mock;
+  let sqsEmailService: jest.Mocked<SqsEmailService>;
 
   beforeEach(() => {
     configService = {
       get: jest.fn((key: string) => {
         const map: Record<string, string> = {
-          RESEND_API_KEY: 'test-api-key',
-          RESEND_FROM_EMAIL: 'noreply@test.com',
           FRONTEND_URL: 'http://localhost:3000',
         };
         return map[key] ?? null;
@@ -28,16 +20,14 @@ describe('NotificationsService', () => {
     };
     usersService = { findById: jest.fn(), findByIds: jest.fn() };
     appNotifications = { create: jest.fn().mockResolvedValue({}) };
+    sqsEmailService = { send: jest.fn().mockResolvedValue(undefined) } as any;
 
     service = new NotificationsService(
       configService,
       usersService,
       appNotifications,
+      sqsEmailService,
     );
-
-    // Replace the internal Resend instance with a controllable mock
-    resendSendMock = jest.fn().mockResolvedValue({ error: null });
-    (service as any).resend = { emails: { send: resendSendMock } };
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -335,17 +325,17 @@ describe('NotificationsService', () => {
 
     it('sends email with the correct subject for each alert level', async () => {
       await callAlert(100);
-      expect(resendSendMock).toHaveBeenCalledWith(
+      expect(sqsEmailService.send).toHaveBeenCalledWith(
         expect.objectContaining({
           subject: expect.stringContaining('Límite semanal alcanzado'),
         }),
       );
 
-      resendSendMock.mockClear();
+      (sqsEmailService.send as jest.Mock).mockClear();
       renderSpy.mockClear();
 
       await callAlert(95);
-      expect(resendSendMock).toHaveBeenCalledWith(
+      expect(sqsEmailService.send).toHaveBeenCalledWith(
         expect.objectContaining({
           subject: expect.stringContaining('límite semanal'),
         }),

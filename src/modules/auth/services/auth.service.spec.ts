@@ -46,7 +46,10 @@ describe('AuthService', () => {
       updatePassword: jest.fn(),
       hasTemporaryPassword: jest.fn(),
     };
-    studentService = { createFromUser: jest.fn() };
+    studentService = {
+      createFromUser: jest.fn(),
+      isProfileComplete: jest.fn().mockResolvedValue(false),
+    };
     tutorService = { isProfileComplete: jest.fn() };
     jwtService = {
       sign: jest.fn().mockReturnValue('jwt-token'),
@@ -418,6 +421,7 @@ describe('AuthService', () => {
       });
       userService.validatePassword.mockResolvedValue(true);
       auditService.logSuccessfulLogin.mockResolvedValue(undefined);
+      studentService.isProfileComplete.mockResolvedValue(true);
 
       const result = await service.login(
         { email: mockUser.email, password: 'pass' },
@@ -429,7 +433,7 @@ describe('AuthService', () => {
       expect(result.refreshToken).toBe('jwt-token');
       expect(result.user.role).toBe(UserRole.STUDENT);
       expect(result.requiresPasswordChange).toBeUndefined();
-      expect(result.requiresProfileCompletion).toBeUndefined();
+      expect(result.requiresProfileCompletion).toBe(false);
     });
 
     it('includes requiresPasswordChange for tutor with no password_changed_at', async () => {

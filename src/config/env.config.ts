@@ -40,10 +40,15 @@ export const envValidationSchema = Joi.object({
       otherwise: Joi.string().uri().optional(),
     }),
 
-  //Resend — optional outside production; Vercel preview deployments can run
-  // without email credentials (features that send email will silently fail).
-  RESEND_API_KEY: Joi.string().default('dummy-resend-key'),
-  RESEND_FROM_EMAIL: Joi.string().email().default('dev@noreply.local'),
+  // AWS SES v2 via SQS — la Lambda consume la cola y envía los correos.
+  // SQS_QUEUE_URL es obligatoria en producción; en desarrollo puede omitirse
+  // (los emails se omitirán con un warning en el log).
+  SQS_QUEUE_URL: Joi.string().uri().when('NODE_ENV', {
+    is: 'production',
+    then: Joi.string().uri().required(),
+    otherwise: Joi.string().uri().optional(),
+  }),
+  AWS_REGION: Joi.string().default('us-east-1'),
 
   // JWT Config
   JWT_SECRET: Joi.string().min(32).required(),

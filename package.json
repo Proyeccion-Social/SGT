@@ -27,6 +27,7 @@
     "upload:tutor-avatars:prod": "ts-node src/seeders/upload-tutor-avatars.ts --env production"
   },
   "dependencies": {
+    "@aws-sdk/client-sqs": "^3.600.0",
     "@neondatabase/serverless": "^1.0.2",
     "@nestjs/common": "^11.1.12",
     "@nestjs/config": "^4.0.3",
