@@ -52,7 +52,7 @@ export interface AvailabilitySlot {
   dayOfWeekNumber: number; // 0=Lun…5=Sáb, útil para el front si necesita ordenar
   startTime: string;
   endTime: string;
-  modality: Modality;
+  modality: Modality[];
   duration: number;
   isAvailable: boolean; // true si no hay sesión activa en la semana de referencia
 }
@@ -99,6 +99,8 @@ export class AvailabilityService {
     const dayOfWeekNumber = DayOfWeekToNumber[dto.dayOfWeek];
     await this.validateNoOverlap(tutorId, dayOfWeekNumber, dto.startTime);
 
+    const normalizedModality = this.normalizeModalities(dto.modality);
+
     let availability = await this.availabilityRepository.findOne({
       where: { dayOfWeek: dayOfWeekNumber, startTime: dto.startTime },
     });
@@ -128,7 +130,7 @@ export class AvailabilityService {
     const tutorAvailability = this.tutorHaveAvailabilityRepository.create({
       idTutor: tutorId,
       idAvailability: availability.idAvailability,
-      modality: dto.modality,
+      modality: normalizedModality,
     });
 
     await this.tutorHaveAvailabilityRepository.save(tutorAvailability);
@@ -138,7 +140,7 @@ export class AvailabilityService {
       tutorId,
       dayOfWeek: dto.dayOfWeek,
       startTime: dto.startTime,
-      modality: dto.modality,
+      modality: normalizedModality,
       duration: 0.5,
     };
   }
@@ -146,6 +148,7 @@ export class AvailabilityService {
   async createSlotsInRange(tutorId: string, dto: CreateSlotRangeDto) {
     const dayOfWeekNumber = DayOfWeekToNumber[dto.dayOfWeek];
     const slotTimes = this.buildSlotTimesFromRange(dto.startTime, dto.endTime);
+    const normalizedModality = this.normalizeModalities(dto.modality);
 
     return this.availabilityRepository.manager.transaction(
       async (transactionalEntityManager) => {
@@ -183,7 +186,7 @@ export class AvailabilityService {
           dayOfWeek: DayOfWeek;
           startTime: string;
           endTime: string;
-          modality: Modality;
+          modality: Modality[];
           duration: number;
         }> = [];
 
@@ -203,7 +206,7 @@ export class AvailabilityService {
           const assignment = tutorHaveAvailabilityRepository.create({
             idTutor: tutorId,
             idAvailability: availability.idAvailability,
-            modality: dto.modality,
+            modality: normalizedModality,
           });
 
           await tutorHaveAvailabilityRepository.save(assignment);
@@ -214,7 +217,7 @@ export class AvailabilityService {
             dayOfWeek: dto.dayOfWeek,
             startTime,
             endTime: this.calculateEndTime(startTime),
-            modality: dto.modality,
+            modality: normalizedModality,
             duration: 0.5,
           });
         }
@@ -227,6 +230,7 @@ export class AvailabilityService {
   async updateSlotsInRange(tutorId: string, dto: CreateSlotRangeDto) {
     const dayOfWeekNumber = DayOfWeekToNumber[dto.dayOfWeek];
     const slotTimes = this.buildSlotTimesFromRange(dto.startTime, dto.endTime);
+    const normalizedModality = this.normalizeModalities(dto.modality);
 
     const slotsToUpdate = await this.tutorHaveAvailabilityRepository
       .createQueryBuilder('tha')
@@ -248,7 +252,7 @@ export class AvailabilityService {
     await this.tutorHaveAvailabilityRepository
       .createQueryBuilder()
       .update(TutorHaveAvailability)
-      .set({ modality: dto.modality })
+      .set({ modality: normalizedModality })
       .where('id_tutor = :tutorId', { tutorId })
       .andWhere('id_availability IN (:...slotIds)', { slotIds })
       .execute();
@@ -259,7 +263,7 @@ export class AvailabilityService {
       dayOfWeek: dto.dayOfWeek,
       startTime: slot.availability.startTime,
       endTime: this.calculateEndTime(slot.availability.startTime),
-      modality: dto.modality,
+      modality: normalizedModality,
       duration: 0.5,
     }));
   }
@@ -309,6 +313,9 @@ export class AvailabilityService {
 
     const currentAvailability = tutorAvailability.availability;
     let updatedAvailability = currentAvailability;
+    const updatedModality = dto.modality
+      ? this.normalizeModalities(dto.modality)
+      : this.normalizeModalities(tutorAvailability.modality ?? []);
 
     if (dto.startTime && dto.startTime !== currentAvailability.startTime) {
       await this.validateNoOverlapExcluding(
@@ -348,7 +355,7 @@ export class AvailabilityService {
         );
       }
 
-      const modalityToUse = dto.modality || tutorAvailability.modality;
+      const modalityToUse = updatedModality;
       await this.tutorHaveAvailabilityRepository.remove(tutorAvailability);
 
       const newTutorAvailability = this.tutorHaveAvailabilityRepository.create({
@@ -359,8 +366,8 @@ export class AvailabilityService {
 
       await this.tutorHaveAvailabilityRepository.save(newTutorAvailability);
       updatedAvailability = newAvailability;
-    } else if (dto.modality && dto.modality !== tutorAvailability.modality) {
-      tutorAvailability.modality = dto.modality;
+    } else if (dto.modality) {
+      tutorAvailability.modality = updatedModality;
       await this.tutorHaveAvailabilityRepository.save(tutorAvailability);
     }
 
@@ -369,7 +376,7 @@ export class AvailabilityService {
       tutorId,
       dayOfWeek: NumberToDayOfWeek[updatedAvailability.dayOfWeek],
       startTime: updatedAvailability.startTime,
-      modality: tutorAvailability.modality,
+      modality: updatedModality,
       duration: 0.5,
     };
   }
@@ -418,6 +425,7 @@ export class AvailabilityService {
       weekStart?: string; //'YYYY-MM-DD' (lunes de la semana a consultar
     },
   ): Promise<TutorAvailabilityPublic> {
+    const modalityFilter = options?.modality;
     const tutorAvailabilities = await this.tutorHaveAvailabilityRepository.find(
       {
         where: { idTutor: tutorId },
@@ -461,15 +469,15 @@ export class AvailabilityService {
         dayOfWeekNumber: ta.availability.dayOfWeek,
         startTime,
         endTime,
-        modality: ta.modality,
+        modality: this.normalizeModalities(ta.modality ?? []),
         duration: 0.5,
         isAvailable: !isOccupied,
       };
     });
 
     if (options?.onlyAvailable) slots = slots.filter((s) => s.isAvailable);
-    if (options?.modality)
-      slots = slots.filter((s) => s.modality === options.modality);
+    if (modalityFilter)
+      slots = slots.filter((s) => s.modality.includes(modalityFilter));
 
     const groupedByDay = this.groupSlotsByDay(slots);
 
@@ -492,7 +500,7 @@ export class AvailabilityService {
     onlyAvailable?: boolean;
     page?: number;
     limit?: number;
-    weekStart?: string; //'YYYY-MM-DD' (lunes de la semana a consultar)
+    weekStart?: string;
   }): Promise<{
     tutors: Array<{
       tutorId: string;
@@ -511,7 +519,10 @@ export class AvailabilityService {
       options?.weekStart,
     );
 
-    // 1. Obtener todos los tutores activos con disponibilidad
+    // ← Extraer aquí para que TypeScript la infiera como Modality (no Modality | undefined)
+    //   en todos los usos posteriores dentro del método.
+    const modalityFilter = options?.modality;
+
     const tutorsWithAvailability = await this.tutorHaveAvailabilityRepository
       .createQueryBuilder('tha')
       .innerJoinAndSelect('tha.tutor', 'tutor')
@@ -524,14 +535,9 @@ export class AvailabilityService {
       .getMany();
 
     if (tutorsWithAvailability.length === 0) {
-      return {
-        tutors: [],
-        total: 0,
-        weekReference: weekStartStr,
-      };
+      return { tutors: [], total: 0, weekReference: weekStartStr };
     }
 
-    // 2. Agrupar slots por tutor
     const tutorMap = new Map<
       string,
       { tutorId: string; tutorName: string; slots: TutorHaveAvailability[] }
@@ -548,7 +554,6 @@ export class AvailabilityService {
       tutorMap.get(ta.idTutor)!.slots.push(ta);
     }
 
-    // 3. Obtener rangos ocupados para todos los tutores
     const allTutorIds = Array.from(tutorMap.keys());
     const occupiedRangesByTutor = await this.buildOccupiedRangesForTutors(
       allTutorIds,
@@ -556,16 +561,18 @@ export class AvailabilityService {
       weekEndStr,
     );
 
-    // 4. Filtrar tutores elegibles (aplica onlyAvailable y modality)
     const eligibleTutorIds: string[] = [];
 
     for (const tutorId of allTutorIds) {
       const tutor = tutorMap.get(tutorId)!;
       const occupied = occupiedRangesByTutor.get(tutorId) ?? [];
 
+      // ← Usar modalityFilter (ya tipada como Modality | undefined, no como propiedad de options)
       let slots = tutor.slots;
-      if (options?.modality) {
-        slots = slots.filter((s) => s.modality === options.modality);
+      if (modalityFilter) {
+        slots = slots.filter((s) =>
+          (s.modality ?? []).includes(modalityFilter),
+        );
       }
 
       if (slots.length === 0) continue;
@@ -588,14 +595,9 @@ export class AvailabilityService {
     const pagedIds = eligibleTutorIds.slice(offset, offset + limit);
 
     if (pagedIds.length === 0) {
-      return {
-        tutors: [],
-        total,
-        weekReference: weekStartStr,
-      };
+      return { tutors: [], total, weekReference: weekStartStr };
     }
 
-    // 5. Construir respuesta para la página
     const tutors = pagedIds
       .filter((id) => tutorMap.has(id))
       .map((id) => {
@@ -603,8 +605,11 @@ export class AvailabilityService {
         const occupied = occupiedRangesByTutor.get(id) ?? [];
 
         let slots = tutor.slots;
-        if (options?.modality) {
-          slots = slots.filter((s) => s.modality === options.modality);
+        if (modalityFilter) {
+          // ← Mismo uso de modalityFilter extraída
+          slots = slots.filter((s) =>
+            (s.modality ?? []).includes(modalityFilter),
+          );
         }
 
         const totalSlots = slots.length;
@@ -618,12 +623,8 @@ export class AvailabilityService {
         ).length;
 
         const modalities = [
-          ...new Set(
-            slots
-              .map((s) => s.modality)
-              .filter((modality): modality is Modality => modality != null),
-          ),
-        ];
+          ...new Set(slots.flatMap((s) => s.modality ?? [])),
+        ] as Modality[];
 
         return {
           tutorId: tutor.tutorId,
@@ -634,11 +635,7 @@ export class AvailabilityService {
         };
       });
 
-    return {
-      tutors,
-      total,
-      weekReference: weekStartStr,
-    };
+    return { tutors, total, weekReference: weekStartStr };
   }
 
   async getTutorsBySubjectWithAvailability(
@@ -706,6 +703,7 @@ export class AvailabilityService {
     const { weekStartStr, weekEndStr } = this.resolveWeekRange(
       options?.weekStart,
     );
+    const modalityFilter = options?.modality;
 
     // 1. IDs elegibles - filtrar por una o más materias
     const eligibleTutorsQuery = this.tutorHaveAvailabilityRepository
@@ -719,7 +717,7 @@ export class AvailabilityService {
       .orderBy('tha.id_tutor', 'ASC');
 
     if (options?.modality) {
-      eligibleTutorsQuery.andWhere('tha.modality = :modality', {
+      eligibleTutorsQuery.andWhere(':modality = ANY(tha.modality)', {
         modality: options.modality,
       });
     }
@@ -787,9 +785,9 @@ export class AvailabilityService {
       .innerJoinAndSelect('tha.availability', 'availability')
       .where('tha.id_tutor IN (:...pagedIds)', { pagedIds });
 
-    if (options?.modality) {
-      slotsQuery.andWhere('tha.modality = :modality', {
-        modality: options.modality,
+    if (modalityFilter) {
+      slotsQuery.andWhere(':modality = ANY(tha.modality)', {
+        modality: modalityFilter, // ← usar modalityFilter
       });
     }
 
@@ -837,7 +835,7 @@ export class AvailabilityService {
             dayOfWeekNumber: slot.availability.dayOfWeek,
             startTime,
             endTime,
-            modality: slot.modality,
+            modality: this.normalizeModalities(slot.modality ?? []),
             duration: 0.5,
             isAvailable: !isOccupied,
           };
@@ -854,8 +852,8 @@ export class AvailabilityService {
         });
 
         const modalities = [
-          ...new Set(tutor.slots.map((s) => s.modality)),
-        ] as Modality[];
+          ...new Set(tutor.slots.flatMap((s) => s.modality ?? [])),
+        ];
 
         return {
           tutorId: tutor.tutorId,
@@ -906,9 +904,19 @@ export class AvailabilityService {
       );
     }
 
-    if (tutorAvailability.modality !== requestedModality) {
+    const modalities = this.normalizeModalities(
+      tutorAvailability.modality ?? [],
+    );
+
+    if (modalities.length === 0) {
       throw new BadRequestException(
-        `La modalidad de la franja es ${tutorAvailability.modality}, pero solicitaste ${requestedModality}`,
+        'La franja no tiene modalidades configuradas',
+      );
+    }
+
+    if (!modalities.includes(requestedModality)) {
+      throw new BadRequestException(
+        `La franja permite ${modalities.join(', ')}, pero solicitaste ${requestedModality}`,
       );
     }
   }
@@ -953,12 +961,14 @@ export class AvailabilityService {
    * @param availabilityId  Slot de inicio seleccionado por el estudiante
    * @param scheduledDate   Fecha propuesta
    * @param durationHours   Duración solicitada (0.5, 1 o 1.5)
+   * @param requestedModality Modalidad elegida para la sesión
    */
   async isSlotAvailableForDateWithDuration(
     tutorId: string,
     availabilityId: number,
     scheduledDate: string,
     durationHours: number,
+    requestedModality: Modality,
     excludeSessionId?: string, // ← NUEVO
   ): Promise<{ available: boolean; reason?: string }> {
     // 1. Obtener el slot de inicio
@@ -995,12 +1005,23 @@ export class AvailabilityService {
         `(EXTRACT(HOUR FROM a.start_time::time) * 60 + EXTRACT(MINUTE FROM a.start_time::time)) < :endMin`,
         { endMin: endMinutes },
       )
-      .getCount();
+      .getMany();
 
-    if (tutorSlotsInDay < neededSlotCount) {
+    if (tutorSlotsInDay.length < neededSlotCount) {
       return {
         available: false,
-        reason: `El tutor no tiene disponibilidad registrada para cubrir ${durationHours}h desde las ${startSlot.startTime}. Solo tiene ${tutorSlotsInDay} franja(s) de las ${neededSlotCount} necesarias.`,
+        reason: `El tutor no tiene disponibilidad registrada para cubrir ${durationHours}h desde las ${startSlot.startTime}. Solo tiene ${tutorSlotsInDay.length} franja(s) de las ${neededSlotCount} necesarias.`,
+      };
+    }
+
+    const missingModality = tutorSlotsInDay.some(
+      (slot) => !(slot.modality ?? []).includes(requestedModality),
+    );
+
+    if (missingModality) {
+      return {
+        available: false,
+        reason: `El tutor no tiene modalidad ${requestedModality} en todas las franjas necesarias`,
       };
     }
 
@@ -1231,6 +1252,10 @@ export class AvailabilityService {
   // HELPERS PRIVADOS — UTILIDADES
   // =====================================================
 
+  private normalizeModalities(modalities: Modality[]): Modality[] {
+    return [...new Set(modalities)].sort();
+  }
+
   private groupSlotsByDay(
     slots: AvailabilitySlot[],
   ): Record<DayOfWeek, AvailabilitySlot[]> {
@@ -1406,6 +1431,9 @@ export class AvailabilityService {
       options?.weekStart,
     );
 
+    //Extraer para evitar el error de TypeScript en todos los usos posteriores
+    const modalityFilter = options?.modality;
+
     // 1. Obtener todos los tutores activos con disponibilidad (con filtro por materias si aplica)
     let query = this.tutorHaveAvailabilityRepository
       .createQueryBuilder('tha')
@@ -1471,8 +1499,11 @@ export class AvailabilityService {
       const occupied = occupiedRangesByTutor.get(tutorId) ?? [];
 
       let slots = tutor.slots;
-      if (options?.modality) {
-        slots = slots.filter((s) => s.modality === options.modality);
+      if (modalityFilter) {
+        // ← Fix: modalityFilter en lugar de options.modality
+        slots = slots.filter((s) =>
+          (s.modality ?? []).includes(modalityFilter),
+        );
       }
 
       if (slots.length === 0) continue;
@@ -1487,7 +1518,6 @@ export class AvailabilityService {
       ).length;
 
       if (options?.onlyAvailable && availableCount === 0) continue;
-
       eligibleTutorIds.push(tutorId);
     }
 
@@ -1511,8 +1541,11 @@ export class AvailabilityService {
           const occupied = occupiedRangesByTutor.get(id) ?? [];
 
           let slots = tutor.slots;
-          if (options?.modality) {
-            slots = slots.filter((s) => s.modality === options.modality);
+          if (modalityFilter) {
+            // Fix: modalityFilter en lugar de options.modality
+            slots = slots.filter((s) =>
+              (s.modality ?? []).includes(modalityFilter),
+            );
           }
 
           const groupedByDay = {} as Record<DayOfWeek, AvailabilitySlot[]>;
@@ -1533,7 +1566,7 @@ export class AvailabilityService {
               dayOfWeekNumber: slot.availability.dayOfWeek,
               startTime,
               endTime,
-              modality: slot.modality,
+              modality: this.normalizeModalities(slot.modality ?? []),
               duration: 0.5,
               isAvailable: !isOccupied,
             };
