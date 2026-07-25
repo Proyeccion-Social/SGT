@@ -73,6 +73,14 @@ export class AuthService {
       );
     }
 
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/;
+    if (!passwordRegex.test(dto.password)) {
+      throw new BadRequestException(
+        'Contraseña debe incluir mayúsculas, minúsculas, números, caracteres especiales y tener al menos 8 caracteres',
+      );
+    }
+
     // 3. Verificar si el email ya existe
     const existingUser = await this.userService.findByEmail(dto.email);
 
