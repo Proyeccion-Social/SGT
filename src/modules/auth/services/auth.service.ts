@@ -63,13 +63,13 @@ export class AuthService {
   async register(dto: RegisterDto): Promise<{ message: string }> {
     // 1. Validar que las contraseñas coincidan
     if (dto.password !== dto.confirmPassword) {
-      throw new BadRequestException('Passwords do not match');
+      throw new BadRequestException('Las contraseñas no coinciden');
     }
 
     // 2. Validar email institucional
     if (!dto.email.endsWith('@udistrital.edu.co')) {
       throw new BadRequestException(
-        'Email must be institutional (@udistrital.edu.co)',
+        'El email debe ser institucional (@udistrital.edu.co)',
       );
     }
 
@@ -87,7 +87,7 @@ export class AuthService {
     if (existingUser) {
       // Si ya está verificado, es un conflicto real
       if (existingUser.emailVerified) {
-        throw new ConflictException('Email already exists');
+        throw new ConflictException('El email ya existe');
       }
 
       // Si no está verificado, reenviar el correo de verificación
@@ -169,7 +169,7 @@ export class AuthService {
     const user = await this.userService.findById(verificationToken.id_user);
 
     if (!user) {
-      throw new NotFoundException('User not found after email verification');
+      throw new NotFoundException('Usuario no encontrado después de verificar email');
     }
 
     // 5. Generar tokens con el objeto usuario completo
@@ -249,7 +249,7 @@ export class AuthService {
         ip,
         userAgent,
       );
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException('Credenciales inválidas');
     }
 
     // 2. Verificar bloqueo por intentos fallidos
@@ -262,7 +262,7 @@ export class AuthService {
         user.idUser,
       );
       throw new UnauthorizedException(
-        `Account locked until ${user.locked_until.toLocaleString()}`,
+        `Cuenta bloqueada hasta ${user.locked_until.toLocaleString()}`,
       );
     }
 
@@ -302,7 +302,7 @@ export class AuthService {
         await this.auditService.logAccountLocked(user.idUser, lockedUntil);
 
         throw new UnauthorizedException(
-          'Too many failed attempts. Account locked for 15 minutes.',
+          'Demasiados intentos fallidos. La cuenta ha sido bloqueada por 15 minutos.',
         );
       } else {
         await this.auditService.logFailedLogin(
@@ -314,7 +314,7 @@ export class AuthService {
         );
 
         throw new UnauthorizedException(
-          `Invalid credentials. ${5 - newAttempts} attempts remaining.`,
+          `Credenciales inválidas. ${5 - newAttempts} intentos restantes.`,
         );
       }
     }
@@ -329,7 +329,7 @@ export class AuthService {
         user.idUser,
       );
       throw new UnauthorizedException(
-        'Please verify your email before logging in',
+        'Por favor verifica tu correo electrónico antes de iniciar sesión',
       );
     }
 
@@ -341,7 +341,7 @@ export class AuthService {
         userAgent,
         user.idUser,
       );
-      throw new UnauthorizedException('Account is not active');
+      throw new UnauthorizedException('La cuenta no está activa');
     }
 
     // 6. Login exitoso - resetear contador de intentos fallidos
@@ -419,26 +419,26 @@ export class AuthService {
         secret: this.configService.get<string>('REFRESH_TOKEN_SECRET'),
       });
     } catch (error) {
-      throw new UnauthorizedException('Invalid refresh token');
+      throw new UnauthorizedException('Refresh token inválido');
     }
 
     // 2. Verificar que sea refresh token
     if (payload.type !== 'refresh') {
-      throw new UnauthorizedException('Invalid token type');
+      throw new UnauthorizedException('Tipo de token inválido');
     }
 
     // 3. Buscar sesión en BD
     const session = await this.sessionService.findValidSession(refreshToken);
 
     if (!session) {
-      throw new UnauthorizedException('Session not found or revoked');
+      throw new UnauthorizedException('Sesion no encontrada o revocada');
     }
 
     // 4. Verificar que usuario sigue activo
     const user = await this.userService.findById(payload.sub);
 
     if (!user || user.status !== UserStatus.ACTIVE) {
-      throw new UnauthorizedException('User not active');
+      throw new UnauthorizedException('Usuario inactivo o no encontrado');
     }
 
     // 5. Generar nuevos tokens (rotation)
@@ -529,7 +529,7 @@ export class AuthService {
   ): Promise<{ message: string }> {
     // 1. Validar que las contraseñas coincidan
     if (password !== confirmPassword) {
-      throw new BadRequestException('Passwords do not match');
+      throw new BadRequestException('Las contraseñas no coinciden');
     }
 
     // 2. Validar token
@@ -540,7 +540,7 @@ export class AuthService {
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/;
     if (!passwordRegex.test(password)) {
       throw new BadRequestException(
-        'La nueva contraseña debe incluir mayúsculas, minúsculas, números y caracteres especiales y tener al menos 8 caracteres',
+        'La nueva contraseña debe incluir mayúsculas, minúsculas, números, caracteres especiales y tener al menos 8 caracteres',
       );
     }
 
@@ -587,14 +587,14 @@ export class AuthService {
   ): Promise<{ message: string }> {
     // 1. Validar que las contraseñas coincidan
     if (dto.newPassword !== dto.confirmNewPassword) {
-      throw new BadRequestException('Passwords do not match');
+      throw new BadRequestException('Las contraseñas no coinciden');
     }
 
     // 2. Buscar usuario
     const user = await this.userService.findById(userId);
 
     if (!user) {
-      throw new UnauthorizedException('User not found');
+      throw new UnauthorizedException('Usuario no encontrado');
     }
 
     // 3. Validar contraseña actual
@@ -604,7 +604,7 @@ export class AuthService {
     );
 
     if (!isCurrentPasswordValid) {
-      throw new UnauthorizedException('Current password is incorrect');
+      throw new UnauthorizedException('La contraseña actual es incorrecta');
     }
 
     // 4. Validar que nueva contraseña sea diferente
@@ -615,7 +615,7 @@ export class AuthService {
 
     if (isSamePassword) {
       throw new BadRequestException(
-        'New password must be different from current password',
+        'La nueva contraseña debe ser diferente de la contraseña actual',
       );
     }
 
@@ -624,7 +624,7 @@ export class AuthService {
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/;
     if (!passwordRegex.test(dto.newPassword)) {
       throw new BadRequestException(
-        'La nueva contraseña debe incluir mayúsculas, minúsculas, números y caracteres especiales y tener al menos 8 caracteres',
+        'La nueva contraseña debe incluir mayúsculas, minúsculas, números, caracteres especiales y tener al menos 8 caracteres',
       );
     }
 
@@ -705,12 +705,12 @@ export class AuthService {
     const user = await this.userService.findById(userId);
 
     if (!user) {
-      throw new UnauthorizedException('User not found');
+      throw new UnauthorizedException('Usuario no encontrado');
     }
 
     // 2. Verificar que el usuario siga activo
     if (user.status !== UserStatus.ACTIVE) {
-      throw new UnauthorizedException('Account is not active');
+      throw new UnauthorizedException('La cuenta no está activa');
     }
 
     // 3. Verificar si es tutor o estudiante y necesita acciones adicionales
