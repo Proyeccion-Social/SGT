@@ -884,7 +884,7 @@ export class AvailabilityService {
       where: { idAvailability: availabilityId },
     });
     if (!availability)
-      throw new NotFoundException('Availability slot not found');
+      throw new NotFoundException('Slot de disponibilidad no encontrado');
     return availability;
   }
 
@@ -1130,7 +1130,7 @@ export class AvailabilityService {
       // Construir en UTC para evitar desfase de zona horaria
       const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(weekStart);
       if (!match) {
-        throw new BadRequestException('weekStart must have format YYYY-MM-DD');
+        throw new BadRequestException('weekStart debe tener el formato YYYY-MM-DD');
       }
 
       const y = Number(match[1]);
@@ -1139,7 +1139,7 @@ export class AvailabilityService {
 
       if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) {
         throw new BadRequestException(
-          'weekStart must be a valid date in format YYYY-MM-DD',
+          'weekStart debe ser una fecha válida, en el formato YYYY-MM-DD',
         );
       }
 
@@ -1154,12 +1154,12 @@ export class AvailabilityService {
 
       if (!isValidDate) {
         throw new BadRequestException(
-          'weekStart must be a valid date in format YYYY-MM-DD',
+          'weekStart debe ser una fecha válida, en el formato YYYY-MM-DD',
         );
       }
 
       if (monday.getUTCDay() !== 1) {
-        throw new BadRequestException('weekStart must be a Monday');
+        throw new BadRequestException('weekStart debe ser un lunes');
       }
     } else {
       // Lunes de la semana actual en UTC
