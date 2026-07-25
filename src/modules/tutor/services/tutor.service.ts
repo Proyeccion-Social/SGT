@@ -224,7 +224,9 @@ export class TutorService {
     // 5. Obtener modalidades disponibles
     const availableModalities = [
       ...new Set(
-        tutor.tutorHaveAvailabilities.flatMap((ta) => ta.modality ?? []),
+        tutor.tutorHaveAvailabilities
+          .filter((ta) => ta.modality !== null)
+          .map((ta) => ta.modality),
       ),
     ];
 
@@ -288,7 +290,9 @@ export class TutorService {
     // 5. Modalidades disponibles
     const availableModalities = [
       ...new Set(
-        tutor.tutorHaveAvailabilities.flatMap((ta) => ta.modality ?? []),
+        tutor.tutorHaveAvailabilities
+          .filter((ta) => ta.modality !== null)
+          .map((ta) => ta.modality),
       ),
     ];
 
