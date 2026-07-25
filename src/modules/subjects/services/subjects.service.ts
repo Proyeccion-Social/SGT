@@ -97,7 +97,7 @@ export class SubjectsService {
   ): Promise<void> {
     const subject = await this.findById(id);
     if (!subject) {
-      throw new NotFoundException(`Subject with id ${id} not found`);
+      throw new NotFoundException(`Materia con id ${id} no encontrada`);
     }
     subject.color = color;
     subject.borderColor = borderColor;
@@ -153,7 +153,7 @@ export class SubjectsService {
     // 1. Validar que la materia exista
     const subject = await this.findById(subjectId);
     if (!subject) {
-      throw new NotFoundException(`Subject with id ${subjectId} not found`);
+      throw new NotFoundException(`Materia con id ${subjectId} no encontrada`);
     }
 
     // 2. Verificar si ya existe la relación

@@ -46,7 +46,7 @@ export class CloudinaryService {
       !this.cloudinaryName
     ) {
       throw new InternalServerErrorException(
-        'Cloudinary configuration is missing. Set CLOUDINARY_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET to use uploads.',
+        'Configuración de Cloudinary faltante. Añade CLOUDINARY_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET para habilitar las acciones de subida.',
       );
     }
 
