@@ -34,6 +34,7 @@ import { AuditLog } from '../auth/entities/audit-log.entity';
 import { PasswordResetToken } from '../auth/entities/password-reset-token.entity';
 import { EmailVerificationToken } from '../auth/entities/email-verification-token.entity';
 import { SessionModificationRequest } from '../scheduling/entities/session-modification-request.entity';
+import { DashboardBanner } from '../scheduling/entities/dashboard-banner.entity';
 
 const entities = [
   User,
@@ -48,6 +49,7 @@ const entities = [
   ScheduledSession,
   SessionModificationRequest,
   StudentParticipateSession,
+  DashboardBanner,
 
   Question,
   Answer,
