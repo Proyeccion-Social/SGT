@@ -116,14 +116,18 @@ export class TutorService {
     // 1. Verificar que sea tutor
     const isTutor = await this.userService.isTutor(userId);
     if (!isTutor) {
-      throw new ForbiddenException('Solo los tutores pueden completar este perfil');
+      throw new ForbiddenException(
+        'Solo los tutores pueden completar este perfil',
+      );
     }
 
     // 2. Verificar que haya cambiado la contraseña temporal
     const hasTemporaryPassword =
       await this.userService.hasTemporaryPassword(userId);
     if (hasTemporaryPassword) {
-      throw new BadRequestException('Debe cambiar la contraseña asignada por el sistema antes de completar el perfil');
+      throw new BadRequestException(
+        'Debe cambiar la contraseña asignada por el sistema antes de completar el perfil',
+      );
     }
 
     // 3. Buscar tutor
@@ -156,7 +160,9 @@ export class TutorService {
     // 1. Verificar que sea tutor
     const isTutor = await this.userService.isTutor(userId);
     if (!isTutor) {
-      throw new ForbiddenException('Solo los tutores pueden actualizar este perfil');
+      throw new ForbiddenException(
+        'Solo los tutores pueden actualizar este perfil',
+      );
     }
 
     // 2. Buscar tutor
@@ -208,7 +214,9 @@ export class TutorService {
     });
 
     if (!tutor) {
-      throw new NotFoundException('Tutor no encontrado, o su perfil no está completo o activo');
+      throw new NotFoundException(
+        'Tutor no encontrado, o su perfil no está completo o activo',
+      );
     }
 
     // 2.  Obtener materias usando SubjectService (alternativa más limpia)
@@ -258,7 +266,9 @@ export class TutorService {
     // 1. Verificar que sea tutor
     const isTutor = await this.userService.isTutor(userId);
     if (!isTutor) {
-      throw new ForbiddenException('Solo los tutores pueden acceder a este recurso');
+      throw new ForbiddenException(
+        'Solo los tutores pueden acceder a este recurso',
+      );
     }
 
     // 2. Buscar tutor con relaciones
@@ -430,7 +440,9 @@ export class TutorService {
 
     // Validar que el perfil esté completo
     if (!tutor.profile_completed) {
-      throw new BadRequestException('Complete el perfil antes de asignar materias');
+      throw new BadRequestException(
+        'Complete el perfil antes de asignar materias',
+      );
     }
 
     // Delegar al SubjectsService (que ya valida límite de 4)

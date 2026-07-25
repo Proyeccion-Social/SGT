@@ -1130,7 +1130,9 @@ export class AvailabilityService {
       // Construir en UTC para evitar desfase de zona horaria
       const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(weekStart);
       if (!match) {
-        throw new BadRequestException('weekStart debe tener el formato YYYY-MM-DD');
+        throw new BadRequestException(
+          'weekStart debe tener el formato YYYY-MM-DD',
+        );
       }
 
       const y = Number(match[1]);

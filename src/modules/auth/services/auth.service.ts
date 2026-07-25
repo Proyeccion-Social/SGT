@@ -169,7 +169,9 @@ export class AuthService {
     const user = await this.userService.findById(verificationToken.id_user);
 
     if (!user) {
-      throw new NotFoundException('Usuario no encontrado después de verificar email');
+      throw new NotFoundException(
+        'Usuario no encontrado después de verificar email',
+      );
     }
 
     // 5. Generar tokens con el objeto usuario completo
