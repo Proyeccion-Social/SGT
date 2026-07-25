@@ -20,7 +20,13 @@ import { User, UserRole } from '../../users/entities/user.entity';
 
 @Controller('dashboard/banner')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
+@UsePipes(
+  new ValidationPipe({
+    whitelist: true,
+    forbidNonWhitelisted: true,
+    transform: true,
+  }),
+)
 export class DashboardBannerController {
   constructor(private readonly bannerService: DashboardBannerService) {}
 

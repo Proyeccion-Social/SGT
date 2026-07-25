@@ -46,7 +46,11 @@ import { DashboardBannerController } from './controllers/dashboard-banner.contro
     SessionExpiryService,
     DashboardBannerService,
   ],
-  controllers: [SessionController, DashboardController, DashboardBannerController],
+  controllers: [
+    SessionController,
+    DashboardController,
+    DashboardBannerController,
+  ],
   exports: [TypeOrmModule, SessionService, DashboardService],
 })
 export class SchedulingModule {}
