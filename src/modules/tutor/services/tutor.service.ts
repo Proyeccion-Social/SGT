@@ -54,7 +54,7 @@ export class TutorService {
     // 3. Verificar que el email no exista
     const exists = await this.userService.existsByEmail(dto.email);
     if (exists) {
-      throw new BadRequestException('Email already exists');
+      throw new BadRequestException('El email ya existe en el sistema');
     }
 
     // 4. Generar contraseña temporal
@@ -116,14 +116,18 @@ export class TutorService {
     // 1. Verificar que sea tutor
     const isTutor = await this.userService.isTutor(userId);
     if (!isTutor) {
-      throw new ForbiddenException('Only tutors can complete this profile');
+      throw new ForbiddenException(
+        'Solo los tutores pueden completar este perfil',
+      );
     }
 
     // 2. Verificar que haya cambiado la contraseña temporal
     const hasTemporaryPassword =
       await this.userService.hasTemporaryPassword(userId);
     if (hasTemporaryPassword) {
-      throw new BadRequestException('Change password first');
+      throw new BadRequestException(
+        'Debe cambiar la contraseña asignada por el sistema antes de completar el perfil',
+      );
     }
 
     // 3. Buscar tutor
@@ -132,7 +136,7 @@ export class TutorService {
     });
 
     if (!tutor) {
-      throw new NotFoundException('Tutor profile not found');
+      throw new NotFoundException('Perfil de tutor no encontrado');
     }
 
     // 4. Actualizar datos del tutor
@@ -156,7 +160,9 @@ export class TutorService {
     // 1. Verificar que sea tutor
     const isTutor = await this.userService.isTutor(userId);
     if (!isTutor) {
-      throw new ForbiddenException('Only tutors can update this profile');
+      throw new ForbiddenException(
+        'Solo los tutores pueden actualizar este perfil',
+      );
     }
 
     // 2. Buscar tutor
@@ -164,7 +170,7 @@ export class TutorService {
       where: { idUser: userId },
     });
     if (!tutor) {
-      throw new NotFoundException('Tutor profile not found');
+      throw new NotFoundException('Perfil de tutor no encontrado');
     }
 
     // 3. Actualizar datos del tutor
@@ -208,7 +214,9 @@ export class TutorService {
     });
 
     if (!tutor) {
-      throw new NotFoundException('Tutor not found or profile not completed');
+      throw new NotFoundException(
+        'Tutor no encontrado, o su perfil no está completo o activo',
+      );
     }
 
     // 2.  Obtener materias usando SubjectService (alternativa más limpia)
@@ -258,7 +266,9 @@ export class TutorService {
     // 1. Verificar que sea tutor
     const isTutor = await this.userService.isTutor(userId);
     if (!isTutor) {
-      throw new ForbiddenException('Only tutors can access this resource');
+      throw new ForbiddenException(
+        'Solo los tutores pueden acceder a este recurso',
+      );
     }
 
     // 2. Buscar tutor con relaciones
@@ -274,7 +284,7 @@ export class TutorService {
     });
 
     if (!tutor) {
-      throw new NotFoundException('Tutor profile not found');
+      throw new NotFoundException('Perfil de tutor no encontrado');
     }
 
     // 3. Obtener materias
@@ -405,12 +415,12 @@ export class TutorService {
     });
 
     if (!tutor) {
-      throw new NotFoundException('Tutor not found');
+      throw new NotFoundException('Tutor no encontrado');
     }
 
     if (!tutor.isActive || !tutor.profile_completed) {
       throw new BadRequestException(
-        'Tutor is not active or profile not completed',
+        'Tutor no está activo o su perfil no está completo',
       );
     }
   }
@@ -425,12 +435,14 @@ export class TutorService {
     // Validar que el tutor exista
     const tutor = await this.findByUserId(tutorId);
     if (!tutor) {
-      throw new NotFoundException('Tutor not found');
+      throw new NotFoundException('Tutor no encontrado');
     }
 
     // Validar que el perfil esté completo
     if (!tutor.profile_completed) {
-      throw new BadRequestException('Complete profile first');
+      throw new BadRequestException(
+        'Complete el perfil antes de asignar materias',
+      );
     }
 
     // Delegar al SubjectsService (que ya valida límite de 4)
@@ -494,7 +506,7 @@ export class TutorService {
     });
 
     if (!tutor) {
-      throw new NotFoundException('Tutor not found');
+      throw new NotFoundException('Tutor no encontrado');
     }
 
     return tutor.limitDisponibility ?? 8;
@@ -511,7 +523,7 @@ export class TutorService {
     });
 
     if (!tutor) {
-      throw new NotFoundException('Tutor not found');
+      throw new NotFoundException('Tutor no encontrado');
     }
 
     // Retornar constante de 4 horas por día

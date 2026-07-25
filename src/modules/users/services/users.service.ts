@@ -39,7 +39,7 @@ export class UserService {
     });
 
     if (existingUser) {
-      throw new ConflictException('Email already exists');
+      throw new ConflictException('El email ya existe');
     }
 
     const hashedPassword = await bcrypt.hash(data.password, 10);
@@ -66,7 +66,7 @@ export class UserService {
     });
 
     if (existingUser) {
-      throw new ConflictException('Email already exists');
+      throw new ConflictException('El email ya existe');
     }
 
     const hashedPassword = await bcrypt.hash(data.temporaryPassword, 10);
@@ -187,7 +187,7 @@ export class UserService {
    */
   async incrementFailedLoginAttempts(userId: string): Promise<number> {
     const user = await this.findById(userId);
-    if (!user) throw new NotFoundException('User not found');
+    if (!user) throw new NotFoundException('Usario no encontrado');
 
     const newAttempts = user.failed_login_attempts + 1;
 
