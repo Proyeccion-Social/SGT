@@ -73,6 +73,14 @@ export class AuthService {
       );
     }
 
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/;
+    if (!passwordRegex.test(dto.password)) {
+      throw new BadRequestException(
+        'Contraseña debe incluir mayúsculas, minúsculas, números, caracteres especiales y tener al menos 8 caracteres',
+      );
+    }
+
     // 3. Verificar si el email ya existe
     const existingUser = await this.userService.findByEmail(dto.email);
 
@@ -529,10 +537,10 @@ export class AuthService {
 
     // 3. Validar contraseña (mismos requisitos que registro)
     const passwordRegex =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/;
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/;
     if (!passwordRegex.test(password)) {
       throw new BadRequestException(
-        'Password must include uppercase, lowercase, numbers and special characters',
+        'La nueva contraseña debe incluir mayúsculas, minúsculas, números y caracteres especiales y tener al menos 8 caracteres',
       );
     }
 
@@ -613,10 +621,10 @@ export class AuthService {
 
     // 5. Validar nueva contraseña (requisitos de seguridad)
     const passwordRegex =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/;
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/;
     if (!passwordRegex.test(dto.newPassword)) {
       throw new BadRequestException(
-        'New password must include uppercase, lowercase, numbers and special characters',
+        'La nueva contraseña debe incluir mayúsculas, minúsculas, números y caracteres especiales y tener al menos 8 caracteres',
       );
     }
 

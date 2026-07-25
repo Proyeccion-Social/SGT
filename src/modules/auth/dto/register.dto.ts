@@ -21,10 +21,13 @@ export class RegisterDto {
 
   @IsString()
   @MinLength(8, { message: 'Contraseña debe tener mínimo 8 caracteres' })
-  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/, {
-    message:
-      'Contraseña debe incluir mayúsculas, minúsculas, números y caracteres especiales',
-  })
+  @Matches(
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/,
+    {
+      message:
+        'Contraseña debe incluir mayúsculas, minúsculas, números y caracteres especiales',
+    },
+  )
   password: string;
 
   @IsString()
