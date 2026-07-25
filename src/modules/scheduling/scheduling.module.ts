@@ -19,6 +19,7 @@ import { SessionExpiryService } from './services/session-expiry.service';
 import { DashboardBannerService } from './services/dashboard-banner.service';
 import { DashboardBanner } from './entities/dashboard-banner.entity';
 import { DashboardBannerController } from './controllers/dashboard-banner.controller';
+import { CloudinaryModule } from '../cloudinary/cloudinary.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { DashboardBannerController } from './controllers/dashboard-banner.contro
     UsersModule,
     SubjectsModule,
     NotificationsModule,
+    CloudinaryModule,
   ],
   providers: [
     SessionService,
