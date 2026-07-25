@@ -532,7 +532,7 @@ export class AuthService {
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/;
     if (!passwordRegex.test(password)) {
       throw new BadRequestException(
-        'Password must include uppercase, lowercase, numbers and special characters',
+        'La nueva contraseña debe incluir mayúsculas, minúsculas, números y caracteres especiales y tener al menos 8 caracteres',
       );
     }
 
@@ -616,7 +616,7 @@ export class AuthService {
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/;
     if (!passwordRegex.test(dto.newPassword)) {
       throw new BadRequestException(
-        'New password must include uppercase, lowercase, numbers and special characters',
+        'La nueva contraseña debe incluir mayúsculas, minúsculas, números y caracteres especiales y tener al menos 8 caracteres',
       );
     }
 
