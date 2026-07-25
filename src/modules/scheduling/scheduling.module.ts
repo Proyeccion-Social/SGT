@@ -16,6 +16,9 @@ import { SessionValidationService } from './services/session-validation.service'
 import { DashboardController } from './controllers/dashboard.controller';
 import { DashboardService } from './services/dashboard.service';
 import { SessionExpiryService } from './services/session-expiry.service';
+import { DashboardBannerService } from './services/dashboard-banner.service';
+import { DashboardBanner } from './entities/dashboard-banner.entity';
+import { DashboardBannerController } from './controllers/dashboard-banner.controller';
 
 @Module({
   imports: [
@@ -25,6 +28,7 @@ import { SessionExpiryService } from './services/session-expiry.service';
         ScheduledSession,
         StudentParticipateSession,
         SessionModificationRequest,
+        DashboardBanner,
       ],
       'local',
     ),
@@ -40,8 +44,9 @@ import { SessionExpiryService } from './services/session-expiry.service';
     SessionValidationService,
     DashboardService,
     SessionExpiryService,
+    DashboardBannerService,
   ],
-  controllers: [SessionController, DashboardController],
+  controllers: [SessionController, DashboardController, DashboardBannerController],
   exports: [TypeOrmModule, SessionService, DashboardService],
 })
 export class SchedulingModule {}
