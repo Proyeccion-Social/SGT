@@ -627,6 +627,32 @@ describe('AuthService', () => {
         'user-1',
       );
     });
+
+    it('accepts passwords containing #', async () => {
+      passwordResetService.validateToken.mockResolvedValue({
+        id_token: 't-1',
+        id_user: 'user-1',
+      });
+      userService.updatePassword.mockResolvedValue(undefined);
+      passwordResetService.markAsUsed.mockResolvedValue(undefined);
+      sessionService.revokeAllUserSessions.mockResolvedValue(undefined);
+      auditService.logPasswordResetCompleted.mockResolvedValue(undefined);
+      userService.findById.mockResolvedValue(mockUser);
+      emailService.sendPasswordChangedNotification.mockResolvedValue(undefined);
+
+      await expect(
+        service.resetPassword(
+          'token',
+          'ValidPass1#',
+          'ValidPass1#',
+          '127.0.0.1',
+        ),
+      ).resolves.toEqual(
+        expect.objectContaining({
+          message: expect.stringContaining('Password reset successfully'),
+        }),
+      );
+    });
   });
 
   // ─── changePassword ───────────────────────────────────────────────────────────
@@ -727,6 +753,34 @@ describe('AuthService', () => {
       expect(result.message).toContain('Password changed successfully');
       expect(sessionService.revokeAllUserSessions).toHaveBeenCalledWith(
         'user-1',
+      );
+    });
+
+    it('accepts newPassword containing #', async () => {
+      userService.findById.mockResolvedValue(mockUser);
+      userService.validatePassword
+        .mockResolvedValueOnce(true)
+        .mockResolvedValueOnce(false);
+      userService.updatePassword.mockResolvedValue(undefined);
+      sessionService.revokeAllUserSessions.mockResolvedValue(undefined);
+      auditService.logPasswordChange.mockResolvedValue(undefined);
+      emailService.sendPasswordChangedNotification.mockResolvedValue(undefined);
+
+      await expect(
+        service.changePassword(
+          'user-1',
+          {
+            currentPassword: 'OldPass1@',
+            newPassword: 'NewPass1#valid',
+            confirmNewPassword: 'NewPass1#valid',
+          },
+          '127.0.0.1',
+          'agent',
+        ),
+      ).resolves.toEqual(
+        expect.objectContaining({
+          message: expect.stringContaining('Password changed successfully'),
+        }),
       );
     });
   });
