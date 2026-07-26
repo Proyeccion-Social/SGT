@@ -9,7 +9,7 @@ importers:
   .:
     dependencies:
       '@aws-sdk/client-sqs':
-        specifier: ^3.600.0
+        specifier: ^3.1087.0
         version: 3.1090.0
       '@neondatabase/serverless':
         specifier: ^1.0.2

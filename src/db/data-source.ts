@@ -26,21 +26,15 @@ import { EmailVerificationToken } from '../modules/auth/entities/email-verificat
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
-  host: process.env.LOCAL_DB_HOST ?? 'localhost',
-  port: parseInt(process.env.LOCAL_DB_PORT ?? '5432'),
-  username: process.env.LOCAL_DB_USER ?? 'postgres',
-  password: process.env.LOCAL_DB_PASSWORD ?? '1234',
-  database: process.env.LOCAL_DB_NAME ?? 'atlas-pruebas',
+  host: process.env.LOCAL_DB_HOST,
+  port: parseInt(process.env.LOCAL_DB_PORT!),
+  username: process.env.LOCAL_DB_USER,
+  password: process.env.LOCAL_DB_PASSWORD,
+  database: process.env.LOCAL_DB_NAME,
+
   synchronize: false,
-  logging: false,
-  entities: [
-    User, Student, Tutor,
-    Subject, TutorImpartSubject, StudentInterestedSubject,
-    Availability, TutorHaveAvailability,
-    Session, ScheduledSession, SessionModificationRequest, StudentParticipateSession,
-    Question, Answer,
-    AppNotification,
-    AuthSession, AuditLog, PasswordResetToken, EmailVerificationToken,
-  ],
-  migrations: ['src/db/migrations/*.ts'],
+  logging: process.env.NODE_ENV === 'development',
+
+  entities: ['src/**/*.entity.{ts,js}'],
+  migrations: ['src/db/migrations/*.{ts,js}'],
 });

@@ -83,7 +83,7 @@ describe('AvailabilityController', () => {
         dayOfWeek: 'MONDAY',
         startTime: '08:00',
         endTime: '10:00',
-        modality: 'PRES',
+        modality: ['PRES'],
       } as any;
       const slots = [{ slotId: 1 }];
       availabilityService.createSlotsInRange.mockResolvedValue(slots);
@@ -109,7 +109,7 @@ describe('AvailabilityController', () => {
         dayOfWeek: 'TUESDAY',
         startTime: '09:00',
         endTime: '11:00',
-        modality: 'VIRT',
+        modality: ['VIRT'],
       } as any;
       const slots = [{ slotId: 10 }];
       availabilityService.updateSlotsInRange.mockResolvedValue(slots);
@@ -135,7 +135,7 @@ describe('AvailabilityController', () => {
         dayOfWeek: 'WEDNESDAY',
         startTime: '13:00',
         endTime: '14:00',
-        modality: 'PRES',
+        modality: ['PRES'],
       } as any;
       const serviceResult = { deletedSlots: 2 };
       availabilityService.deleteSlotsInRange.mockResolvedValue(serviceResult);
@@ -162,7 +162,7 @@ describe('AvailabilityController', () => {
         data: {
           dayOfWeek: 'MONDAY',
           startTime: '08:00',
-          modality: 'PRES',
+          modality: ['PRES'],
         },
       } as any;
       availabilityService.createSlot.mockResolvedValue({ slotId: 1 });

@@ -341,7 +341,7 @@ async function seed(): Promise<void> {
           });
           if (!exists) {
             await tutorAvailRepo.save(
-              tutorAvailRepo.create({ idTutor, idAvailability: slot.idAvailability, modality: rule.modality }),
+              tutorAvailRepo.create({ idTutor, idAvailability: slot.idAvailability, modality: [rule.modality] }),
             );
           }
         }
