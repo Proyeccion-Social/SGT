@@ -346,7 +346,7 @@ export class SessionService {
         },
       );
       if (!scheduledSession)
-        throw new NotFoundException('ScheduledSession not found');
+        throw new NotFoundException('ScheduledSession no encontrada');
 
       // Verificar que no haya otra sesión SCHEDULED en la misma franja+fecha
       const conflicting = await queryRunner.manager
@@ -647,7 +647,7 @@ export class SessionService {
     });
 
     if (!session) {
-      throw new NotFoundException('Session not found');
+      throw new NotFoundException('Sesion no encontrada');
     }
 
     const isParticipant = session.studentParticipateSessions.some(
@@ -704,7 +704,7 @@ export class SessionService {
 
         if (!currentScheduledSession) {
           throw new NotFoundException(
-            'ScheduledSession not found for this session',
+            'ScheduledSession no encontrada para esta sesión',
           );
         }
 
@@ -799,7 +799,7 @@ export class SessionService {
 
       if (!currentScheduledSession) {
         throw new NotFoundException(
-          'ScheduledSession not found for this session',
+          'ScheduledSession no encontrada para esta sesión',
         );
       }
 
@@ -878,7 +878,7 @@ export class SessionService {
         where: { idSession: sessionId },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!session) throw new NotFoundException('Session not found');
+      if (!session) throw new NotFoundException('Sesion no encontrada');
 
       if (session.status !== SessionStatus.PENDING_MODIFICATION) {
         throw new BadRequestException(

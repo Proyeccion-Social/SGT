@@ -61,7 +61,7 @@ export class PasswordResetService {
       }
     }
 
-    throw new BadRequestException('Invalid or expired token');
+    throw new BadRequestException('Token invalido o expirado');
   }
 
   async markAsUsed(tokenId: string): Promise<void> {
