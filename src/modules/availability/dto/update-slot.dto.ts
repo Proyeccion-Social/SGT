@@ -1,6 +1,4 @@
 import {
-  ArrayMinSize,
-  IsArray,
   IsEnum,
   IsNotEmpty,
   IsNumber,
@@ -35,11 +33,6 @@ export class UpdateSlotDto {
   startTime?: string;
 
   @IsOptional()
-  @IsArray({ message: 'La modalidad debe ser un arreglo' })
-  @ArrayMinSize(1, { message: 'Debe seleccionar al menos una modalidad' })
-  @IsEnum(Modality, {
-    each: true,
-    message: 'Modalidad inválida (PRES o VIRT)',
-  })
-  modality?: Modality[];
+  @IsEnum(Modality, { message: 'Modalidad inválida (PRES o VIRT)' })
+  modality?: Modality;
 }

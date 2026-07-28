@@ -235,8 +235,7 @@ export class AvailabilityController {
           !createData ||
           !createData.dayOfWeek ||
           !createData.startTime ||
-          !Array.isArray(createData.modality) ||
-          createData.modality.length === 0
+          !createData.modality
         ) {
           throw new BadRequestException(
             'Para CREATE se requieren: dayOfWeek, startTime, modality',

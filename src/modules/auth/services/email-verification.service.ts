@@ -56,7 +56,7 @@ export class EmailVerificationService {
       }
     }
 
-    throw new BadRequestException('Invalid or expired token');
+    throw new BadRequestException('Token invalido o expirado');
   }
 
   async markAsVerified(tokenId: string): Promise<void> {
