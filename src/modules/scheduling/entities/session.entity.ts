@@ -113,6 +113,9 @@ export class Session {
   @Column({ name: 'rejected_at', type: 'timestamp', nullable: true })
   rejectedAt?: Date;
 
+  @Column({ name: 'max_participants', type: 'smallint', nullable: true })
+  maxParticipants: number | null;
+
   @ManyToOne(() => Tutor, (tutor) => tutor.sessions)
   @JoinColumn({ name: 'id_tutor' })
   tutor: Tutor;
