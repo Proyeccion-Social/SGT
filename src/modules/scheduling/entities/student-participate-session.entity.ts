@@ -35,6 +35,9 @@ export class StudentParticipateSession {
   @Column({ name: 'arrival_time', type: 'timestamp', nullable: true })
   arrivalTime: Date | null;
 
+  @Column({ name: 'joined_at', type: 'timestamp' })
+  joinedAt: Date;
+
   @ManyToOne(() => Student, (student) => student.studentParticipateSessions)
   @JoinColumn({ name: 'id_student' })
   student: Student;

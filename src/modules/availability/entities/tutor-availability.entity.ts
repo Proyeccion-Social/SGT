@@ -12,11 +12,13 @@ export class TutorHaveAvailability {
   idAvailability: number;
 
   @Column({
-    type: 'varchar',
-    length: 10,
+    type: 'enum',
+    enum: Modality,
+    enumName: 'tutor_have_availability_modality_enum',
+    array: true,
     nullable: true,
   })
-  modality: Modality;
+  modality: Modality[];
 
   @ManyToOne(() => Tutor, (tutor) => tutor.tutorHaveAvailabilities)
   @JoinColumn({ name: 'id_tutor' })

@@ -28,6 +28,7 @@ import { UpdateSessionDetailsDto } from '../dto/update-session-details.dto';
 import { RejectSessionDto } from '../dto/reject-session.dto';
 import { ConfirmSessionDto } from '../dto/confirm-session.dto';
 import { SessionFilterDto } from '../dto/session-filter.dto';
+import { CreateGroupSessionDto } from '../dto/create-group-session.dto';
 
 @Controller('scheduling/sessions')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -57,6 +58,38 @@ export class SessionController {
     @Body() dto: CreateIndividualSessionDto,
   ) {
     return await this.sessionService.createIndividualSession(user.idUser, dto);
+  }
+
+  // ========================================
+  // CREAR SESIÓN GRUPAL
+  // ========================================
+
+  /**
+   * POST /api/scheduling/sessions/group
+   * Crear sesión grupal (solo estudiantes) — el creador es el primer participante
+   */
+  @Post('group')
+  @Roles(UserRole.STUDENT)
+  @HttpCode(HttpStatus.CREATED)
+  async createGroupSession(
+    @CurrentUser() user: User,
+    @Body() dto: CreateGroupSessionDto,
+  ) {
+    return await this.sessionService.createGroupSession(user.idUser, dto);
+  }
+
+  /**
+   * POST /api/scheduling/sessions/:id/join
+   * Unirse a una sesión grupal ya confirmada (solo estudiantes)
+   */
+  @Post(':id/join')
+  @Roles(UserRole.STUDENT)
+  @HttpCode(HttpStatus.OK)
+  async joinGroupSession(
+    @CurrentUser() user: User,
+    @Param('id') sessionId: string,
+  ) {
+    return await this.sessionService.joinGroupSession(user.idUser, sessionId);
   }
 
   // ========================================

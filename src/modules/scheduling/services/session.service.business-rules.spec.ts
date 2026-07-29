@@ -255,7 +255,7 @@ describe('SessionService — Business Rules (Integration)', () => {
 
       expect(
         validationService.validateAvailabilitySlotWithDuration,
-      ).toHaveBeenCalledWith('tutor-1', 10, '2030-01-06', 1);
+      ).toHaveBeenCalledWith('tutor-1', 10, '2030-01-06', 1, 'VIRT');
     });
 
     it('permite agendamiento cuando la duración coincide exactamente con el único slot disponible', async () => {
@@ -275,7 +275,7 @@ describe('SessionService — Business Rules (Integration)', () => {
       expect(result.success).toBe(true);
       expect(
         validationService.validateAvailabilitySlotWithDuration,
-      ).toHaveBeenCalledWith('tutor-1', 10, '2030-01-06', 0.5);
+      ).toHaveBeenCalledWith('tutor-1', 10, '2030-01-06', 0.5, 'VIRT');
       // Verificar que se precalculó y persistió confirmationExpiresAt
       expect(
         validationService.calculateConfirmationExpiry,
@@ -319,10 +319,10 @@ describe('SessionService — Business Rules (Integration)', () => {
 
       expect(
         validationService.validateAvailabilitySlotWithDuration,
-      ).toHaveBeenNthCalledWith(1, 'tutor-1', 10, '2030-01-06', 1);
+      ).toHaveBeenNthCalledWith(1, 'tutor-1', 10, '2030-01-06', 1, 'VIRT');
       expect(
         validationService.validateAvailabilitySlotWithDuration,
-      ).toHaveBeenNthCalledWith(2, 'tutor-1', 10, '2030-01-13', 1);
+      ).toHaveBeenNthCalledWith(2, 'tutor-1', 10, '2030-01-13', 1, 'VIRT');
     });
 
     it('rechaza agendamiento cuando el slot ya está confirmado para otro estudiante (lock pesimista)', async () => {
@@ -904,7 +904,7 @@ describe('SessionService — Business Rules (Integration)', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('no invoca validateAvailabilitySlotWithDuration al proponer solo cambio de modalidad', async () => {
+    it('revalida disponibilidad al proponer solo cambio de modalidad', async () => {
       sessionRepo.findOne.mockResolvedValue(
         makeSession({
           studentParticipateSessions: [{ idStudent: 'student-1' }],
@@ -922,7 +922,14 @@ describe('SessionService — Business Rules (Integration)', () => {
 
       expect(
         validationService.validateAvailabilitySlotWithDuration,
-      ).not.toHaveBeenCalled();
+      ).toHaveBeenCalledWith(
+        'tutor-1',
+        10,
+        '2030-01-06',
+        1,
+        Modality.PRES,
+        'session-1',
+      );
       expect(validationService.validateNoTimeConflict).not.toHaveBeenCalled();
     });
 
@@ -998,6 +1005,7 @@ describe('SessionService — Business Rules (Integration)', () => {
         10,
         '2030-01-13',
         expect.any(Number),
+        'VIRT',
         'session-1',
       );
       expect(validationService.validateNoTimeConflict).toHaveBeenCalledWith(
