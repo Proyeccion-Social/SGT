@@ -18,7 +18,7 @@ export class TutorHaveAvailability {
     array: true,
     nullable: true,
   })
-  modality: Modality[];
+  modality: Modality[]; //Fix
 
   @ManyToOne(() => Tutor, (tutor) => tutor.tutorHaveAvailabilities)
   @JoinColumn({ name: 'id_tutor' })
