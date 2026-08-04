@@ -6,6 +6,9 @@ import { SqsEmailService } from './sqs-email.service';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as Handlebars from 'handlebars';
+import { render } from 'react-email';
+import type { ReactElement } from 'react';
+import * as emailComponents from '../emails';
 
 import { Session } from '../../scheduling/entities/session.entity';
 import { SessionModificationRequest } from '../../scheduling/entities/session-modification-request.entity';
@@ -41,6 +44,33 @@ export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
   private readonly frontendUrl: string;
 
+  private readonly templateNameToComponent: Record<
+    string,
+    (props: any) => ReactElement
+  > = {
+    'welcome-email': emailComponents.WelcomeEmail,
+    'email-confirmation': emailComponents.EmailConfirmation,
+    'tutor-credentials': emailComponents.TutorCredentials,
+    'tutor-profile-completed': emailComponents.TutorProfileCompleted,
+    'password-reset': emailComponents.PasswordReset,
+    'password-changed': emailComponents.PasswordChanged,
+    'tutor-confirmation-request': emailComponents.TutorConfirmationRequest,
+    'session-request-ack-student': emailComponents.SessionRequestAckStudent,
+    'session-confirmation-student': emailComponents.SessionConfirmationStudent,
+    'session-confirmation-tutor': emailComponents.SessionConfirmationTutor,
+    'session-rejected': emailComponents.SessionRejected,
+    'session-modification-request': emailComponents.SessionModificationRequest,
+    'session-modification-response': emailComponents.SessionModificationResponse,
+    'session-details-updated': emailComponents.SessionDetailsUpdated,
+    'session-cancelled': emailComponents.SessionCancelled,
+    'session-reminder': emailComponents.SessionReminder,
+    'evaluation-pending': emailComponents.EvaluationPending,
+    'session-absent': emailComponents.SessionAbsent,
+    'availability-changed': emailComponents.AvailabilityChanged,
+    'hour-limit-alert': emailComponents.HourLimitAlert,
+    'collaborative-session-available': emailComponents.CollaborativeSessionAvailable,
+  };
+
   constructor(
     private readonly configService: ConfigService,
     private readonly usersService: UserService,
@@ -68,7 +98,7 @@ export class NotificationsService {
   ): Promise<void> {
     const confirmationUrl = `${this.frontendUrl}/confirm-email?token=${token}`;
 
-    const htmlContent = this.renderTemplate('email-confirmation', {
+    const htmlContent = await this.renderTemplate('email-confirmation', {
       fullName,
       confirmationUrl,
     });
@@ -92,7 +122,7 @@ export class NotificationsService {
   async sendWelcomeEmail(email: string, fullName: string): Promise<void> {
     const loginUrl = `${this.frontendUrl}/login`;
 
-    const htmlContent = this.renderTemplate('welcome-email', {
+    const htmlContent = await this.renderTemplate('welcome-email', {
       fullName,
       loginUrl,
     });
@@ -124,7 +154,7 @@ export class NotificationsService {
   ): Promise<void> {
     const loginUrl = `${this.frontendUrl}/login`;
 
-    const htmlContent = this.renderTemplate('tutor-credentials', {
+    const htmlContent = await this.renderTemplate('tutor-credentials', {
       name,
       email,
       temporaryPassword,
@@ -153,7 +183,7 @@ export class NotificationsService {
   ): Promise<void> {
     const dashboardUrl = `${this.frontendUrl}/dashboard`;
 
-    const htmlContent = this.renderTemplate('tutor-profile-completed', {
+    const htmlContent = await this.renderTemplate('tutor-profile-completed', {
       name,
       dashboardUrl,
     });
@@ -185,7 +215,7 @@ export class NotificationsService {
   ): Promise<void> {
     const resetUrl = `${this.frontendUrl}/reset-password?token=${resetToken}`;
 
-    const htmlContent = this.renderTemplate('password-reset', {
+    const htmlContent = await this.renderTemplate('password-reset', {
       name,
       resetUrl,
     });
@@ -210,7 +240,7 @@ export class NotificationsService {
     email: string,
     name: string,
   ): Promise<void> {
-    const htmlContent = this.renderTemplate('password-changed', { name });
+    const htmlContent = await this.renderTemplate('password-changed', { name });
 
     try {
       await this.sqsEmail.send({
@@ -247,7 +277,7 @@ export class NotificationsService {
       const student = session.participants.find((p: any) => p.id === studentId);
       const studentName = student?.name ?? 'Estudiante';
 
-      const htmlContent = this.renderTemplate('tutor-confirmation-request', {
+      const htmlContent = await this.renderTemplate('tutor-confirmation-request', {
         tutorName: session.tutor.name,
         studentName,
         subjectName: session.subject.name,
@@ -311,7 +341,7 @@ export class NotificationsService {
       const student = session.participants.find((p: any) => p.id === studentId);
       const studentName = student?.name ?? 'Estudiante';
 
-      const htmlContent = this.renderTemplate('session-request-ack-student', {
+      const htmlContent = await this.renderTemplate('session-request-ack-student', {
         studentName,
         tutorName: session.tutor.name,
         subjectName: session.subject.name,
@@ -375,7 +405,7 @@ export class NotificationsService {
       const student = session.participants.find((p: any) => p.id === studentId);
       const studentName = student?.name ?? 'Estudiante';
 
-      const htmlContent = this.renderTemplate('session-confirmation-student', {
+      const htmlContent = await this.renderTemplate('session-confirmation-student', {
         studentName,
         tutorName: session.tutor.name,
         subjectName: session.subject.name,
@@ -434,7 +464,7 @@ export class NotificationsService {
       const tutorEmail = await this.getUserEmail(tutorId);
       const studentName = session.participants[0]?.name ?? 'Estudiante';
 
-      const htmlContent = this.renderTemplate('session-confirmation-tutor', {
+      const htmlContent = await this.renderTemplate('session-confirmation-tutor', {
         tutorName: session.tutor.name,
         studentName,
         subjectName: session.subject.name,
@@ -510,7 +540,7 @@ export class NotificationsService {
       const tutorName = session.tutor?.user?.name ?? 'Tutor';
       const subjectName = session.subject?.name ?? 'Materia';
 
-      const htmlContent = this.renderTemplate('session-rejected', {
+      const htmlContent = await this.renderTemplate('session-rejected', {
         studentName,
         tutorName,
         subjectName,
@@ -600,7 +630,7 @@ export class NotificationsService {
           promise: this.sqsEmail.send({
             to: tutorEmail,
             subject: `Sesión cancelada — ${subjectName}`,
-            html: this.renderTemplate('session-cancelled', {
+            html: await this.renderTemplate('session-cancelled', {
               ...baseData,
               recipientName: tutorName,
               recipientRole: 'tutor',
@@ -635,7 +665,7 @@ export class NotificationsService {
             promise: this.sqsEmail.send({
               to: studentEmail,
               subject: `Sesión cancelada — ${subjectName}`,
-              html: this.renderTemplate('session-cancelled', {
+              html: await this.renderTemplate('session-cancelled', {
                 ...baseData,
                 recipientName: studentName,
                 recipientRole: 'estudiante',
@@ -728,7 +758,7 @@ export class NotificationsService {
 
       const reviewUrl = this.generateReviewModificationLink(request.idRequest);
 
-      const htmlContent = this.renderTemplate('session-modification-request', {
+      const htmlContent = await this.renderTemplate('session-modification-request', {
         recipientRole: isTutor ? 'estudiante' : 'tutor',
         requesterRole: isTutor ? 'tutor' : 'estudiante',
         subjectName,
@@ -791,7 +821,7 @@ export class NotificationsService {
       const subjectName = session.subject?.name ?? 'Materia';
       const requesterEmail = await this.getUserEmail(request.requestedBy);
 
-      const htmlContent = this.renderTemplate('session-modification-response', {
+      const htmlContent = await this.renderTemplate('session-modification-response', {
         accepted,
         subjectName,
         title: session.title,
@@ -868,7 +898,7 @@ export class NotificationsService {
   ): Promise<void> {
     try {
       const subjectName = session.subject?.name ?? 'Materia';
-      const htmlContent = this.renderTemplate('session-details-updated', {
+      const htmlContent = await this.renderTemplate('session-details-updated', {
         subjectName,
         date: this.formatDate(session.scheduledDate),
         startTime: session.startTime,
@@ -1014,7 +1044,7 @@ export class NotificationsService {
           promise: this.sqsEmail.send({
             to: tutorEmail,
             subject: reminderSubject,
-            html: this.renderTemplate('session-reminder', {
+            html: await this.renderTemplate('session-reminder', {
               ...baseData,
               recipientName: session.tutor.name,
               recipientRole: 'tutor',
@@ -1045,7 +1075,7 @@ export class NotificationsService {
             promise: this.sqsEmail.send({
               to: studentEmail,
               subject: reminderSubject,
-              html: this.renderTemplate('session-reminder', {
+              html: await this.renderTemplate('session-reminder', {
                 ...baseData,
                 recipientName: participant.name,
                 recipientRole: 'estudiante',
@@ -1114,7 +1144,7 @@ export class NotificationsService {
             subject: isReminder
               ? `Recordatorio: califica tu sesión de ${session.subject.name}`
               : `Califica tu sesión de tutoría — ${session.subject.name}`,
-            html: this.renderTemplate('evaluation-pending', {
+            html: await this.renderTemplate('evaluation-pending', {
               studentName: student.name,
               tutorName: session.tutor.name,
               subjectName: session.subject.name,
@@ -1176,7 +1206,7 @@ export class NotificationsService {
     try {
       const studentEmail = await this.getUserEmail(studentId);
 
-      const htmlContent = this.renderTemplate('session-absent', {
+      const htmlContent = await this.renderTemplate('session-absent', {
         studentName,
         tutorName,
         subjectName,
@@ -1265,7 +1295,7 @@ export class NotificationsService {
       const operations: LabeledOperation[] = [];
 
       for (const affected of affectedSessions) {
-        const htmlContent = this.renderTemplate('availability-changed', {
+        const htmlContent = await this.renderTemplate('availability-changed', {
           studentName: affected.studentName,
           tutorName,
           subjectName: affected.subjectName,
@@ -1349,7 +1379,7 @@ export class NotificationsService {
         urgencyLevel = 'warning';
       }
 
-      const htmlContent = this.renderTemplate('hour-limit-alert', {
+      const htmlContent = await this.renderTemplate('hour-limit-alert', {
         tutorName,
         weeklyHourLimit,
         hoursUsed: hoursUsed.toFixed(1),
@@ -1429,7 +1459,7 @@ export class NotificationsService {
       return;
     }
 
-    const htmlContent = this.renderTemplate('collaborative-session-available', {
+    const htmlContent = await this.renderTemplate('collaborative-session-available', {
       tutorName: session.tutor.name,
       subjectName: session.subject.name,
       date: this.formatDate(session.scheduledDate),
@@ -1554,7 +1584,7 @@ export class NotificationsService {
       const maxParticipants = session.maxParticipants ?? 30;
 
       // ── Notificación al tutor: alguien nuevo se unió ─────────────────────
-      const tutorHtml = this.renderTemplate(
+      const tutorHtml = await this.renderTemplate(
         'group-session-participant-joined',
         {
           tutorName: session.tutor.name,
@@ -1571,7 +1601,7 @@ export class NotificationsService {
       );
 
       // ── Notificación al estudiante: confirmación de que se unió ──────────
-      const studentHtml = this.renderTemplate(
+      const studentHtml = await this.renderTemplate(
         'group-session-join-confirmation',
         {
           studentName: newStudentName,
@@ -1793,18 +1823,16 @@ export class NotificationsService {
     return emailMap;
   }
 
-  private renderTemplate(templateName: string, data: any): string {
+  private async renderTemplate(
+    templateName: string,
+    data: any,
+  ): Promise<string> {
     try {
-      const templatePath = path.join(
-        process.cwd(),
-        'src',
-        'modules',
-        'notifications',
-        'templates',
-        `${templateName}.hbs`,
-      );
-      const templateContent = fs.readFileSync(templatePath, 'utf-8');
-      return Handlebars.compile(templateContent)(data);
+      const ReactComponent = this.templateNameToComponent[templateName];
+      if (ReactComponent) {
+        return await render(ReactComponent(data));
+      }
+      return this.renderHandlebarsTemplate(templateName, data);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(
@@ -1812,6 +1840,19 @@ export class NotificationsService {
       );
       return this.generatePlainTextFallback(templateName, data);
     }
+  }
+
+  private renderHandlebarsTemplate(templateName: string, data: any): string {
+    const templatePath = path.join(
+      process.cwd(),
+      'src',
+      'modules',
+      'notifications',
+      'templates',
+      `${templateName}.hbs`,
+    );
+    const templateContent = fs.readFileSync(templatePath, 'utf-8');
+    return Handlebars.compile(templateContent)(data);
   }
 
   //Refactor: Se cambia el método formatDate para que siempre trate la fecha como UTC, evitando problemas de zona horaria al formatear
