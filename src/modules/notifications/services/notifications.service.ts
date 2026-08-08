@@ -120,7 +120,7 @@ export class NotificationsService {
   }
 
   async sendWelcomeEmail(email: string, fullName: string): Promise<void> {
-    const loginUrl = `${this.frontendUrl}/login`;
+    const loginUrl = `${this.frontendUrl}/?redirect=true`;
 
     const htmlContent = await this.renderTemplate('welcome-email', {
       fullName,
@@ -152,7 +152,7 @@ export class NotificationsService {
     name: string,
     temporaryPassword: string,
   ): Promise<void> {
-    const loginUrl = `${this.frontendUrl}/login`;
+    const loginUrl = `${this.frontendUrl}/?redirect=true`;
 
     const htmlContent = await this.renderTemplate('tutor-credentials', {
       name,
