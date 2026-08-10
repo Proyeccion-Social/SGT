@@ -1289,7 +1289,9 @@ export class SessionService {
   // ═══════════════════════════════════════════════════════════════════════════
 
   async getSessionById(sessionId: string) {
-    return this.mapToDetailedDto(await this.loadSessionWithRelations(sessionId));
+    return this.mapToDetailedDto(
+      await this.loadSessionWithRelations(sessionId),
+    );
   }
 
   private async loadSessionWithRelations(sessionId: string) {

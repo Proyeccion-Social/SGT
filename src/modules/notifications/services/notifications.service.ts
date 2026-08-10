@@ -60,7 +60,8 @@ export class NotificationsService {
     'session-confirmation-tutor': emailComponents.SessionConfirmationTutor,
     'session-rejected': emailComponents.SessionRejected,
     'session-modification-request': emailComponents.SessionModificationRequest,
-    'session-modification-response': emailComponents.SessionModificationResponse,
+    'session-modification-response':
+      emailComponents.SessionModificationResponse,
     'session-details-updated': emailComponents.SessionDetailsUpdated,
     'session-cancelled': emailComponents.SessionCancelled,
     'session-reminder': emailComponents.SessionReminder,
@@ -68,7 +69,8 @@ export class NotificationsService {
     'session-absent': emailComponents.SessionAbsent,
     'availability-changed': emailComponents.AvailabilityChanged,
     'hour-limit-alert': emailComponents.HourLimitAlert,
-    'collaborative-session-available': emailComponents.CollaborativeSessionAvailable,
+    'collaborative-session-available':
+      emailComponents.CollaborativeSessionAvailable,
   };
 
   constructor(
@@ -277,22 +279,25 @@ export class NotificationsService {
       const student = session.participants.find((p: any) => p.id === studentId);
       const studentName = student?.name ?? 'Estudiante';
 
-      const htmlContent = await this.renderTemplate('tutor-confirmation-request', {
-        tutorName: session.tutor.name,
-        studentName,
-        subjectName: session.subject.name,
-        date: this.formatDate(session.scheduledDate),
-        startTime: session.startTime,
-        endTime: session.endTime,
-        duration: session.duration,
-        modality: this.translateModality(session.modality),
-        title: session.title,
-        description: session.description,
-        confirmUrl: this.generateConfirmSessionLink(session.id),
-        expiresAt: this.formatDateTime(
-          new Date(Date.now() + 24 * 60 * 60 * 1000),
-        ),
-      });
+      const htmlContent = await this.renderTemplate(
+        'tutor-confirmation-request',
+        {
+          tutorName: session.tutor.name,
+          studentName,
+          subjectName: session.subject.name,
+          date: this.formatDate(session.scheduledDate),
+          startTime: session.startTime,
+          endTime: session.endTime,
+          duration: session.duration,
+          modality: this.translateModality(session.modality),
+          title: session.title,
+          description: session.description,
+          confirmUrl: this.generateConfirmSessionLink(session.id),
+          expiresAt: this.formatDateTime(
+            new Date(Date.now() + 24 * 60 * 60 * 1000),
+          ),
+        },
+      );
 
       await this.settleAll([
         {
@@ -341,20 +346,23 @@ export class NotificationsService {
       const student = session.participants.find((p: any) => p.id === studentId);
       const studentName = student?.name ?? 'Estudiante';
 
-      const htmlContent = await this.renderTemplate('session-request-ack-student', {
-        studentName,
-        tutorName: session.tutor.name,
-        subjectName: session.subject.name,
-        date: this.formatDate(session.scheduledDate),
-        startTime: session.startTime,
-        endTime: session.endTime,
-        duration: session.duration,
-        modality: this.translateModality(session.modality),
-        title: session.title,
-        description: session.description,
-        status: 'Pendiente de confirmación del tutor',
-        sessionDetailsUrl: this.generateConfirmSessionLink(session.id),
-      });
+      const htmlContent = await this.renderTemplate(
+        'session-request-ack-student',
+        {
+          studentName,
+          tutorName: session.tutor.name,
+          subjectName: session.subject.name,
+          date: this.formatDate(session.scheduledDate),
+          startTime: session.startTime,
+          endTime: session.endTime,
+          duration: session.duration,
+          modality: this.translateModality(session.modality),
+          title: session.title,
+          description: session.description,
+          status: 'Pendiente de confirmación del tutor',
+          sessionDetailsUrl: this.generateConfirmSessionLink(session.id),
+        },
+      );
 
       await this.settleAll([
         {
@@ -409,23 +417,26 @@ export class NotificationsService {
       const student = session.participants.find((p: any) => p.id === studentId);
       const studentName = student?.name ?? 'Estudiante';
 
-      const htmlContent = await this.renderTemplate('session-confirmation-student', {
-        studentName,
-        tutorName: session.tutor.name,
-        tutorEmail,
-        tutorPhone,
-        subjectName: session.subject.name,
-        date: this.formatDate(session.scheduledDate),
-        startTime: session.startTime,
-        endTime: session.endTime,
-        duration: session.duration,
-        modality: this.translateModality(session.modality),
-        title: session.title,
-        description: session.description,
-        sessionDetailsUrl: `${this.frontendUrl}/sessions/${session.id}`,
-        isVirtual: session.modality === 'VIRT',
-        virtualLink: session.virtualLink ?? null,
-      });
+      const htmlContent = await this.renderTemplate(
+        'session-confirmation-student',
+        {
+          studentName,
+          tutorName: session.tutor.name,
+          tutorEmail,
+          tutorPhone,
+          subjectName: session.subject.name,
+          date: this.formatDate(session.scheduledDate),
+          startTime: session.startTime,
+          endTime: session.endTime,
+          duration: session.duration,
+          modality: this.translateModality(session.modality),
+          title: session.title,
+          description: session.description,
+          sessionDetailsUrl: `${this.frontendUrl}/sessions/${session.id}`,
+          isVirtual: session.modality === 'VIRT',
+          virtualLink: session.virtualLink ?? null,
+        },
+      );
 
       await this.settleAll([
         {
@@ -475,21 +486,24 @@ export class NotificationsService {
       const student = session.participants.find((p: any) => p.id === studentId);
       const studentName = student?.name ?? 'Estudiante';
 
-      const htmlContent = await this.renderTemplate('session-confirmation-tutor', {
-        tutorName: session.tutor.name,
-        studentName,
-        studentEmail,
-        subjectName: session.subject.name,
-        date: this.formatDate(session.scheduledDate),
-        startTime: session.startTime,
-        endTime: session.endTime,
-        duration: session.duration,
-        modality: this.translateModality(session.modality),
-        title: session.title,
-        description: session.description,
-        sessionDetailsUrl: `${this.frontendUrl}/tutor/sessions/${session.id}`,
-        isVirtual: session.modality === 'VIRT',
-      });
+      const htmlContent = await this.renderTemplate(
+        'session-confirmation-tutor',
+        {
+          tutorName: session.tutor.name,
+          studentName,
+          studentEmail,
+          subjectName: session.subject.name,
+          date: this.formatDate(session.scheduledDate),
+          startTime: session.startTime,
+          endTime: session.endTime,
+          duration: session.duration,
+          modality: this.translateModality(session.modality),
+          title: session.title,
+          description: session.description,
+          sessionDetailsUrl: `${this.frontendUrl}/tutor/sessions/${session.id}`,
+          isVirtual: session.modality === 'VIRT',
+        },
+      );
 
       await this.settleAll([
         {
@@ -770,17 +784,20 @@ export class NotificationsService {
 
       const reviewUrl = this.generateReviewModificationLink(request.idRequest);
 
-      const htmlContent = await this.renderTemplate('session-modification-request', {
-        recipientRole: isTutor ? 'estudiante' : 'tutor',
-        requesterRole: isTutor ? 'tutor' : 'estudiante',
-        subjectName,
-        currentDate: this.formatDate(session.scheduledDate),
-        currentTime: `${session.startTime} - ${session.endTime}`,
-        title: session.title,
-        proposedChanges: changes,
-        expiresAt: this.formatDateTime(request.expiresAt),
-        reviewUrl,
-      });
+      const htmlContent = await this.renderTemplate(
+        'session-modification-request',
+        {
+          recipientRole: isTutor ? 'estudiante' : 'tutor',
+          requesterRole: isTutor ? 'tutor' : 'estudiante',
+          subjectName,
+          currentDate: this.formatDate(session.scheduledDate),
+          currentTime: `${session.startTime} - ${session.endTime}`,
+          title: session.title,
+          proposedChanges: changes,
+          expiresAt: this.formatDateTime(request.expiresAt),
+          reviewUrl,
+        },
+      );
 
       await this.settleAll([
         {
@@ -833,26 +850,29 @@ export class NotificationsService {
       const subjectName = session.subject?.name ?? 'Materia';
       const requesterEmail = await this.getUserEmail(request.requestedBy);
 
-      const htmlContent = await this.renderTemplate('session-modification-response', {
-        accepted,
-        subjectName,
-        title: session.title,
-        originalDate: this.formatDate(session.scheduledDate),
-        originalTime: `${session.startTime} - ${session.endTime}`,
-        // Solo incluimos los nuevos valores si fue aceptada
-        ...(accepted && {
-          newDate: request.newScheduledDate
-            ? this.formatDate(request.newScheduledDate)
-            : this.formatDate(session.scheduledDate),
-          newTime: request.newStartTime
-            ? `${request.newStartTime} - ${this.calculateNewEndTime(request)}`
-            : `${session.startTime} - ${session.endTime}`,
-          newModality: request.newModality
-            ? this.translateModality(request.newModality)
-            : null,
-        }),
-        sessionDetailsUrl: `${this.frontendUrl}/sessions/${session.idSession}`,
-      });
+      const htmlContent = await this.renderTemplate(
+        'session-modification-response',
+        {
+          accepted,
+          subjectName,
+          title: session.title,
+          originalDate: this.formatDate(session.scheduledDate),
+          originalTime: `${session.startTime} - ${session.endTime}`,
+          // Solo incluimos los nuevos valores si fue aceptada
+          ...(accepted && {
+            newDate: request.newScheduledDate
+              ? this.formatDate(request.newScheduledDate)
+              : this.formatDate(session.scheduledDate),
+            newTime: request.newStartTime
+              ? `${request.newStartTime} - ${this.calculateNewEndTime(request)}`
+              : `${session.startTime} - ${session.endTime}`,
+            newModality: request.newModality
+              ? this.translateModality(request.newModality)
+              : null,
+          }),
+          sessionDetailsUrl: `${this.frontendUrl}/sessions/${session.idSession}`,
+        },
+      );
 
       const notifType = accepted
         ? AppNotificationType.MODIFICATION_ACCEPTED
@@ -1471,18 +1491,21 @@ export class NotificationsService {
       return;
     }
 
-    const htmlContent = await this.renderTemplate('collaborative-session-available', {
-      tutorName: session.tutor.name,
-      subjectName: session.subject.name,
-      date: this.formatDate(session.scheduledDate),
-      startTime: session.startTime,
-      endTime: session.endTime,
-      duration: session.duration,
-      modality: this.translateModality(session.modality),
-      title: session.title,
-      description: session.description,
-      joinUrl: `${this.frontendUrl}/sessions/${session.id}/join`,
-    });
+    const htmlContent = await this.renderTemplate(
+      'collaborative-session-available',
+      {
+        tutorName: session.tutor.name,
+        subjectName: session.subject.name,
+        date: this.formatDate(session.scheduledDate),
+        startTime: session.startTime,
+        endTime: session.endTime,
+        duration: session.duration,
+        modality: this.translateModality(session.modality),
+        title: session.title,
+        description: session.description,
+        joinUrl: `${this.frontendUrl}/sessions/${session.id}/join`,
+      },
+    );
 
     // Difusión: un fallo individual no aborta al resto
     for (const email of interestedStudentEmails) {

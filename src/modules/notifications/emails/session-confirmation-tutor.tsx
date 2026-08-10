@@ -1,7 +1,7 @@
-import { Section, Heading, Text, Link } from "react-email";
-import Layout from "./components/Layout";
-import EmailButton from "./components/EmailButton";
-import SessionDetails from "./components/SessionDetails";
+import { Section, Heading, Text, Link } from 'react-email';
+import Layout from './components/Layout';
+import EmailButton from './components/EmailButton';
+import SessionDetails from './components/SessionDetails';
 
 export interface SessionConfirmationTutorProps {
   tutorName: string;
@@ -58,21 +58,21 @@ export default function SessionConfirmationTutor(
         <SessionDetails
           title="Detalles de la sesión"
           items={[
-            { label: "Materia", value: subjectName },
-            { label: "Tema", value: title },
-            { label: "Fecha", value: date },
-            { label: "Horario", value: `${startTime} - ${endTime}` },
-            { label: "Duración", value: `${duration}h` },
-            { label: "Modalidad", value: isVirtual ? "Virtual" : modality },
+            { label: 'Materia', value: subjectName },
+            { label: 'Tema', value: title },
+            { label: 'Fecha', value: date },
+            { label: 'Horario', value: `${startTime} - ${endTime}` },
+            { label: 'Duración', value: `${duration}h` },
+            { label: 'Modalidad', value: isVirtual ? 'Virtual' : modality },
             ...(description
-              ? [{ label: "Descripción", value: description }]
+              ? [{ label: 'Descripción', value: description }]
               : []),
           ]}
         />
 
         <SessionDetails
           title={`Contacto de ${studentName}`}
-          items={[{ label: "Correo", value: studentEmail }]}
+          items={[{ label: 'Correo', value: studentEmail }]}
         />
 
         <EmailButton href={sessionDetailsUrl}>Ver sesión</EmailButton>
