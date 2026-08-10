@@ -6,6 +6,8 @@ import SessionDetails from "./components/SessionDetails";
 export interface SessionConfirmationStudentProps {
   studentName: string;
   tutorName: string;
+  tutorEmail: string;
+  tutorPhone: string | null;
   subjectName: string;
   title: string;
   date: string;
@@ -24,6 +26,8 @@ export default function SessionConfirmationStudent(
 ) {
   const {
     tutorName,
+    tutorEmail,
+    tutorPhone,
     subjectName,
     title,
     date,
@@ -36,6 +40,11 @@ export default function SessionConfirmationStudent(
     isVirtual,
     virtualLink,
   } = props;
+
+  const tutorContactItems = [
+    { label: "Correo", value: tutorEmail },
+    ...(tutorPhone ? [{ label: "Teléfono", value: tutorPhone }] : []),
+  ];
 
   return (
     <Layout previewText={`¡Sesión confirmada! ${subjectName}`}>
@@ -76,6 +85,11 @@ export default function SessionConfirmationStudent(
                 ]
               : []),
           ]}
+        />
+
+        <SessionDetails
+          title={`Contacto de ${tutorName}`}
+          items={tutorContactItems}
         />
 
         <EmailButton href={sessionDetailsUrl}>Ver sesión</EmailButton>

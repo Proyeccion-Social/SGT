@@ -1289,6 +1289,10 @@ export class SessionService {
   // ═══════════════════════════════════════════════════════════════════════════
 
   async getSessionById(sessionId: string) {
+    return this.mapToDetailedDto(await this.loadSessionWithRelations(sessionId));
+  }
+
+  private async loadSessionWithRelations(sessionId: string) {
     const session = await this.sessionRepository.findOne({
       where: { idSession: sessionId },
       relations: [
@@ -1303,7 +1307,7 @@ export class SessionService {
       ],
     });
     if (!session) throw new NotFoundException('Session not found');
-    return this.mapToDetailedDto(session);
+    return session;
   }
 
   async getModificationRequestById(userId: string, requestId: string) {
@@ -1766,14 +1770,20 @@ export class SessionService {
     session: Session,
     confirmedStudentId: string,
   ): Promise<void> {
-    const full = await this.getSessionById(session.idSession);
+    const rawFull = await this.loadSessionWithRelations(session.idSession);
+    const full = this.mapToDetailedDto(rawFull);
+
+    const tutorPhone = rawFull.tutor.phone ?? null;
+
     await Promise.all([
       this.notificationsService.sendSessionConfirmationStudent(
         full,
         confirmedStudentId,
+        tutorPhone,
       ),
       this.notificationsService.sendSessionConfirmationTutor(
         full,
+        confirmedStudentId,
         session.idTutor,
       ),
     ]);

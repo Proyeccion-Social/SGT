@@ -399,15 +399,21 @@ export class NotificationsService {
   async sendSessionConfirmationStudent(
     session: any,
     studentId: string,
+    tutorPhone: string | null,
   ): Promise<void> {
     try {
-      const studentEmail = await this.getUserEmail(studentId);
+      const [studentEmail, tutorEmail] = await Promise.all([
+        this.getUserEmail(studentId),
+        this.getUserEmail(session.tutor.id),
+      ]);
       const student = session.participants.find((p: any) => p.id === studentId);
       const studentName = student?.name ?? 'Estudiante';
 
       const htmlContent = await this.renderTemplate('session-confirmation-student', {
         studentName,
         tutorName: session.tutor.name,
+        tutorEmail,
+        tutorPhone,
         subjectName: session.subject.name,
         date: this.formatDate(session.scheduledDate),
         startTime: session.startTime,
@@ -458,15 +464,21 @@ export class NotificationsService {
 
   async sendSessionConfirmationTutor(
     session: any,
+    studentId: string,
     tutorId: string,
   ): Promise<void> {
     try {
-      const tutorEmail = await this.getUserEmail(tutorId);
-      const studentName = session.participants[0]?.name ?? 'Estudiante';
+      const [tutorEmail, studentEmail] = await Promise.all([
+        this.getUserEmail(tutorId),
+        this.getUserEmail(studentId),
+      ]);
+      const student = session.participants.find((p: any) => p.id === studentId);
+      const studentName = student?.name ?? 'Estudiante';
 
       const htmlContent = await this.renderTemplate('session-confirmation-tutor', {
         tutorName: session.tutor.name,
         studentName,
+        studentEmail,
         subjectName: session.subject.name,
         date: this.formatDate(session.scheduledDate),
         startTime: session.startTime,
