@@ -21,4 +21,11 @@ export enum ErrorCode {
 
   //PERMISSION
   PERMISSION_01 = 'PERMISSION_01', //Acceso no autorizado
+
+  //SCHEDULING
+  SCHEDULING_01 = 'SCHEDULING_01', //Sesión no está en estado SCHEDULED
+  SCHEDULING_02 = 'SCHEDULING_02', //Modificación demasiado próxima a la sesión
+  SCHEDULING_03 = 'SCHEDULING_03', //No se propuso ningún cambio
+  SCHEDULING_04 = 'SCHEDULING_04', //Modalidad no compatible con el slot
+  SCHEDULING_05 = 'SCHEDULING_05', //Duración no disponible en el horario
 }
