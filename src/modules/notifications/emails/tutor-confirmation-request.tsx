@@ -1,7 +1,7 @@
-import { Section, Heading, Text, Link } from "react-email";
-import Layout from "./components/Layout";
-import EmailButton from "./components/EmailButton";
-import SessionDetails from "./components/SessionDetails";
+import { Section, Heading, Text, Link } from 'react-email';
+import Layout from './components/Layout';
+import EmailButton from './components/EmailButton';
+import SessionDetails from './components/SessionDetails';
 
 export interface TutorConfirmationRequestProps {
   tutorName: string;
@@ -50,20 +50,20 @@ export default function TutorConfirmationRequest(
         </Heading>
 
         <Text className="m-0 mx-auto mb-[32px] max-w-[420px] text-[16px] leading-[24px] text-[#3c3c3c]">
-          Revisa los detalles y confirma tu disponibilidad antes de{" "}
+          Revisa los detalles y confirma tu disponibilidad antes de{' '}
           <span className="font-semibold text-[#1a1a1a]">{expiresAt}</span>.
         </Text>
 
         <SessionDetails
           title="Detalles de la sesión"
           items={[
-            { label: "Tema", value: title },
-            { label: "Fecha", value: date },
-            { label: "Horario", value: `${startTime} - ${endTime}` },
-            { label: "Duración", value: `${duration}h` },
-            { label: "Modalidad", value: modality },
+            { label: 'Tema', value: title },
+            { label: 'Fecha', value: date },
+            { label: 'Horario', value: `${startTime} - ${endTime}` },
+            { label: 'Duración', value: `${duration}h` },
+            { label: 'Modalidad', value: modality },
             ...(description
-              ? [{ label: "Descripción", value: description }]
+              ? [{ label: 'Descripción', value: description }]
               : []),
           ]}
         />

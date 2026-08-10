@@ -1,7 +1,7 @@
-import { Section, Heading, Text, Link } from "react-email";
-import Layout from "./components/Layout";
-import EmailButton from "./components/EmailButton";
-import SessionDetails from "./components/SessionDetails";
+import { Section, Heading, Text, Link } from 'react-email';
+import Layout from './components/Layout';
+import EmailButton from './components/EmailButton';
+import SessionDetails from './components/SessionDetails';
 
 export interface SessionModificationRequestProps {
   recipientRole: string;
@@ -44,17 +44,17 @@ export default function SessionModificationRequest(
         </Heading>
 
         <Text className="m-0 mx-auto mb-[32px] max-w-[420px] text-[16px] leading-[24px] text-[#3c3c3c]">
-          Revisa los cambios propuestos y responde antes de{" "}
+          Revisa los cambios propuestos y responde antes de{' '}
           <span className="font-semibold text-[#1a1a1a]">{expiresAt}</span>.
         </Text>
 
         <SessionDetails
           title="Detalles actuales"
           items={[
-            { label: "Materia", value: subjectName },
-            { label: "Tema", value: title },
-            { label: "Fecha", value: currentDate },
-            { label: "Horario", value: currentTime },
+            { label: 'Materia', value: subjectName },
+            { label: 'Tema', value: title },
+            { label: 'Fecha', value: currentDate },
+            { label: 'Horario', value: currentTime },
           ]}
         />
 
@@ -62,7 +62,7 @@ export default function SessionModificationRequest(
           <SessionDetails
             title="Cambios propuestos"
             items={proposedChanges.map((change) => ({
-              label: "Propuesta",
+              label: 'Propuesta',
               value: change,
             }))}
           />

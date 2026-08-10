@@ -1,7 +1,7 @@
-import { Section, Heading, Text, Link } from "react-email";
-import Layout from "./components/Layout";
-import EmailButton from "./components/EmailButton";
-import SessionDetails from "./components/SessionDetails";
+import { Section, Heading, Text, Link } from 'react-email';
+import Layout from './components/Layout';
+import EmailButton from './components/EmailButton';
+import SessionDetails from './components/SessionDetails';
 
 export interface EvaluationPendingProps {
   studentName: string;
@@ -28,11 +28,11 @@ export default function EvaluationPending(props: EvaluationPendingProps) {
 
   return (
     <Layout
-      previewText={`${isReminder ? "Recordatorio: " : ""}Califica tu sesión de ${subjectName}`}
+      previewText={`${isReminder ? 'Recordatorio: ' : ''}Califica tu sesión de ${subjectName}`}
     >
       <Section className="bg-white px-[40px] py-[64px] text-center">
         <Text className="m-0 mb-[4px] text-[12px] font-medium tracking-[-0.02em] text-[#9f74ff]">
-          {isReminder ? "Recordatorio de evaluación" : "Califica tu sesión"}
+          {isReminder ? 'Recordatorio de evaluación' : 'Califica tu sesión'}
         </Text>
 
         <Heading
@@ -50,11 +50,11 @@ export default function EvaluationPending(props: EvaluationPendingProps) {
         <SessionDetails
           title="Detalles de la sesión"
           items={[
-            { label: "Tutor", value: tutorName },
-            { label: "Materia", value: subjectName },
-            { label: "Tema", value: title },
-            { label: "Fecha", value: sessionDate },
-            { label: "Hora", value: sessionTime },
+            { label: 'Tutor', value: tutorName },
+            { label: 'Materia', value: subjectName },
+            { label: 'Tema', value: title },
+            { label: 'Fecha', value: sessionDate },
+            { label: 'Hora', value: sessionTime },
           ]}
         />
 

@@ -1,19 +1,19 @@
-import { Section, Heading, Text, Link } from "react-email";
-import Layout from "./components/Layout";
-import EmailButton from "./components/EmailButton";
-import SessionDetails from "./components/SessionDetails";
-import AlertBanner from "./components/AlertBanner";
+import { Section, Heading, Text, Link } from 'react-email';
+import Layout from './components/Layout';
+import EmailButton from './components/EmailButton';
+import SessionDetails from './components/SessionDetails';
+import AlertBanner from './components/AlertBanner';
 
 export interface SessionCancelledProps {
   recipientName: string;
-  recipientRole: "tutor" | "estudiante";
+  recipientRole: 'tutor' | 'estudiante';
   subjectName: string;
   title: string;
   date: string;
   startTime: string;
   endTime: string;
   cancellationReason: string;
-  cancelledBy: "tutor" | "estudiante";
+  cancelledBy: 'tutor' | 'estudiante';
   cancelledWithin24h: boolean;
   rescheduleUrl: string;
 }
@@ -59,12 +59,12 @@ export default function SessionCancelled(props: SessionCancelledProps) {
         <SessionDetails
           title="Detalles de la sesión cancelada"
           items={[
-            { label: "Materia", value: subjectName },
-            { label: "Tema", value: title },
-            { label: "Fecha", value: date },
-            { label: "Horario", value: `${startTime} - ${endTime}` },
-            { label: "Cancelado por", value: cancelledBy },
-            { label: "Motivo", value: cancellationReason },
+            { label: 'Materia', value: subjectName },
+            { label: 'Tema', value: title },
+            { label: 'Fecha', value: date },
+            { label: 'Horario', value: `${startTime} - ${endTime}` },
+            { label: 'Cancelado por', value: cancelledBy },
+            { label: 'Motivo', value: cancellationReason },
           ]}
         />
 

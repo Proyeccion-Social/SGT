@@ -1,21 +1,21 @@
-import { Section, Text } from "react-email";
-import type { ReactNode } from "react";
+import { Section, Text } from 'react-email';
+import type { ReactNode } from 'react';
 
 interface AlertBannerProps {
   children: ReactNode;
-  variant?: "info" | "success" | "warning" | "error";
+  variant?: 'info' | 'success' | 'warning' | 'error';
 }
 
 const variantStyles = {
-  info: "bg-[#f3edff] text-[#8751ff]",
-  success: "bg-[#d5f5e3] text-[#25a35a]",
-  warning: "bg-[#fcf4db] text-[#c2a13d]",
-  error: "bg-[#fcd5d8] text-[#c0242e]",
+  info: 'bg-[#f3edff] text-[#8751ff]',
+  success: 'bg-[#d5f5e3] text-[#25a35a]',
+  warning: 'bg-[#fcf4db] text-[#c2a13d]',
+  error: 'bg-[#fcd5d8] text-[#c0242e]',
 };
 
 export default function AlertBanner({
   children,
-  variant = "info",
+  variant = 'info',
 }: AlertBannerProps) {
   return (
     <Section

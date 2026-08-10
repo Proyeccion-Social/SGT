@@ -1,6 +1,6 @@
-import { Section, Heading, Text } from "react-email";
-import Layout from "./components/Layout";
-import AlertBanner from "./components/AlertBanner";
+import { Section, Heading, Text } from 'react-email';
+import Layout from './components/Layout';
+import AlertBanner from './components/AlertBanner';
 
 export interface PasswordChangedProps {
   name: string;
@@ -24,8 +24,8 @@ export default function PasswordChanged(props: PasswordChangedProps) {
         </Heading>
 
         <Text className="m-0 mx-auto mb-[32px] max-w-[380px] text-[16px] leading-[24px] text-[#3c3c3c]">
-          Hola {name}, te confirmamos que tu contraseña cambió correctamente.
-          Si no fuiste tú, contacta al equipo de soporte lo antes posible.
+          Hola {name}, te confirmamos que tu contraseña cambió correctamente. Si
+          no fuiste tú, contacta al equipo de soporte lo antes posible.
         </Text>
 
         <AlertBanner variant="success">

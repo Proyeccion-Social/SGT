@@ -1,6 +1,6 @@
-import { Section, Img, Text, Row, Column, Link, Tailwind } from "react-email";
-import { WhatsApp } from "../icons/WhatsApp";
-import { Instagram } from "../icons/Instagram";
+import { Section, Img, Text, Row, Column, Link, Tailwind } from 'react-email';
+import { WhatsApp } from '../icons/WhatsApp';
+import { Instagram } from '../icons/Instagram';
 
 export default function Footer() {
   return (

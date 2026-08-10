@@ -1,8 +1,8 @@
-import { Section, Heading, Text, Link } from "react-email";
-import Layout from "./components/Layout";
-import EmailButton from "./components/EmailButton";
-import SessionDetails from "./components/SessionDetails";
-import AlertBanner from "./components/AlertBanner";
+import { Section, Heading, Text, Link } from 'react-email';
+import Layout from './components/Layout';
+import EmailButton from './components/EmailButton';
+import SessionDetails from './components/SessionDetails';
+import AlertBanner from './components/AlertBanner';
 
 export interface SessionModificationResponseProps {
   accepted: boolean;
@@ -33,11 +33,11 @@ export default function SessionModificationResponse(
 
   return (
     <Layout
-      previewText={`${accepted ? "Modificación aceptada" : "Modificación rechazada"} — ${subjectName}`}
+      previewText={`${accepted ? 'Modificación aceptada' : 'Modificación rechazada'} — ${subjectName}`}
     >
       <Section className="bg-white px-[40px] py-[64px] text-center">
         <Text className="m-0 mb-[4px] text-[12px] font-medium tracking-[-0.02em] text-[#9f74ff]">
-          {accepted ? "Propuesta aceptada" : "Propuesta rechazada"}
+          {accepted ? 'Propuesta aceptada' : 'Propuesta rechazada'}
         </Text>
 
         <Heading
@@ -45,8 +45,8 @@ export default function SessionModificationResponse(
           className="m-0 mb-[16px] text-[32px] font-bold leading-[40px] text-[#1a1a1a]"
         >
           {accepted
-            ? "Los cambios en tu sesión fueron aceptados"
-            : "Los cambios en tu sesión no fueron aceptados"}
+            ? 'Los cambios en tu sesión fueron aceptados'
+            : 'Los cambios en tu sesión no fueron aceptados'}
         </Heading>
 
         <Text className="m-0 mx-auto mb-[32px] max-w-[420px] text-[16px] leading-[24px] text-[#3c3c3c]">
@@ -55,27 +55,27 @@ export default function SessionModificationResponse(
             : `La sesión de ${subjectName} conservará los detalles originales.`}
         </Text>
 
-        <AlertBanner variant={accepted ? "success" : "error"}>
+        <AlertBanner variant={accepted ? 'success' : 'error'}>
           {accepted
-            ? "La propuesta fue aceptada exitosamente."
-            : "La propuesta no fue aceptada."}
+            ? 'La propuesta fue aceptada exitosamente.'
+            : 'La propuesta no fue aceptada.'}
         </AlertBanner>
 
         <SessionDetails
           title="Detalles de la sesión"
           items={[
-            { label: "Materia", value: subjectName },
-            { label: "Tema", value: title },
-            { label: "Fecha original", value: originalDate },
-            { label: "Horario original", value: originalTime },
+            { label: 'Materia', value: subjectName },
+            { label: 'Tema', value: title },
+            { label: 'Fecha original', value: originalDate },
+            { label: 'Horario original', value: originalTime },
             ...(accepted && newDate
-              ? [{ label: "Nueva fecha", value: newDate }]
+              ? [{ label: 'Nueva fecha', value: newDate }]
               : []),
             ...(accepted && newTime
-              ? [{ label: "Nuevo horario", value: newTime }]
+              ? [{ label: 'Nuevo horario', value: newTime }]
               : []),
             ...(accepted && newModality
-              ? [{ label: "Nueva modalidad", value: newModality }]
+              ? [{ label: 'Nueva modalidad', value: newModality }]
               : []),
           ]}
         />

@@ -1,7 +1,7 @@
-import { Section, Heading, Text, Link } from "react-email";
-import Layout from "./components/Layout";
-import EmailButton from "./components/EmailButton";
-import SessionDetails from "./components/SessionDetails";
+import { Section, Heading, Text, Link } from 'react-email';
+import Layout from './components/Layout';
+import EmailButton from './components/EmailButton';
+import SessionDetails from './components/SessionDetails';
 
 export interface SessionRequestAckStudentProps {
   studentName: string;
@@ -57,15 +57,15 @@ export default function SessionRequestAckStudent(
         <SessionDetails
           title="Detalles de la solicitud"
           items={[
-            { label: "Materia", value: subjectName },
-            { label: "Tema", value: title },
-            { label: "Fecha", value: date },
-            { label: "Horario", value: `${startTime} - ${endTime}` },
-            { label: "Duración", value: `${duration}h` },
-            { label: "Modalidad", value: modality },
-            { label: "Estado", value: status },
+            { label: 'Materia', value: subjectName },
+            { label: 'Tema', value: title },
+            { label: 'Fecha', value: date },
+            { label: 'Horario', value: `${startTime} - ${endTime}` },
+            { label: 'Duración', value: `${duration}h` },
+            { label: 'Modalidad', value: modality },
+            { label: 'Estado', value: status },
             ...(description
-              ? [{ label: "Descripción", value: description }]
+              ? [{ label: 'Descripción', value: description }]
               : []),
           ]}
         />

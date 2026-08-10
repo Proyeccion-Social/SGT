@@ -1,4 +1,4 @@
-import type { SVGProps } from "react";
+import type { SVGProps } from 'react';
 
 const Instagram = (props: SVGProps<SVGSVGElement>) => (
   <svg {...props} fill="none" viewBox="0 0 24 24">
@@ -11,13 +11,7 @@ const Instagram = (props: SVGProps<SVGSVGElement>) => (
       strokeWidth="1.75"
       rx="5"
     />
-    <circle
-      cx="12"
-      cy="12"
-      r="4.25"
-      stroke="#a3a3a3"
-      strokeWidth="1.75"
-    />
+    <circle cx="12" cy="12" r="4.25" stroke="#a3a3a3" strokeWidth="1.75" />
     <circle cx="17.5" cy="6.5" r="1.25" fill="#a3a3a3" />
   </svg>
 );

@@ -1,7 +1,7 @@
-import { Section, Heading, Text, Link } from "react-email";
-import Layout from "./components/Layout";
-import EmailButton from "./components/EmailButton";
-import SessionDetails from "./components/SessionDetails";
+import { Section, Heading, Text, Link } from 'react-email';
+import Layout from './components/Layout';
+import EmailButton from './components/EmailButton';
+import SessionDetails from './components/SessionDetails';
 
 export interface TutorCredentialsProps {
   name: string;
@@ -35,8 +35,8 @@ export default function TutorCredentials(props: TutorCredentialsProps) {
         <SessionDetails
           title="Tus credenciales"
           items={[
-            { label: "Correo electrónico", value: email },
-            { label: "Contraseña temporal", value: temporaryPassword },
+            { label: 'Correo electrónico', value: email },
+            { label: 'Contraseña temporal', value: temporaryPassword },
           ]}
         />
 
