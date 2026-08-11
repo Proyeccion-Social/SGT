@@ -78,10 +78,10 @@ export class SessionValidationService {
   // de la disponibilidad, porque necesitamos la hora exacta de la sesión,
   // no solo la fecha.
   //
-  // Por qué Date.UTC:
-  //   scheduledDate es 'YYYY-MM-DD' y startTime es 'HH:mm'.
-  //   Construir con Date.UTC evita que la zona horaria del servidor
-  //   desplace el timestamp resultante.
+  // Por qué el offset -05:00:
+  //   scheduledDate es 'YYYY-MM-DD' y startTime es 'HH:mm', ambos en hora
+  //   local de Bogotá (UTC-5). El offset explícito evita que la zona
+  //   horaria del servidor desplace el timestamp resultante.
   // ─────────────────────────────────────────────────────────────────────────
 
   validateMinimumBookingAdvance(
@@ -495,14 +495,12 @@ export class SessionValidationService {
   // ─────────────────────────────────────────────────────────────────────────
 
   /**
-   * Construye un Date en UTC a partir de 'YYYY-MM-DD' y 'HH:mm'.
-   * Centralizado aquí para que todas las comparaciones de fecha+hora
-   * sean consistentes y zona-horaria-seguras.
+   * Construye un Date a partir de 'YYYY-MM-DD' y 'HH:mm', que se guardan en
+   * hora local de Bogotá (UTC-5). El offset explícito evita que la zona
+   * horaria del servidor desplace el timestamp resultante.
    */
   private buildSessionDateTime(scheduledDate: string, startTime: string): Date {
-    const [year, month, day] = scheduledDate.split('-').map(Number);
-    const [hours, minutes] = startTime.split(':').map(Number);
-    return new Date(Date.UTC(year, month - 1, day, hours, minutes));
+    return new Date(`${scheduledDate}T${startTime}:00-05:00`);
   }
 
   private calcDurationFromTimes(startTime: string, endTime: string): number {

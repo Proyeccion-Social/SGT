@@ -1207,9 +1207,11 @@ export class SessionService {
       );
     }
 
-    const [year, month, day] = session.scheduledDate.split('-').map(Number);
-    const [h, m] = session.startTime.split(':').map(Number);
-    const sessionDateTime = new Date(Date.UTC(year, month - 1, day, h, m));
+    // startTime is stored in Bogotá local time (UTC-5); parse with explicit
+    // offset to avoid treating it as UTC (which fired 5 hours too early)
+    const sessionDateTime = new Date(
+      `${session.scheduledDate}T${session.startTime}:00-05:00`,
+    );
 
     if (Date.now() >= sessionDateTime.getTime()) {
       throw new BadRequestException(
