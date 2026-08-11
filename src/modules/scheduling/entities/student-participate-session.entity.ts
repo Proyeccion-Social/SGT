@@ -35,7 +35,11 @@ export class StudentParticipateSession {
   @Column({ name: 'arrival_time', type: 'timestamp', nullable: true })
   arrivalTime: Date | null;
 
-  @Column({ name: 'joined_at', type: 'timestamp', default: () => 'now()' })
+  @Column({
+    name: 'joined_at',
+    type: 'timestamp',
+    default: () => 'now()',
+  })
   joinedAt: Date;
 
   @ManyToOne(() => Student, (student) => student.studentParticipateSessions)

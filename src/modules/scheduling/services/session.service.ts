@@ -1207,11 +1207,11 @@ export class SessionService {
       );
     }
 
-    const sessionDateTime = new Date(session.scheduledDate);
+    const [year, month, day] = session.scheduledDate.split('-').map(Number);
     const [h, m] = session.startTime.split(':').map(Number);
-    sessionDateTime.setHours(h, m, 0, 0);
+    const sessionDateTime = new Date(Date.UTC(year, month - 1, day, h, m));
 
-    if (new Date() >= sessionDateTime) {
+    if (Date.now() >= sessionDateTime.getTime()) {
       throw new BadRequestException(
         'No puedes modificar una sesión que ya ha iniciado',
       );
