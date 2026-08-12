@@ -76,7 +76,7 @@ async function bootstrap() {
         throw new Error(`Admin not found for email ${adminEmailArg}`);
       }
 
-      if (admin.role !== 'ADMIN') {
+      if (admin.role !== UserRole.ADMIN) {
         throw new Error(`User ${adminEmailArg} is not an ADMIN`);
       }
 
