@@ -8,6 +8,7 @@ import { AppModule } from '../app.module';
 import { CloudinaryService } from '../modules/cloudinary/services/cloudinary.service';
 import { TutorService } from '../modules/tutor/services/tutor.service';
 import { UserService } from '../modules/users/services/users.service';
+import { UserRole } from '../modules/users/entities/user.entity';
 
 interface TutorSeedItem {
   name: string;
@@ -169,7 +170,7 @@ async function bootstrap() {
         throw new Error('Admin not found in the target database');
       }
 
-      if (admin.role !== 'ADMIN') {
+      if (admin.role !== UserRole.ADMIN) {
         throw new Error(
           `User ${admin.email} is not an ADMIN in the target database`,
         );
