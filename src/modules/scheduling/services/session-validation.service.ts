@@ -176,7 +176,10 @@ export class SessionValidationService {
     const availability =
       await this.availabilityService.getAvailabilityById(availabilityId);
 
-    const [year, month, day] = scheduledDate.split('-').map(Number);
+    const [year, month, day] = scheduledDate
+      .slice(0, 10)
+      .split('-')
+      .map(Number);
     const utcDay = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
     const expectedUtcDay = AVAILABILITY_DAY_TO_UTC_DAY[availability.dayOfWeek];
 
@@ -500,7 +503,9 @@ export class SessionValidationService {
    * horaria del servidor desplace el timestamp resultante.
    */
   private buildSessionDateTime(scheduledDate: string, startTime: string): Date {
-    return new Date(`${scheduledDate}T${startTime}:00-05:00`);
+    const dateOnly = scheduledDate.slice(0, 10); // 'YYYY-MM-DD'
+    const timeOnly = startTime.slice(0, 5); // 'HH:mm'
+    return new Date(`${dateOnly}T${timeOnly}:00-05:00`);
   }
 
   private calcDurationFromTimes(startTime: string, endTime: string): number {
