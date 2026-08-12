@@ -70,7 +70,10 @@ async function uploadToCloudinary(
   folder: string,
   publicId: string,
 ): Promise<{ secure_url: string; public_id: string }> {
-  const signaturePayload = cloudinaryService.generateUploadSignature(folder, publicId);
+  const signaturePayload = cloudinaryService.generateUploadSignature(
+    folder,
+    publicId,
+  );
   const imageBuffer = await readFile(imagePath);
   const fileName = path.basename(imagePath);
   const extension = path.extname(fileName).replace('.', '').toLowerCase();
@@ -82,7 +85,11 @@ async function uploadToCloudinary(
         : 'image/jpeg';
 
   const formData = new FormData();
-  formData.append('file', new Blob([imageBuffer], { type: mimeType }), fileName);
+  formData.append(
+    'file',
+    new Blob([imageBuffer], { type: mimeType }),
+    fileName,
+  );
   formData.append('api_key', signaturePayload.api_key);
   formData.append('timestamp', signaturePayload.timestamp);
   formData.append('signature', signaturePayload.signature);
@@ -116,21 +123,28 @@ async function bootstrap() {
   const env = resolveEnvironment();
   process.env.NODE_ENV = env;
 
-  const tutorsFile = getArgValue('--file') || 'src/seeders/tutors.production.json';
+  const tutorsFile =
+    getArgValue('--file') || 'src/seeders/tutors.production.json';
   const imagesDir = getArgValue('--imagesDir') || DEFAULT_IMAGES_DIR;
   const adminEmailArg = getArgValue('--adminEmail');
   const adminIdArg = getArgValue('--adminId');
 
   if (env === 'production' && !process.env.NEON_DATABASE_URL) {
-    logger.error('NEON_DATABASE_URL is required when running in production mode');
+    logger.error(
+      'NEON_DATABASE_URL is required when running in production mode',
+    );
     process.exit(1);
   }
 
   if (!adminEmailArg && !adminIdArg) {
-    logger.warn('No admin provided. The script will validate tutors directly in the target database.');
+    logger.warn(
+      'No admin provided. The script will validate tutors directly in the target database.',
+    );
   }
 
-  const tutors = JSON.parse(await readFile(tutorsFile, 'utf8')) as TutorSeedItem[];
+  const tutors = JSON.parse(
+    await readFile(tutorsFile, 'utf8'),
+  ) as TutorSeedItem[];
 
   if (!Array.isArray(tutors) || tutors.length === 0) {
     logger.warn('No tutors found in input file');
@@ -156,7 +170,9 @@ async function bootstrap() {
       }
 
       if (admin.role !== 'ADMIN') {
-        throw new Error(`User ${admin.email} is not an ADMIN in the target database`);
+        throw new Error(
+          `User ${admin.email} is not an ADMIN in the target database`,
+        );
       }
     }
 
@@ -166,7 +182,9 @@ async function bootstrap() {
       const tutorRecord = await userService.findByEmail(tutor.email);
 
       if (!tutorRecord) {
-        logger.warn(`Tutor not found in DB, skipping avatar upload: ${tutor.email}`);
+        logger.warn(
+          `Tutor not found in DB, skipping avatar upload: ${tutor.email}`,
+        );
         continue;
       }
 
@@ -216,7 +234,10 @@ async function bootstrap() {
       logger.log(`${result.email} -> ${result.secureUrl}`);
     }
   } catch (error) {
-    logger.error('Error uploading tutor avatars', error instanceof Error ? error.stack : String(error));
+    logger.error(
+      'Error uploading tutor avatars',
+      error instanceof Error ? error.stack : String(error),
+    );
     process.exitCode = 1;
   } finally {
     try {

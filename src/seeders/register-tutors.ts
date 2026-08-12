@@ -37,7 +37,9 @@ async function bootstrap() {
   const filePath = getArgValue('--file');
 
   if (env === 'production' && !process.env.NEON_DATABASE_URL) {
-    logger.error('NEON_DATABASE_URL is required when running in production mode');
+    logger.error(
+      'NEON_DATABASE_URL is required when running in production mode',
+    );
     process.exit(1);
   }
 
@@ -48,7 +50,9 @@ async function bootstrap() {
     process.exit(1);
   }
 
-  const tutors = JSON.parse(await readFile(filePath, 'utf8')) as TutorSeedItem[];
+  const tutors = JSON.parse(
+    await readFile(filePath, 'utf8'),
+  ) as TutorSeedItem[];
 
   if (!Array.isArray(tutors) || tutors.length === 0) {
     logger.warn('No tutors found in input file');
@@ -113,7 +117,10 @@ async function bootstrap() {
 
     logger.log(`Finished registering ${tutors.length} tutor(s)`);
   } catch (error) {
-    logger.error('Error registering tutors', error instanceof Error ? error.stack : String(error));
+    logger.error(
+      'Error registering tutors',
+      error instanceof Error ? error.stack : String(error),
+    );
     process.exitCode = 1;
   } finally {
     try {

@@ -103,7 +103,7 @@ export class UserService {
     });
   }
 
-  async findByIds(ids: string[]): Promise<User[]> {
+  findByIds(ids: string[]): Promise<User[]> {
     if (!ids.length) return [];
     return this.userRepository.findBy({ idUser: In(ids) });
   }

@@ -145,7 +145,7 @@ export class AvailabilityService {
     };
   }
 
-  async createSlotsInRange(tutorId: string, dto: CreateSlotRangeDto) {
+  createSlotsInRange(tutorId: string, dto: CreateSlotRangeDto) {
     const dayOfWeekNumber = DayOfWeekToNumber[dto.dayOfWeek];
     const slotTimes = this.buildSlotTimesFromRange(dto.startTime, dto.endTime);
     const normalizedModality = this.normalizeModalities(dto.modality);
