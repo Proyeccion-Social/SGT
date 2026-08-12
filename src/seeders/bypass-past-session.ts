@@ -18,7 +18,10 @@ import { DataSource } from 'typeorm';
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 import { User } from '../modules/users/entities/user.entity';
-import { Student, PreferredModality } from '../modules/student/entities/student.entity';
+import {
+  Student,
+  PreferredModality,
+} from '../modules/student/entities/student.entity';
 import { Tutor } from '../modules/tutor/entities/tutor.entity';
 import { Subject } from '../modules/subjects/entities/subjects.entity';
 import { TutorImpartSubject } from '../modules/subjects/entities/tutor-subject.entity';
@@ -28,7 +31,10 @@ import { ScheduledSession } from '../modules/scheduling/entities/scheduled-sessi
 import { SessionModificationRequest } from '../modules/scheduling/entities/session-modification-request.entity';
 import { StudentParticipateSession } from '../modules/scheduling/entities/student-participate-session.entity';
 import { Answer } from '../modules/session-execution/entities/answer.entity';
-import { Question, QuestionAspect } from '../modules/session-execution/entities/question.entity';
+import {
+  Question,
+  QuestionAspect,
+} from '../modules/session-execution/entities/question.entity';
 import { SessionType } from '../modules/scheduling/enums/session-type.enum';
 import { SessionStatus } from '../modules/scheduling/enums/session-status.enum';
 import { ParticipationStatus } from '../modules/scheduling/enums/participation-status.enum';
@@ -51,14 +57,25 @@ const dataSource = new DataSource({
   synchronize: false,
   logging: false,
   entities: [
-    User, Student, Tutor,
-    Subject, TutorImpartSubject, StudentInterestedSubject,
-    Availability, TutorHaveAvailability,
-    SchedulingSession, ScheduledSession, SessionModificationRequest,
+    User,
+    Student,
+    Tutor,
+    Subject,
+    TutorImpartSubject,
+    StudentInterestedSubject,
+    Availability,
+    TutorHaveAvailability,
+    SchedulingSession,
+    ScheduledSession,
+    SessionModificationRequest,
     StudentParticipateSession,
-    Question, Answer,
+    Question,
+    Answer,
     AppNotification,
-    AuthSession, AuditLog, PasswordResetToken, EmailVerificationToken,
+    AuthSession,
+    AuditLog,
+    PasswordResetToken,
+    EmailVerificationToken,
   ],
 });
 

@@ -150,7 +150,7 @@ export class AvailabilityService {
     const slotTimes = this.buildSlotTimesFromRange(dto.startTime, dto.endTime);
     const normalizedModality = this.normalizeModalities(dto.modality);
 
-    return this.availabilityRepository.manager.transaction(
+    return await this.availabilityRepository.manager.transaction(
       async (transactionalEntityManager) => {
         const availabilityRepository =
           transactionalEntityManager.getRepository(Availability);
@@ -696,6 +696,10 @@ export class AvailabilityService {
       options?.weekStart,
     );
     const modalityFilter = options?.modality;
+
+    if (subjectIds.length === 0) {
+      return { tutors: [], total: 0, weekReference: weekStartStr };
+    }
 
     // 1. IDs elegibles - filtrar por materias cuando se envíen, o listar todos los tutores con disponibilidad
     const eligibleTutorsQuery = this.tutorHaveAvailabilityRepository
