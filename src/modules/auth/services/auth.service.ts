@@ -24,6 +24,10 @@ import { LoginDto } from '../dto/login.dto';
 import { ChangePasswordDto } from '../dto/change-password.dto';
 import { JwtPayload } from '../interfaces/jwt-payload.interface';
 import { AuditAction, AuditResult } from '../entities/audit-log.entity';
+import {
+  PASSWORD_REGEX,
+  PASSWORD_POLICY_MESSAGE,
+} from '../constants/password-policy.constants';
 
 export interface ConfirmEmailResponse {
   message: string;
@@ -73,9 +77,7 @@ export class AuthService {
       );
     }
 
-    const passwordRegex =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/;
-    if (!passwordRegex.test(dto.password)) {
+    if (!PASSWORD_REGEX.test(dto.password)) {
       throw new BadRequestException(
         'Contraseña debe incluir mayúsculas, minúsculas, números, caracteres especiales y tener al menos 8 caracteres',
       );
@@ -538,9 +540,7 @@ export class AuthService {
     const resetToken = await this.passwordResetService.validateToken(token);
 
     // 3. Validar contraseña (mismos requisitos que registro)
-    const passwordRegex =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/;
-    if (!passwordRegex.test(password)) {
+    if (!PASSWORD_REGEX.test(password)) {
       throw new BadRequestException(
         'La nueva contraseña debe incluir mayúsculas, minúsculas, números, caracteres especiales y tener al menos 8 caracteres',
       );
@@ -622,9 +622,7 @@ export class AuthService {
     }
 
     // 5. Validar nueva contraseña (requisitos de seguridad)
-    const passwordRegex =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/;
-    if (!passwordRegex.test(dto.newPassword)) {
+    if (!PASSWORD_REGEX.test(dto.newPassword)) {
       throw new BadRequestException(
         'La nueva contraseña debe incluir mayúsculas, minúsculas, números, caracteres especiales y tener al menos 8 caracteres',
       );
