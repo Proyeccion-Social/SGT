@@ -8,6 +8,10 @@ import {
 } from 'class-validator';
 import { IsInstitutionalEmail } from '../decorators/is-institutional-email.decorator';
 import { Match } from '../decorators/match.decorator';
+import {
+  PASSWORD_REGEX,
+  PASSWORD_POLICY_MESSAGE,
+} from '../constants/password-policy.constants';
 
 export class RegisterStudentDto {
   @IsNotEmpty({ message: 'Nombre completo del usuario es requerido' })
@@ -28,13 +32,7 @@ export class RegisterStudentDto {
   @MaxLength(128, {
     message: 'La contraseña debe tener menos de 128 caracteres',
   })
-  @Matches(
-    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/,
-    {
-      message:
-        'La contraseña debe tener al menos una letra mayúscula, una letra minúscula, un número y un carácter especial',
-    },
-  )
+  @Matches(PASSWORD_REGEX, { message: PASSWORD_POLICY_MESSAGE })
   password: string;
 
   @IsNotEmpty({ message: 'Confirmación de contraseña es requerida' })
