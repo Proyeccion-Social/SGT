@@ -1820,8 +1820,9 @@ export class SessionService {
       participants: session.studentParticipateSessions.map((p) => ({
         id: p.student.idUser,
         name: p.student.user.name,
+        email: p.student.user.email,
         status: p.status,
-        joinedAt: p.joinedAt, // NUEVO — útil para mostrar orden de llegada en el front
+        joinedAt: p.joinedAt,
       })),
       createdAt: session.createdAt,
       cancelledAt: session.cancelledAt,

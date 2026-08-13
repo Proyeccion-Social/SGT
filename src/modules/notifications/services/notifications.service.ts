@@ -275,7 +275,10 @@ export class NotificationsService {
     studentId: string,
   ): Promise<void> {
     try {
-      const tutorEmail = await this.getUserEmail(session.tutor.id);
+      const [tutorEmail, studentEmail] = await Promise.all([
+        this.getUserEmail(session.tutor.id),
+        this.getUserEmail(studentId),
+      ]);
       const student = session.participants.find((p: any) => p.id === studentId);
       const studentName = student?.name ?? 'Estudiante';
 
@@ -284,6 +287,7 @@ export class NotificationsService {
         {
           tutorName: session.tutor.name,
           studentName,
+          studentEmail,
           subjectName: session.subject.name,
           date: this.formatDate(session.scheduledDate),
           startTime: session.startTime,
@@ -472,14 +476,21 @@ export class NotificationsService {
     tutorId: string,
   ): Promise<void> {
     try {
-      const tutorEmail = await this.getUserEmail(tutorId);
-      const studentName = session.participants[0]?.name ?? 'Estudiante';
+      const studentParticipant = session.participants[0];
+      const [tutorEmail, studentEmail] = await Promise.all([
+        this.getUserEmail(tutorId),
+        studentParticipant?.id
+          ? this.getUserEmail(studentParticipant.id)
+          : Promise.resolve(''),
+      ]);
+      const studentName = studentParticipant?.name ?? 'Estudiante';
 
       const htmlContent = await this.renderTemplate(
         'session-confirmation-tutor',
         {
           tutorName: session.tutor.name,
           studentName,
+          studentEmail,
           subjectName: session.subject.name,
           date: this.formatDate(session.scheduledDate),
           startTime: session.startTime,

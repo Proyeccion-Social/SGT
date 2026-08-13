@@ -6,6 +6,7 @@ import SessionDetails from "./components/SessionDetails";
 export interface SessionConfirmationTutorProps {
   tutorName: string;
   studentName: string;
+  studentEmail: string;
   subjectName: string;
   title: string;
   date: string;
@@ -23,6 +24,7 @@ export default function SessionConfirmationTutor(
 ) {
   const {
     studentName,
+    studentEmail,
     subjectName,
     title,
     date,
@@ -65,6 +67,14 @@ export default function SessionConfirmationTutor(
             ...(description
               ? [{ label: "Descripción", value: description }]
               : []),
+          ]}
+        />
+
+        <SessionDetails
+          title="Contacto del estudiante"
+          items={[
+            { label: "Nombre", value: studentName },
+            { label: "Correo", value: studentEmail },
           ]}
         />
 
