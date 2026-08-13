@@ -450,14 +450,14 @@ export class EvaluationService {
       }
     }
 
-    // Construir query base para obtener answers de sesiones del tutor
+    // Construir query base para obtener answers de sesiones del tutor.
+    // Answer no tiene relación @ManyToOne con Session, por lo que se hace
+    // un innerJoin directo contra la entidad Session usando la FK id_session.
     const answerQuery = this.answerRepository
       .createQueryBuilder('answer')
       .leftJoinAndSelect('answer.question', 'question')
-      .leftJoinAndSelect('answer.session', 'session')
-      .leftJoinAndSelect('session.tutor', 'tutor')
-      .leftJoinAndSelect('session.subject', 'subject')
       .leftJoinAndSelect('answer.studentParticipateSession', 'participation')
+      .innerJoin(Session, 'session', 'session.id_session = answer.id_session')
       .where('session.id_tutor = :tutorId', { tutorId })
       .andWhere('session.status = :status', {
         status: SessionStatus.COMPLETED,
