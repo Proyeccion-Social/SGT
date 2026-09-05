@@ -1,5 +1,5 @@
-import { Text } from "react-email";
-import type { ReactNode } from "react";
+import { Text } from 'react-email';
+import type { ReactNode } from 'react';
 
 export interface DetailItem {
   label: string;
@@ -25,7 +25,7 @@ export default function SessionDetails({ title, items }: SessionDetailsProps) {
             <tr key={index}>
               <td
                 className={`py-[10px] ${
-                  index > 0 ? "border-t border-[#e7dcff]" : ""
+                  index > 0 ? 'border-t border-[#e7dcff]' : ''
                 }`}
               >
                 <Text className="m-0 mb-[2px] text-[12px] font-semibold uppercase tracking-[0.02em] text-[#a3a3a3]">

@@ -1,7 +1,7 @@
-import { Section, Heading, Text, Link } from "react-email";
-import Layout from "./components/Layout";
-import EmailButton from "./components/EmailButton";
-import SessionDetails from "./components/SessionDetails";
+import { Section, Heading, Text, Link } from 'react-email';
+import Layout from './components/Layout';
+import EmailButton from './components/EmailButton';
+import SessionDetails from './components/SessionDetails';
 
 export interface SessionAbsentProps {
   studentName: string;
@@ -13,8 +13,14 @@ export interface SessionAbsentProps {
 }
 
 export default function SessionAbsent(props: SessionAbsentProps) {
-  const { studentName, tutorName, subjectName, date, startTime, rescheduleUrl } =
-    props;
+  const {
+    studentName,
+    tutorName,
+    subjectName,
+    date,
+    startTime,
+    rescheduleUrl,
+  } = props;
 
   return (
     <Layout previewText={`Inasistencia registrada — ${subjectName}`}>
@@ -31,17 +37,17 @@ export default function SessionAbsent(props: SessionAbsentProps) {
         </Heading>
 
         <Text className="m-0 mx-auto mb-[32px] max-w-[420px] text-[16px] leading-[24px] text-[#3c3c3c]">
-          Hola {studentName}, no se registró tu asistencia a la sesión de{" "}
+          Hola {studentName}, no se registró tu asistencia a la sesión de{' '}
           {subjectName} del {date}.
         </Text>
 
         <SessionDetails
           title="Detalles de la sesión"
           items={[
-            { label: "Tutor", value: tutorName },
-            { label: "Materia", value: subjectName },
-            { label: "Fecha", value: date },
-            { label: "Hora", value: startTime },
+            { label: 'Tutor', value: tutorName },
+            { label: 'Materia', value: subjectName },
+            { label: 'Fecha', value: date },
+            { label: 'Hora', value: startTime },
           ]}
         />
 

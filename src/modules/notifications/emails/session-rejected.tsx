@@ -1,7 +1,7 @@
-import { Section, Heading, Text, Link } from "react-email";
-import Layout from "./components/Layout";
-import EmailButton from "./components/EmailButton";
-import SessionDetails from "./components/SessionDetails";
+import { Section, Heading, Text, Link } from 'react-email';
+import Layout from './components/Layout';
+import EmailButton from './components/EmailButton';
+import SessionDetails from './components/SessionDetails';
 
 export interface SessionRejectedProps {
   studentName: string;
@@ -51,24 +51,21 @@ export default function SessionRejected(props: SessionRejectedProps) {
         <SessionDetails
           title="Detalles de la solicitud"
           items={[
-            { label: "Materia", value: subjectName },
-            { label: "Tema", value: title },
-            { label: "Fecha", value: date },
-            { label: "Horario", value: `${startTime} - ${endTime}` },
-            { label: "Motivo", value: rejectionReason },
+            { label: 'Materia', value: subjectName },
+            { label: 'Tema', value: title },
+            { label: 'Fecha', value: date },
+            { label: 'Horario', value: `${startTime} - ${endTime}` },
+            { label: 'Motivo', value: rejectionReason },
           ]}
         />
 
         <EmailButton href={rescheduleUrl}>Reagendar sesión</EmailButton>
 
         <Text className="mt-[24px] mb-0 text-[13px] leading-[20px] text-[#a3a3a3]">
-          También puedes revisar el{" "}
-          <Link
-            href={tutorProfileUrl}
-            className="text-[#9f74ff] no-underline"
-          >
+          También puedes revisar el{' '}
+          <Link href={tutorProfileUrl} className="text-[#9f74ff] no-underline">
             perfil del tutor
-          </Link>{" "}
+          </Link>{' '}
           o usar este enlace si el botón no funciona:
         </Text>
         <Link

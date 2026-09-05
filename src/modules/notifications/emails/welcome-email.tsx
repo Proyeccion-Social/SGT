@@ -1,5 +1,5 @@
-import { Section, Heading, Text, Button, Link } from "react-email";
-import Layout from "./components/Layout";
+import { Section, Heading, Text, Button, Link } from 'react-email';
+import Layout from './components/Layout';
 
 export interface WelcomeEmailProps {
   fullName: string;

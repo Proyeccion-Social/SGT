@@ -1,11 +1,13 @@
-import { Section, Heading, Text, Link } from "react-email";
-import Layout from "./components/Layout";
-import EmailButton from "./components/EmailButton";
-import SessionDetails from "./components/SessionDetails";
+import { Section, Heading, Text, Link } from 'react-email';
+import Layout from './components/Layout';
+import EmailButton from './components/EmailButton';
+import SessionDetails from './components/SessionDetails';
 
 export interface SessionConfirmationStudentProps {
   studentName: string;
   tutorName: string;
+  tutorEmail: string;
+  tutorPhone: string | null;
   subjectName: string;
   title: string;
   date: string;
@@ -24,6 +26,8 @@ export default function SessionConfirmationStudent(
 ) {
   const {
     tutorName,
+    tutorEmail,
+    tutorPhone,
     subjectName,
     title,
     date,
@@ -36,6 +40,11 @@ export default function SessionConfirmationStudent(
     isVirtual,
     virtualLink,
   } = props;
+
+  const tutorContactItems = [
+    { label: 'Correo', value: tutorEmail },
+    ...(tutorPhone ? [{ label: 'Teléfono', value: tutorPhone }] : []),
+  ];
 
   return (
     <Layout previewText={`¡Sesión confirmada! ${subjectName}`}>
@@ -58,24 +67,29 @@ export default function SessionConfirmationStudent(
         <SessionDetails
           title="Detalles de la sesión"
           items={[
-            { label: "Materia", value: subjectName },
-            { label: "Tema", value: title },
-            { label: "Fecha", value: date },
-            { label: "Horario", value: `${startTime} - ${endTime}` },
-            { label: "Duración", value: `${duration}h` },
-            { label: "Modalidad", value: modality },
+            { label: 'Materia', value: subjectName },
+            { label: 'Tema', value: title },
+            { label: 'Fecha', value: date },
+            { label: 'Horario', value: `${startTime} - ${endTime}` },
+            { label: 'Duración', value: `${duration}h` },
+            { label: 'Modalidad', value: modality },
             ...(description
-              ? [{ label: "Descripción", value: description }]
+              ? [{ label: 'Descripción', value: description }]
               : []),
             ...(isVirtual
               ? [
                   {
-                    label: "Enlace virtual",
-                    value: virtualLink ?? "Se compartirá antes de la sesión",
+                    label: 'Enlace virtual',
+                    value: virtualLink ?? 'Se compartirá antes de la sesión',
                   },
                 ]
               : []),
           ]}
+        />
+
+        <SessionDetails
+          title={`Contacto de ${tutorName}`}
+          items={tutorContactItems}
         />
 
         <EmailButton href={sessionDetailsUrl}>Ver sesión</EmailButton>

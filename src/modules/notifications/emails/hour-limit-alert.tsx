@@ -1,8 +1,8 @@
-import { Section, Heading, Text, Link } from "react-email";
-import Layout from "./components/Layout";
-import EmailButton from "./components/EmailButton";
-import SessionDetails from "./components/SessionDetails";
-import AlertBanner from "./components/AlertBanner";
+import { Section, Heading, Text, Link } from 'react-email';
+import Layout from './components/Layout';
+import EmailButton from './components/EmailButton';
+import SessionDetails from './components/SessionDetails';
+import AlertBanner from './components/AlertBanner';
 
 export interface HourLimitAlertProps {
   tutorName: string;
@@ -10,8 +10,8 @@ export interface HourLimitAlertProps {
   hoursUsed: string;
   hoursRemaining: string;
   usagePercentage: string;
-  alertLevel: "80_PERCENT" | "95_PERCENT" | "100_PERCENT";
-  urgencyLevel: "warning" | "urgent" | "critical";
+  alertLevel: '80_PERCENT' | '95_PERCENT' | '100_PERCENT';
+  urgencyLevel: 'warning' | 'urgent' | 'critical';
   is80Percent: boolean;
   is95Percent: boolean;
   is100Percent: boolean;
@@ -21,20 +21,21 @@ export interface HourLimitAlertProps {
 }
 
 const alertConfig = {
-  "80_PERCENT": {
-    title: "Has usado el 80% de tus horas semanales",
-    banner: "Estás cerca de tu límite semanal. Planifica tus próximas sesiones.",
-    variant: "warning" as const,
+  '80_PERCENT': {
+    title: 'Has usado el 80% de tus horas semanales',
+    banner:
+      'Estás cerca de tu límite semanal. Planifica tus próximas sesiones.',
+    variant: 'warning' as const,
   },
-  "95_PERCENT": {
-    title: "Has usado el 95% de tus horas semanales",
-    banner: "Quedan pocas horas disponibles. Revisa tus sesiones pendientes.",
-    variant: "warning" as const,
+  '95_PERCENT': {
+    title: 'Has usado el 95% de tus horas semanales',
+    banner: 'Quedan pocas horas disponibles. Revisa tus sesiones pendientes.',
+    variant: 'warning' as const,
   },
-  "100_PERCENT": {
-    title: "Has alcanzado tu límite semanal de horas",
-    banner: "No podrás aceptar más sesiones hasta la próxima semana.",
-    variant: "error" as const,
+  '100_PERCENT': {
+    title: 'Has alcanzado tu límite semanal de horas',
+    banner: 'No podrás aceptar más sesiones hasta la próxima semana.',
+    variant: 'error' as const,
   },
 };
 
@@ -77,10 +78,10 @@ export default function HourLimitAlert(props: HourLimitAlertProps) {
         <SessionDetails
           title="Resumen de horas"
           items={[
-            { label: "Límite semanal", value: `${weeklyHourLimit}h` },
-            { label: "Horas usadas", value: `${hoursUsed}h` },
-            { label: "Horas restantes", value: `${hoursRemaining}h` },
-            { label: "Porcentaje usado", value: `${usagePercentage}%` },
+            { label: 'Límite semanal', value: `${weeklyHourLimit}h` },
+            { label: 'Horas usadas', value: `${hoursUsed}h` },
+            { label: 'Horas restantes', value: `${hoursRemaining}h` },
+            { label: 'Porcentaje usado', value: `${usagePercentage}%` },
           ]}
         />
 
@@ -88,11 +89,8 @@ export default function HourLimitAlert(props: HourLimitAlertProps) {
 
         {canAcceptMore && (
           <Text className="mt-[16px] mb-0 text-[13px] leading-[20px] text-[#a3a3a3]">
-            Puedes ajustar tu disponibilidad en{" "}
-            <Link
-              href={settingsUrl}
-              className="text-[#9f74ff] no-underline"
-            >
+            Puedes ajustar tu disponibilidad en{' '}
+            <Link href={settingsUrl} className="text-[#9f74ff] no-underline">
               configuración
             </Link>
             .

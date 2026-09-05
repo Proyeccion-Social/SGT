@@ -1,7 +1,7 @@
-import { Section, Heading, Text, Link } from "react-email";
-import Layout from "./components/Layout";
-import EmailButton from "./components/EmailButton";
-import SessionDetails from "./components/SessionDetails";
+import { Section, Heading, Text, Link } from 'react-email';
+import Layout from './components/Layout';
+import EmailButton from './components/EmailButton';
+import SessionDetails from './components/SessionDetails';
 
 export interface CollaborativeSessionAvailableProps {
   tutorName: string;
@@ -56,15 +56,15 @@ export default function CollaborativeSessionAvailable(
         <SessionDetails
           title="Detalles de la sesión"
           items={[
-            { label: "Tutor", value: tutorName },
-            { label: "Materia", value: subjectName },
-            { label: "Tema", value: title },
-            { label: "Fecha", value: date },
-            { label: "Horario", value: `${startTime} - ${endTime}` },
-            { label: "Duración", value: `${duration}h` },
-            { label: "Modalidad", value: modality },
+            { label: 'Tutor', value: tutorName },
+            { label: 'Materia', value: subjectName },
+            { label: 'Tema', value: title },
+            { label: 'Fecha', value: date },
+            { label: 'Horario', value: `${startTime} - ${endTime}` },
+            { label: 'Duración', value: `${duration}h` },
+            { label: 'Modalidad', value: modality },
             ...(description
-              ? [{ label: "Descripción", value: description }]
+              ? [{ label: 'Descripción', value: description }]
               : []),
           ]}
         />

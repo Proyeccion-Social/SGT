@@ -1,8 +1,8 @@
-import { Section, Heading, Text, Link } from "react-email";
-import Layout from "./components/Layout";
-import EmailButton from "./components/EmailButton";
-import SessionDetails from "./components/SessionDetails";
-import AlertBanner from "./components/AlertBanner";
+import { Section, Heading, Text, Link } from 'react-email';
+import Layout from './components/Layout';
+import EmailButton from './components/EmailButton';
+import SessionDetails from './components/SessionDetails';
+import AlertBanner from './components/AlertBanner';
 
 export interface AvailabilityChangedProps {
   studentName: string;
@@ -11,7 +11,7 @@ export interface AvailabilityChangedProps {
   title: string;
   originalDate: string;
   originalTime: string;
-  changeType: "CANCELLED" | "MODIFIED" | "SLOT_DELETED";
+  changeType: 'CANCELLED' | 'MODIFIED' | 'SLOT_DELETED';
   isCancelled: boolean;
   isModified: boolean;
   isSlotDeleted: boolean;
@@ -21,9 +21,9 @@ export interface AvailabilityChangedProps {
 }
 
 const changeTypeLabels = {
-  CANCELLED: "cancelada",
-  MODIFIED: "modificada",
-  SLOT_DELETED: "eliminada por cambio de disponibilidad",
+  CANCELLED: 'cancelada',
+  MODIFIED: 'modificada',
+  SLOT_DELETED: 'eliminada por cambio de disponibilidad',
 };
 
 export default function AvailabilityChanged(props: AvailabilityChangedProps) {
@@ -65,24 +65,21 @@ export default function AvailabilityChanged(props: AvailabilityChangedProps) {
         <SessionDetails
           title="Detalles de la sesión afectada"
           items={[
-            { label: "Materia", value: subjectName },
-            { label: "Tema", value: title },
-            { label: "Fecha original", value: originalDate },
-            { label: "Horario original", value: originalTime },
-            { label: "Motivo", value: changeReason },
+            { label: 'Materia', value: subjectName },
+            { label: 'Tema', value: title },
+            { label: 'Fecha original', value: originalDate },
+            { label: 'Horario original', value: originalTime },
+            { label: 'Motivo', value: changeReason },
           ]}
         />
 
         <EmailButton href={rescheduleUrl}>Reagendar sesión</EmailButton>
 
         <Text className="mt-[24px] mb-0 text-[13px] leading-[20px] text-[#a3a3a3]">
-          También puedes revisar el{" "}
-          <Link
-            href={tutorProfileUrl}
-            className="text-[#9f74ff] no-underline"
-          >
+          También puedes revisar el{' '}
+          <Link href={tutorProfileUrl} className="text-[#9f74ff] no-underline">
             perfil del tutor
-          </Link>{" "}
+          </Link>{' '}
           o usar este enlace si el botón no funciona:
         </Text>
         <Link

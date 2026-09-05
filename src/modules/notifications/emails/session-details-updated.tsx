@@ -1,7 +1,7 @@
-import { Section, Heading, Text, Link } from "react-email";
-import Layout from "./components/Layout";
-import EmailButton from "./components/EmailButton";
-import SessionDetails from "./components/SessionDetails";
+import { Section, Heading, Text, Link } from 'react-email';
+import Layout from './components/Layout';
+import EmailButton from './components/EmailButton';
+import SessionDetails from './components/SessionDetails';
 
 export interface SessionDetailsChange {
   label: string;
@@ -62,18 +62,18 @@ export default function SessionDetailsUpdated(
         <SessionDetails
           title="Nuevos detalles"
           items={[
-            { label: "Materia", value: subjectName },
-            { label: "Tema", value: newTitle },
-            { label: "Fecha", value: date },
-            { label: "Horario", value: `${startTime} - ${endTime}` },
+            { label: 'Materia', value: subjectName },
+            { label: 'Tema', value: newTitle },
+            { label: 'Fecha', value: date },
+            { label: 'Horario', value: `${startTime} - ${endTime}` },
             ...(newDescription
-              ? [{ label: "Descripción", value: newDescription }]
+              ? [{ label: 'Descripción', value: newDescription }]
               : []),
             ...(newLocation
-              ? [{ label: "Ubicación", value: newLocation }]
+              ? [{ label: 'Ubicación', value: newLocation }]
               : []),
             ...(newVirtualLink
-              ? [{ label: "Enlace virtual", value: newVirtualLink }]
+              ? [{ label: 'Enlace virtual', value: newVirtualLink }]
               : []),
           ]}
         />
@@ -86,11 +86,11 @@ export default function SessionDetailsUpdated(
               value: (
                 <>
                   <span className="text-[#a3a3a3] line-through">
-                    {change.previous ?? "—"}
+                    {change.previous ?? '—'}
                   </span>
                   <br />
                   <span className="font-semibold text-[#1a1a1a]">
-                    {change.current ?? "—"}
+                    {change.current ?? '—'}
                   </span>
                 </>
               ),
@@ -98,7 +98,9 @@ export default function SessionDetailsUpdated(
           />
         )}
 
-        <EmailButton href={sessionDetailsUrl}>Ver sesión actualizada</EmailButton>
+        <EmailButton href={sessionDetailsUrl}>
+          Ver sesión actualizada
+        </EmailButton>
 
         <Text className="mt-[24px] mb-0 text-[13px] leading-[20px] text-[#a3a3a3]">
           Si el botón no funciona, copia y pega este enlace en tu navegador:
