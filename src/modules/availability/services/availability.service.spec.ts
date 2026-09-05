@@ -61,6 +61,7 @@ describe('AvailabilityService', () => {
 
     tutorService = {
       findOne: jest.fn(),
+      getWeeklyHoursLimit: jest.fn().mockResolvedValue(8),
     };
 
     service = new AvailabilityService(
@@ -669,6 +670,43 @@ describe('AvailabilityService', () => {
       });
 
       expect(result.availableSlots).toHaveLength(2);
+    });
+
+    it('marks slots as unavailable when the tutor has reached the weekly hours limit', async () => {
+      const tutorAvailabilities = [
+        {
+          idTutor: 'tutor-1',
+          idAvailability: 10,
+          modality: [Modality.PRES],
+          availability: {
+            idAvailability: 10,
+            dayOfWeek: 0,
+            startTime: '08:00',
+          },
+          tutor: { user: { name: 'John Tutor' } },
+        },
+      ];
+
+      tutorHaveAvailabilityRepository.find.mockResolvedValue(
+        tutorAvailabilities,
+      );
+      tutorService.getWeeklyHoursLimit.mockResolvedValue(1);
+
+      const qb = createQueryBuilderMock();
+      qb.getMany.mockResolvedValue([
+        {
+          idTutor: 'tutor-1',
+          idAvailability: 10,
+          availability: { dayOfWeek: 0, startTime: '08:00' },
+          session: { startTime: '08:00', endTime: '09:00' },
+        },
+      ]);
+      scheduledSessionRepository.createQueryBuilder.mockReturnValue(qb);
+
+      const result = await service.getTutorAvailability('tutor-1');
+
+      expect(result.availableSlots).toHaveLength(0);
+      expect(result.totalSlots).toBe(1);
     });
 
     it('returns empty slots when tutor has no availability configured', async () => {

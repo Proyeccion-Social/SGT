@@ -211,6 +211,7 @@ describe('DashboardService', () => {
       );
     });
 
+    //
     it('returns 0 totalStudentsReached when getRawOne returns null', async () => {
       tutorService.getWeeklyHoursLimit.mockResolvedValue(10);
       sessionRepository.find.mockResolvedValue([]);

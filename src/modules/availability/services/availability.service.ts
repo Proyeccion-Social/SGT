@@ -452,6 +452,12 @@ export class AvailabilityService {
       weekStartStr,
       weekEndStr,
     );
+    const weeklyHoursUsed = await this.getWeeklyHoursUsedInRange(
+      tutorId,
+      weekStartStr,
+      weekEndStr,
+    );
+    const weeklyLimit = await this.tutorService.getWeeklyHoursLimit(tutorId);
 
     let slots: AvailabilitySlot[] = tutorAvailabilities.map((ta) => {
       const startTime = ta.availability.startTime;
@@ -462,6 +468,8 @@ export class AvailabilityService {
         ta.availability.dayOfWeek,
         occupiedRanges,
       );
+      const wouldExceedWeeklyLimit =
+        weeklyHoursUsed + this.SLOT_DURATION_MINUTES / 60 > weeklyLimit;
 
       return {
         slotId: ta.idAvailability.toString(),
@@ -471,7 +479,7 @@ export class AvailabilityService {
         endTime,
         modality: this.normalizeModalities(ta.modality ?? []),
         duration: 0.5,
-        isAvailable: !isOccupied,
+        isAvailable: !isOccupied && !wouldExceedWeeklyLimit,
       };
     });
 
@@ -1248,6 +1256,35 @@ export class AvailabilityService {
       weekEndStr,
     );
     return map.get(tutorId) ?? [];
+  }
+
+  private async getWeeklyHoursUsedInRange(
+    tutorId: string,
+    weekStartStr: string,
+    weekEndStr: string,
+  ): Promise<number> {
+    const activeSessions = await this.scheduledSessionRepository
+      .createQueryBuilder('ss')
+      .innerJoinAndSelect('ss.session', 'session')
+      .where('ss.id_tutor = :tutorId', { tutorId })
+      .andWhere('ss.scheduled_date BETWEEN :weekStart AND :weekEnd', {
+        weekStart: weekStartStr,
+        weekEnd: weekEndStr,
+      })
+      .andWhere('session.status IN (:...activeStatuses)', {
+        activeStatuses: [
+          SessionStatus.SCHEDULED,
+          SessionStatus.PENDING_MODIFICATION,
+          SessionStatus.PENDING_TUTOR_CONFIRMATION,
+        ],
+      })
+      .getMany();
+
+    return activeSessions.reduce((sum, ss) => {
+      const startMinutes = this.timeToMinutes(ss.session.startTime);
+      const endMinutes = this.timeToMinutes(ss.session.endTime);
+      return sum + (endMinutes - startMinutes) / 60;
+    }, 0);
   }
 
   // =====================================================
