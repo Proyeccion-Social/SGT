@@ -1,136 +1,327 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class InitialSchema1700000000000 implements MigrationInterface {
-    name = 'InitialSchema1700000000000'
+  name = 'InitialSchema1700000000000';
 
-    public async up(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`CREATE TABLE "questions" ("id_question" uuid NOT NULL DEFAULT uuid_generate_v4(), "content" text NOT NULL, "aspect" character varying(30) NOT NULL DEFAULT 'CLARITY', "label" character varying(150) NOT NULL DEFAULT '', "description" text, "required" boolean NOT NULL DEFAULT true, "display_order" smallint NOT NULL DEFAULT '1', "min_score" smallint NOT NULL DEFAULT '1', "max_score" smallint NOT NULL DEFAULT '5', "questionnaire_version" character varying(20) NOT NULL DEFAULT '1.0', "is_active" boolean NOT NULL DEFAULT true, CONSTRAINT "PK_42f7d8f0cb5a36bdb8873474f73" PRIMARY KEY ("id_question"))`);
-        await queryRunner.query(`CREATE TABLE "answers" ("id_question" uuid NOT NULL, "id_student" uuid NOT NULL, "id_session" uuid NOT NULL, "evaluation_id" uuid NOT NULL, "score" smallint, "evaluated_at" TIMESTAMP NOT NULL DEFAULT now(), "questionnaire_version" character varying(20) NOT NULL DEFAULT '1.0', CONSTRAINT "PK_c1417fe520634f4cb323644d9f8" PRIMARY KEY ("id_question", "id_student", "id_session"))`);
-        await queryRunner.query(`CREATE TYPE "public"."student_participate_session_status_enum" AS ENUM('CONFIRMED', 'ATTENDED', 'ABSENT', 'LATE')`);
-        await queryRunner.query(`CREATE TABLE "student_participate_session" ("id_student" uuid NOT NULL, "id_session" uuid NOT NULL, "status" "public"."student_participate_session_status_enum", "comment" text, "arrival_time" TIMESTAMP, "joined_at" TIMESTAMP NOT NULL, CONSTRAINT "PK_bd04f2a8d91eafd52dd6d937527" PRIMARY KEY ("id_student", "id_session"))`);
-        await queryRunner.query(`CREATE TYPE "public"."session_modification_requests_new_modality_enum" AS ENUM('PRES', 'VIRT')`);
-        await queryRunner.query(`CREATE TYPE "public"."session_modification_requests_status_enum" AS ENUM('PENDING', 'ACCEPTED', 'REJECTED', 'EXPIRED')`);
-        await queryRunner.query(`CREATE TABLE "session_modification_requests" ("id_request" uuid NOT NULL DEFAULT uuid_generate_v4(), "id_session" uuid NOT NULL, "requested_by" uuid NOT NULL, "new_scheduled_date" date, "new_start_time" TIME, "new_availability_id" bigint, "new_modality" "public"."session_modification_requests_new_modality_enum", "new_duration_hours" numeric(3,1), "status" "public"."session_modification_requests_status_enum" NOT NULL DEFAULT 'PENDING', "requested_at" TIMESTAMP NOT NULL DEFAULT now(), "responded_at" TIMESTAMP, "responded_by" uuid, "expires_at" TIMESTAMP NOT NULL, CONSTRAINT "PK_1b1046a24e0991b03562c303185" PRIMARY KEY ("id_request"))`);
-        await queryRunner.query(`CREATE TYPE "public"."sessions_type_enum" AS ENUM('INDIVIDUAL', 'GROUP')`);
-        await queryRunner.query(`CREATE TYPE "public"."sessions_modality_enum" AS ENUM('PRES', 'VIRT')`);
-        await queryRunner.query(`CREATE TYPE "public"."sessions_status_enum" AS ENUM('PENDING_TUTOR_CONFIRMATION', 'SCHEDULED', 'PENDING_MODIFICATION', 'REJECTED_BY_TUTOR', 'CANCELLED_BY_STUDENT', 'CANCELLED_BY_TUTOR', 'CANCELLED_BY_ADMIN', 'COMPLETED', 'EXPIRED_UNCONFIRMED')`);
-        await queryRunner.query(`CREATE TABLE "sessions" ("id_session" uuid NOT NULL DEFAULT uuid_generate_v4(), "id_tutor" uuid NOT NULL, "id_subject" uuid NOT NULL, "scheduled_date" date NOT NULL, "start_time" TIME NOT NULL, "end_time" TIME NOT NULL, "title" character varying(100) NOT NULL, "description" text NOT NULL, "type" "public"."sessions_type_enum" NOT NULL, "modality" "public"."sessions_modality_enum" NOT NULL, "location" character varying, "virtual_link" character varying, "status" "public"."sessions_status_enum" NOT NULL DEFAULT 'SCHEDULED', "confirmation_expires_at" TIMESTAMP, "cancellation_reason" text, "cancelled_at" TIMESTAMP, "cancelled_within_24h" boolean NOT NULL DEFAULT false, "cancelled_by" uuid, "created_at" TIMESTAMP NOT NULL DEFAULT now(), "tutor_confirmed" boolean NOT NULL DEFAULT false, "tutor_confirmed_at" TIMESTAMP, "rejection_reason" text, "rejected_at" TIMESTAMP, "max_participants" smallint, CONSTRAINT "PK_858bc8fe367b57b2de3ad3316bd" PRIMARY KEY ("id_session"))`);
-        await queryRunner.query(`CREATE TABLE "scheduled_sessions" ("id_tutor" uuid NOT NULL, "id_availability" bigint NOT NULL, "id_session" uuid NOT NULL, "scheduled_date" date NOT NULL, CONSTRAINT "UQ_tutor_availability_date" UNIQUE ("id_tutor", "id_availability", "scheduled_date"), CONSTRAINT "PK_6df0305f4681b7af345413ee6d7" PRIMARY KEY ("id_session"))`);
-        await queryRunner.query(`CREATE TABLE "availability" ("id_availability" BIGSERIAL NOT NULL, "day_of_week" smallint NOT NULL, "start_time" TIME NOT NULL, CONSTRAINT "PK_74c354f1c8d40ea5ca04a281895" PRIMARY KEY ("id_availability"))`);
-        await queryRunner.query(`CREATE TYPE "public"."tutor_have_availability_modality_enum" AS ENUM('PRES', 'VIRT')`);
-        await queryRunner.query(`CREATE TABLE "tutor_have_availability" ("id_tutor" uuid NOT NULL, "id_availability" bigint NOT NULL, "modality" "public"."tutor_have_availability_modality_enum" array, CONSTRAINT "PK_1081a75d607ac74f1c1daac8e70" PRIMARY KEY ("id_tutor", "id_availability"))`);
-        await queryRunner.query(`CREATE TABLE "tutors" ("id_user" uuid NOT NULL, "phone" character varying(20), "is_active" boolean NOT NULL DEFAULT false, "limit_disponibility" smallint DEFAULT '8', "profile_completed" boolean NOT NULL DEFAULT false, "url_image" text, CONSTRAINT "PK_8325796beb64a4c91dfe1c3955b" PRIMARY KEY ("id_user"))`);
-        await queryRunner.query(`CREATE TABLE "tutor_impart_subject" ("id_tutor" uuid NOT NULL, "id_subject" uuid NOT NULL, CONSTRAINT "PK_e99569804681cad9ec6b7d8b7bf" PRIMARY KEY ("id_tutor", "id_subject"))`);
-        await queryRunner.query(`CREATE TABLE "subject" ("id_subject" uuid NOT NULL DEFAULT uuid_generate_v4(), "name" character varying(100) NOT NULL, "is_active" boolean NOT NULL DEFAULT true, "color" character varying(255), "border_color" character varying(255), CONSTRAINT "UQ_d011c391e37d9a5e63e8b04c977" UNIQUE ("name"), CONSTRAINT "PK_6a78d4af7c4f73c256c43f00c40" PRIMARY KEY ("id_subject"))`);
-        await queryRunner.query(`CREATE TABLE "student_interested_subject" ("id_student" uuid NOT NULL, "id_subject" uuid NOT NULL, CONSTRAINT "PK_7669f9531866a26d5eecf993e01" PRIMARY KEY ("id_student", "id_subject"))`);
-        await queryRunner.query(`CREATE TYPE "public"."students_preferred_modality_enum" AS ENUM('PRES', 'VIRT')`);
-        await queryRunner.query(`CREATE TABLE "students" ("id_user" uuid NOT NULL, "career" character varying(100), "profile_completed" boolean NOT NULL DEFAULT false, "preferred_modality" "public"."students_preferred_modality_enum", CONSTRAINT "PK_b559710a42d2bf3b49062750132" PRIMARY KEY ("id_user"))`);
-        await queryRunner.query(`CREATE TYPE "public"."users_role_enum" AS ENUM('STUDENT', 'TUTOR', 'ADMIN')`);
-        await queryRunner.query(`CREATE TYPE "public"."users_status_enum" AS ENUM('ACTIVE', 'PENDING', 'BLOCKED')`);
-        await queryRunner.query(`CREATE TABLE "users" ("id_user" uuid NOT NULL DEFAULT uuid_generate_v4(), "name" character varying(100) NOT NULL, "email" character varying(150) NOT NULL, "password" character varying(255) NOT NULL, "role" "public"."users_role_enum" NOT NULL, "status" "public"."users_status_enum" NOT NULL, "email_verified" boolean NOT NULL DEFAULT false, "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "email_verified_at" TIMESTAMP, "failed_login_attempts" integer NOT NULL DEFAULT '0', "locked_until" TIMESTAMP, "password_changed_at" TIMESTAMP, CONSTRAINT "UQ_97672ac88f789774dd47f7c8be3" UNIQUE ("email"), CONSTRAINT "PK_fbb07fa6fbd1d74bee9782fb945" PRIMARY KEY ("id_user"))`);
-        await queryRunner.query(`CREATE TABLE "dashboard_banner" ("id" smallint NOT NULL DEFAULT '1', "image_url" text NOT NULL, "target_url" text NOT NULL, "updated_by" uuid NOT NULL, "updated_at" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "PK_5352ff1a6fd722aa0c36454d2f5" PRIMARY KEY ("id"))`);
-        await queryRunner.query(`CREATE TABLE "password_reset_tokens" ("id_token" uuid NOT NULL DEFAULT uuid_generate_v4(), "id_user" uuid NOT NULL, "token_hash" character varying(255) NOT NULL, "expires_at" TIMESTAMP NOT NULL, "created_at" TIMESTAMP NOT NULL DEFAULT now(), "used_at" TIMESTAMP, CONSTRAINT "PK_fae074bbad2c452ca1a640fc45c" PRIMARY KEY ("id_token"))`);
-        await queryRunner.query(`CREATE TABLE "email_verification_tokens" ("id_token" uuid NOT NULL DEFAULT uuid_generate_v4(), "id_user" uuid NOT NULL, "token_hash" character varying(255) NOT NULL, "expires_at" TIMESTAMP NOT NULL, "created_at" TIMESTAMP NOT NULL DEFAULT now(), "verified_at" TIMESTAMP, CONSTRAINT "PK_a7696f895a903e3327da6184d20" PRIMARY KEY ("id_token"))`);
-        await queryRunner.query(`CREATE TABLE "auth_sessions" ("id_session" uuid NOT NULL DEFAULT uuid_generate_v4(), "refresh_token_hash" character varying(255) NOT NULL, "user_agent" text, "expires_at" TIMESTAMP NOT NULL, "created_at" TIMESTAMP NOT NULL DEFAULT now(), "revoked_at" TIMESTAMP, "last_activity_at" TIMESTAMP NOT NULL DEFAULT now(), "id_user" uuid, CONSTRAINT "PK_79c7537367be7ffbbea479fbb18" PRIMARY KEY ("id_session"))`);
-        await queryRunner.query(`CREATE TYPE "public"."audit_logs_action_enum" AS ENUM('LOGIN', 'LOGIN_FAILED', 'LOGOUT', 'PASSWORD_CHANGE', 'PASSWORD_RESET_REQUESTED', 'PASSWORD_RESET_COMPLETED', 'ACCOUNT_CREATED', 'EMAIL_VERIFIED', 'ACCOUNT_LOCKED', 'ACCOUNT_UNLOCKED', 'SESSION_CREATED', 'SESSION_REFRESHED', 'SESSION_REVOKED', 'SESSION_EXPIRED')`);
-        await queryRunner.query(`CREATE TYPE "public"."audit_logs_result_enum" AS ENUM('SUCCESS', 'FAILED')`);
-        await queryRunner.query(`CREATE TABLE "audit_logs" ("id_log" uuid NOT NULL DEFAULT uuid_generate_v4(), "id_user" uuid, "id_session" uuid, "action" "public"."audit_logs_action_enum" NOT NULL, "result" "public"."audit_logs_result_enum" NOT NULL, "email_attempted" character varying(255), "failure_reason" text, "ip_address" character varying(45), "user_agent" text, "metadata" jsonb, "created_at" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "PK_0db8a907e1af1cdfe86642282a2" PRIMARY KEY ("id_log"))`);
-        await queryRunner.query(`CREATE TYPE "public"."app_notifications_type_enum" AS ENUM('SESSION_REQUEST_RECEIVED', 'SESSION_REQUEST_ACK', 'SESSION_CONFIRMED', 'SESSION_REJECTED', 'SESSION_CANCELLED', 'MODIFICATION_REQUEST', 'MODIFICATION_ACCEPTED', 'MODIFICATION_REJECTED', 'SESSION_DETAILS_UPDATED', 'SESSION_REMINDER_24H', 'SESSION_REMINDER_2H', 'EVALUATION_PENDING', 'EVALUATION_REMINDER', 'AVAILABILITY_CHANGED', 'HOUR_LIMIT_ALERT', 'SESSION_ABSENT')`);
-        await queryRunner.query(`CREATE TABLE "app_notifications" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "user_id" uuid NOT NULL, "type" "public"."app_notifications_type_enum" NOT NULL, "message" character varying(300) NOT NULL, "payload" jsonb, "read" boolean NOT NULL DEFAULT false, "created_at" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "PK_4ff08fe3c2ebf2593490403bbe0" PRIMARY KEY ("id"))`);
-        await queryRunner.query(`CREATE INDEX "IDX_0ba1a7b7a3221b68b9b89f00ad" ON "app_notifications" ("created_at") `);
-        await queryRunner.query(`CREATE INDEX "IDX_47db88381f4401f7c35b58ec7a" ON "app_notifications" ("user_id", "read") `);
-        await queryRunner.query(`CREATE INDEX "IDX_f0ba28fb988d154f68de8cad77" ON "app_notifications" ("user_id", "created_at") `);
-        await queryRunner.query(`ALTER TABLE "answers" ADD CONSTRAINT "FK_c570b5fef77654bf9ff41b00624" FOREIGN KEY ("id_question") REFERENCES "questions"("id_question") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "answers" ADD CONSTRAINT "FK_a34388d454fcfb0f90b6ff4b515" FOREIGN KEY ("id_student", "id_session") REFERENCES "student_participate_session"("id_student","id_session") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "student_participate_session" ADD CONSTRAINT "FK_049762489deb773f79eaa38e43b" FOREIGN KEY ("id_student") REFERENCES "students"("id_user") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "student_participate_session" ADD CONSTRAINT "FK_fe4bfc9c9d6054067ca1490a5a3" FOREIGN KEY ("id_session") REFERENCES "sessions"("id_session") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "session_modification_requests" ADD CONSTRAINT "FK_1261036d0c45dda8eb7c43bd1a1" FOREIGN KEY ("id_session") REFERENCES "sessions"("id_session") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "session_modification_requests" ADD CONSTRAINT "FK_8b3e850804222a5cab0b51158e7" FOREIGN KEY ("requested_by") REFERENCES "users"("id_user") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "session_modification_requests" ADD CONSTRAINT "FK_703383a4c0a87bbcd10f9dde19f" FOREIGN KEY ("responded_by") REFERENCES "users"("id_user") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "sessions" ADD CONSTRAINT "FK_a9ed75a85efcadd71bbc8be5ee5" FOREIGN KEY ("id_tutor") REFERENCES "tutors"("id_user") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "sessions" ADD CONSTRAINT "FK_412317c2f4613f7f852ec0eaf31" FOREIGN KEY ("id_subject") REFERENCES "subject"("id_subject") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "scheduled_sessions" ADD CONSTRAINT "FK_0d4b04a7079847403da2f7587cd" FOREIGN KEY ("id_tutor") REFERENCES "tutors"("id_user") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "scheduled_sessions" ADD CONSTRAINT "FK_c862ed5f3d65ee0ab41aa0c6fd6" FOREIGN KEY ("id_availability") REFERENCES "availability"("id_availability") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "scheduled_sessions" ADD CONSTRAINT "FK_6df0305f4681b7af345413ee6d7" FOREIGN KEY ("id_session") REFERENCES "sessions"("id_session") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tutor_have_availability" ADD CONSTRAINT "FK_6fe15be85a142eb123e22c9d043" FOREIGN KEY ("id_tutor") REFERENCES "tutors"("id_user") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tutor_have_availability" ADD CONSTRAINT "FK_1b75a22ce69dd4ad3eafb4ccf2f" FOREIGN KEY ("id_availability") REFERENCES "availability"("id_availability") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tutors" ADD CONSTRAINT "FK_8325796beb64a4c91dfe1c3955b" FOREIGN KEY ("id_user") REFERENCES "users"("id_user") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tutor_impart_subject" ADD CONSTRAINT "FK_a11475cea15ad0c4faa5e7ade16" FOREIGN KEY ("id_tutor") REFERENCES "tutors"("id_user") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tutor_impart_subject" ADD CONSTRAINT "FK_e2a77eea1cf449be7efe7147b31" FOREIGN KEY ("id_subject") REFERENCES "subject"("id_subject") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "student_interested_subject" ADD CONSTRAINT "FK_fa1094cb4cc067b455c39fa4ac8" FOREIGN KEY ("id_student") REFERENCES "students"("id_user") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "student_interested_subject" ADD CONSTRAINT "FK_36ba92aa42c5d6d14eca4ac8028" FOREIGN KEY ("id_subject") REFERENCES "subject"("id_subject") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "students" ADD CONSTRAINT "FK_b559710a42d2bf3b49062750132" FOREIGN KEY ("id_user") REFERENCES "users"("id_user") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "dashboard_banner" ADD CONSTRAINT "FK_c22b522545cf70676b3b26f193c" FOREIGN KEY ("updated_by") REFERENCES "users"("id_user") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "password_reset_tokens" ADD CONSTRAINT "FK_a440159fb2d7b579070f5206044" FOREIGN KEY ("id_user") REFERENCES "users"("id_user") ON DELETE CASCADE ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "email_verification_tokens" ADD CONSTRAINT "FK_8e4afd15aa5933a0aef14ddc743" FOREIGN KEY ("id_user") REFERENCES "users"("id_user") ON DELETE CASCADE ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "auth_sessions" ADD CONSTRAINT "FK_b266e81e60e8c49ae2eb7c46d27" FOREIGN KEY ("id_user") REFERENCES "users"("id_user") ON DELETE CASCADE ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "audit_logs" ADD CONSTRAINT "FK_1aabbc22a9f345c55ee39bf5daf" FOREIGN KEY ("id_user") REFERENCES "users"("id_user") ON DELETE SET NULL ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "audit_logs" ADD CONSTRAINT "FK_25d884c2a4c2cb629dc994e82d1" FOREIGN KEY ("id_session") REFERENCES "auth_sessions"("id_session") ON DELETE SET NULL ON UPDATE NO ACTION`);
-    }
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(
+      `CREATE TABLE "questions" ("id_question" uuid NOT NULL DEFAULT uuid_generate_v4(), "content" text NOT NULL, "aspect" character varying(30) NOT NULL DEFAULT 'CLARITY', "label" character varying(150) NOT NULL DEFAULT '', "description" text, "required" boolean NOT NULL DEFAULT true, "display_order" smallint NOT NULL DEFAULT '1', "min_score" smallint NOT NULL DEFAULT '1', "max_score" smallint NOT NULL DEFAULT '5', "questionnaire_version" character varying(20) NOT NULL DEFAULT '1.0', "is_active" boolean NOT NULL DEFAULT true, CONSTRAINT "PK_42f7d8f0cb5a36bdb8873474f73" PRIMARY KEY ("id_question"))`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "answers" ("id_question" uuid NOT NULL, "id_student" uuid NOT NULL, "id_session" uuid NOT NULL, "evaluation_id" uuid NOT NULL, "score" smallint, "evaluated_at" TIMESTAMP NOT NULL DEFAULT now(), "questionnaire_version" character varying(20) NOT NULL DEFAULT '1.0', CONSTRAINT "PK_c1417fe520634f4cb323644d9f8" PRIMARY KEY ("id_question", "id_student", "id_session"))`,
+    );
+    await queryRunner.query(
+      `CREATE TYPE "public"."student_participate_session_status_enum" AS ENUM('CONFIRMED', 'ATTENDED', 'ABSENT', 'LATE')`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "student_participate_session" ("id_student" uuid NOT NULL, "id_session" uuid NOT NULL, "status" "public"."student_participate_session_status_enum", "comment" text, "arrival_time" TIMESTAMP, "joined_at" TIMESTAMP NOT NULL, CONSTRAINT "PK_bd04f2a8d91eafd52dd6d937527" PRIMARY KEY ("id_student", "id_session"))`,
+    );
+    await queryRunner.query(
+      `CREATE TYPE "public"."session_modification_requests_new_modality_enum" AS ENUM('PRES', 'VIRT')`,
+    );
+    await queryRunner.query(
+      `CREATE TYPE "public"."session_modification_requests_status_enum" AS ENUM('PENDING', 'ACCEPTED', 'REJECTED', 'EXPIRED')`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "session_modification_requests" ("id_request" uuid NOT NULL DEFAULT uuid_generate_v4(), "id_session" uuid NOT NULL, "requested_by" uuid NOT NULL, "new_scheduled_date" date, "new_start_time" TIME, "new_availability_id" bigint, "new_modality" "public"."session_modification_requests_new_modality_enum", "new_duration_hours" numeric(3,1), "status" "public"."session_modification_requests_status_enum" NOT NULL DEFAULT 'PENDING', "requested_at" TIMESTAMP NOT NULL DEFAULT now(), "responded_at" TIMESTAMP, "responded_by" uuid, "expires_at" TIMESTAMP NOT NULL, CONSTRAINT "PK_1b1046a24e0991b03562c303185" PRIMARY KEY ("id_request"))`,
+    );
+    await queryRunner.query(
+      `CREATE TYPE "public"."sessions_type_enum" AS ENUM('INDIVIDUAL', 'GROUP')`,
+    );
+    await queryRunner.query(
+      `CREATE TYPE "public"."sessions_modality_enum" AS ENUM('PRES', 'VIRT')`,
+    );
+    await queryRunner.query(
+      `CREATE TYPE "public"."sessions_status_enum" AS ENUM('PENDING_TUTOR_CONFIRMATION', 'SCHEDULED', 'PENDING_MODIFICATION', 'REJECTED_BY_TUTOR', 'CANCELLED_BY_STUDENT', 'CANCELLED_BY_TUTOR', 'CANCELLED_BY_ADMIN', 'COMPLETED', 'EXPIRED_UNCONFIRMED')`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "sessions" ("id_session" uuid NOT NULL DEFAULT uuid_generate_v4(), "id_tutor" uuid NOT NULL, "id_subject" uuid NOT NULL, "scheduled_date" date NOT NULL, "start_time" TIME NOT NULL, "end_time" TIME NOT NULL, "title" character varying(100) NOT NULL, "description" text NOT NULL, "type" "public"."sessions_type_enum" NOT NULL, "modality" "public"."sessions_modality_enum" NOT NULL, "location" character varying, "virtual_link" character varying, "status" "public"."sessions_status_enum" NOT NULL DEFAULT 'SCHEDULED', "confirmation_expires_at" TIMESTAMP, "cancellation_reason" text, "cancelled_at" TIMESTAMP, "cancelled_within_24h" boolean NOT NULL DEFAULT false, "cancelled_by" uuid, "created_at" TIMESTAMP NOT NULL DEFAULT now(), "tutor_confirmed" boolean NOT NULL DEFAULT false, "tutor_confirmed_at" TIMESTAMP, "rejection_reason" text, "rejected_at" TIMESTAMP, "max_participants" smallint, CONSTRAINT "PK_858bc8fe367b57b2de3ad3316bd" PRIMARY KEY ("id_session"))`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "scheduled_sessions" ("id_tutor" uuid NOT NULL, "id_availability" bigint NOT NULL, "id_session" uuid NOT NULL, "scheduled_date" date NOT NULL, CONSTRAINT "UQ_tutor_availability_date" UNIQUE ("id_tutor", "id_availability", "scheduled_date"), CONSTRAINT "PK_6df0305f4681b7af345413ee6d7" PRIMARY KEY ("id_session"))`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "availability" ("id_availability" BIGSERIAL NOT NULL, "day_of_week" smallint NOT NULL, "start_time" TIME NOT NULL, CONSTRAINT "PK_74c354f1c8d40ea5ca04a281895" PRIMARY KEY ("id_availability"))`,
+    );
+    await queryRunner.query(
+      `CREATE TYPE "public"."tutor_have_availability_modality_enum" AS ENUM('PRES', 'VIRT')`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "tutor_have_availability" ("id_tutor" uuid NOT NULL, "id_availability" bigint NOT NULL, "modality" "public"."tutor_have_availability_modality_enum" array, CONSTRAINT "PK_1081a75d607ac74f1c1daac8e70" PRIMARY KEY ("id_tutor", "id_availability"))`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "tutors" ("id_user" uuid NOT NULL, "phone" character varying(20), "is_active" boolean NOT NULL DEFAULT false, "limit_disponibility" smallint DEFAULT '8', "profile_completed" boolean NOT NULL DEFAULT false, "url_image" text, CONSTRAINT "PK_8325796beb64a4c91dfe1c3955b" PRIMARY KEY ("id_user"))`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "tutor_impart_subject" ("id_tutor" uuid NOT NULL, "id_subject" uuid NOT NULL, CONSTRAINT "PK_e99569804681cad9ec6b7d8b7bf" PRIMARY KEY ("id_tutor", "id_subject"))`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "subject" ("id_subject" uuid NOT NULL DEFAULT uuid_generate_v4(), "name" character varying(100) NOT NULL, "is_active" boolean NOT NULL DEFAULT true, "color" character varying(255), "border_color" character varying(255), CONSTRAINT "UQ_d011c391e37d9a5e63e8b04c977" UNIQUE ("name"), CONSTRAINT "PK_6a78d4af7c4f73c256c43f00c40" PRIMARY KEY ("id_subject"))`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "student_interested_subject" ("id_student" uuid NOT NULL, "id_subject" uuid NOT NULL, CONSTRAINT "PK_7669f9531866a26d5eecf993e01" PRIMARY KEY ("id_student", "id_subject"))`,
+    );
+    await queryRunner.query(
+      `CREATE TYPE "public"."students_preferred_modality_enum" AS ENUM('PRES', 'VIRT')`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "students" ("id_user" uuid NOT NULL, "career" character varying(100), "profile_completed" boolean NOT NULL DEFAULT false, "preferred_modality" "public"."students_preferred_modality_enum", CONSTRAINT "PK_b559710a42d2bf3b49062750132" PRIMARY KEY ("id_user"))`,
+    );
+    await queryRunner.query(
+      `CREATE TYPE "public"."users_role_enum" AS ENUM('STUDENT', 'TUTOR', 'ADMIN')`,
+    );
+    await queryRunner.query(
+      `CREATE TYPE "public"."users_status_enum" AS ENUM('ACTIVE', 'PENDING', 'BLOCKED')`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "users" ("id_user" uuid NOT NULL DEFAULT uuid_generate_v4(), "name" character varying(100) NOT NULL, "email" character varying(150) NOT NULL, "password" character varying(255) NOT NULL, "role" "public"."users_role_enum" NOT NULL, "status" "public"."users_status_enum" NOT NULL, "email_verified" boolean NOT NULL DEFAULT false, "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "email_verified_at" TIMESTAMP, "failed_login_attempts" integer NOT NULL DEFAULT '0', "locked_until" TIMESTAMP, "password_changed_at" TIMESTAMP, CONSTRAINT "UQ_97672ac88f789774dd47f7c8be3" UNIQUE ("email"), CONSTRAINT "PK_fbb07fa6fbd1d74bee9782fb945" PRIMARY KEY ("id_user"))`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "dashboard_banner" ("id" smallint NOT NULL DEFAULT '1', "image_url" text NOT NULL, "target_url" text NOT NULL, "updated_by" uuid NOT NULL, "updated_at" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "PK_5352ff1a6fd722aa0c36454d2f5" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "password_reset_tokens" ("id_token" uuid NOT NULL DEFAULT uuid_generate_v4(), "id_user" uuid NOT NULL, "token_hash" character varying(255) NOT NULL, "expires_at" TIMESTAMP NOT NULL, "created_at" TIMESTAMP NOT NULL DEFAULT now(), "used_at" TIMESTAMP, CONSTRAINT "PK_fae074bbad2c452ca1a640fc45c" PRIMARY KEY ("id_token"))`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "email_verification_tokens" ("id_token" uuid NOT NULL DEFAULT uuid_generate_v4(), "id_user" uuid NOT NULL, "token_hash" character varying(255) NOT NULL, "expires_at" TIMESTAMP NOT NULL, "created_at" TIMESTAMP NOT NULL DEFAULT now(), "verified_at" TIMESTAMP, CONSTRAINT "PK_a7696f895a903e3327da6184d20" PRIMARY KEY ("id_token"))`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "auth_sessions" ("id_session" uuid NOT NULL DEFAULT uuid_generate_v4(), "refresh_token_hash" character varying(255) NOT NULL, "user_agent" text, "expires_at" TIMESTAMP NOT NULL, "created_at" TIMESTAMP NOT NULL DEFAULT now(), "revoked_at" TIMESTAMP, "last_activity_at" TIMESTAMP NOT NULL DEFAULT now(), "id_user" uuid, CONSTRAINT "PK_79c7537367be7ffbbea479fbb18" PRIMARY KEY ("id_session"))`,
+    );
+    await queryRunner.query(
+      `CREATE TYPE "public"."audit_logs_action_enum" AS ENUM('LOGIN', 'LOGIN_FAILED', 'LOGOUT', 'PASSWORD_CHANGE', 'PASSWORD_RESET_REQUESTED', 'PASSWORD_RESET_COMPLETED', 'ACCOUNT_CREATED', 'EMAIL_VERIFIED', 'ACCOUNT_LOCKED', 'ACCOUNT_UNLOCKED', 'SESSION_CREATED', 'SESSION_REFRESHED', 'SESSION_REVOKED', 'SESSION_EXPIRED')`,
+    );
+    await queryRunner.query(
+      `CREATE TYPE "public"."audit_logs_result_enum" AS ENUM('SUCCESS', 'FAILED')`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "audit_logs" ("id_log" uuid NOT NULL DEFAULT uuid_generate_v4(), "id_user" uuid, "id_session" uuid, "action" "public"."audit_logs_action_enum" NOT NULL, "result" "public"."audit_logs_result_enum" NOT NULL, "email_attempted" character varying(255), "failure_reason" text, "ip_address" character varying(45), "user_agent" text, "metadata" jsonb, "created_at" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "PK_0db8a907e1af1cdfe86642282a2" PRIMARY KEY ("id_log"))`,
+    );
+    await queryRunner.query(
+      `CREATE TYPE "public"."app_notifications_type_enum" AS ENUM('SESSION_REQUEST_RECEIVED', 'SESSION_REQUEST_ACK', 'SESSION_CONFIRMED', 'SESSION_REJECTED', 'SESSION_CANCELLED', 'MODIFICATION_REQUEST', 'MODIFICATION_ACCEPTED', 'MODIFICATION_REJECTED', 'SESSION_DETAILS_UPDATED', 'SESSION_REMINDER_24H', 'SESSION_REMINDER_2H', 'EVALUATION_PENDING', 'EVALUATION_REMINDER', 'AVAILABILITY_CHANGED', 'HOUR_LIMIT_ALERT', 'SESSION_ABSENT')`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "app_notifications" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "user_id" uuid NOT NULL, "type" "public"."app_notifications_type_enum" NOT NULL, "message" character varying(300) NOT NULL, "payload" jsonb, "read" boolean NOT NULL DEFAULT false, "created_at" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "PK_4ff08fe3c2ebf2593490403bbe0" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_0ba1a7b7a3221b68b9b89f00ad" ON "app_notifications" ("created_at") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_47db88381f4401f7c35b58ec7a" ON "app_notifications" ("user_id", "read") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_f0ba28fb988d154f68de8cad77" ON "app_notifications" ("user_id", "created_at") `,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "answers" ADD CONSTRAINT "FK_c570b5fef77654bf9ff41b00624" FOREIGN KEY ("id_question") REFERENCES "questions"("id_question") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "answers" ADD CONSTRAINT "FK_a34388d454fcfb0f90b6ff4b515" FOREIGN KEY ("id_student", "id_session") REFERENCES "student_participate_session"("id_student","id_session") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "student_participate_session" ADD CONSTRAINT "FK_049762489deb773f79eaa38e43b" FOREIGN KEY ("id_student") REFERENCES "students"("id_user") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "student_participate_session" ADD CONSTRAINT "FK_fe4bfc9c9d6054067ca1490a5a3" FOREIGN KEY ("id_session") REFERENCES "sessions"("id_session") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "session_modification_requests" ADD CONSTRAINT "FK_1261036d0c45dda8eb7c43bd1a1" FOREIGN KEY ("id_session") REFERENCES "sessions"("id_session") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "session_modification_requests" ADD CONSTRAINT "FK_8b3e850804222a5cab0b51158e7" FOREIGN KEY ("requested_by") REFERENCES "users"("id_user") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "session_modification_requests" ADD CONSTRAINT "FK_703383a4c0a87bbcd10f9dde19f" FOREIGN KEY ("responded_by") REFERENCES "users"("id_user") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "sessions" ADD CONSTRAINT "FK_a9ed75a85efcadd71bbc8be5ee5" FOREIGN KEY ("id_tutor") REFERENCES "tutors"("id_user") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "sessions" ADD CONSTRAINT "FK_412317c2f4613f7f852ec0eaf31" FOREIGN KEY ("id_subject") REFERENCES "subject"("id_subject") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "scheduled_sessions" ADD CONSTRAINT "FK_0d4b04a7079847403da2f7587cd" FOREIGN KEY ("id_tutor") REFERENCES "tutors"("id_user") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "scheduled_sessions" ADD CONSTRAINT "FK_c862ed5f3d65ee0ab41aa0c6fd6" FOREIGN KEY ("id_availability") REFERENCES "availability"("id_availability") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "scheduled_sessions" ADD CONSTRAINT "FK_6df0305f4681b7af345413ee6d7" FOREIGN KEY ("id_session") REFERENCES "sessions"("id_session") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tutor_have_availability" ADD CONSTRAINT "FK_6fe15be85a142eb123e22c9d043" FOREIGN KEY ("id_tutor") REFERENCES "tutors"("id_user") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tutor_have_availability" ADD CONSTRAINT "FK_1b75a22ce69dd4ad3eafb4ccf2f" FOREIGN KEY ("id_availability") REFERENCES "availability"("id_availability") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tutors" ADD CONSTRAINT "FK_8325796beb64a4c91dfe1c3955b" FOREIGN KEY ("id_user") REFERENCES "users"("id_user") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tutor_impart_subject" ADD CONSTRAINT "FK_a11475cea15ad0c4faa5e7ade16" FOREIGN KEY ("id_tutor") REFERENCES "tutors"("id_user") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tutor_impart_subject" ADD CONSTRAINT "FK_e2a77eea1cf449be7efe7147b31" FOREIGN KEY ("id_subject") REFERENCES "subject"("id_subject") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "student_interested_subject" ADD CONSTRAINT "FK_fa1094cb4cc067b455c39fa4ac8" FOREIGN KEY ("id_student") REFERENCES "students"("id_user") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "student_interested_subject" ADD CONSTRAINT "FK_36ba92aa42c5d6d14eca4ac8028" FOREIGN KEY ("id_subject") REFERENCES "subject"("id_subject") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "students" ADD CONSTRAINT "FK_b559710a42d2bf3b49062750132" FOREIGN KEY ("id_user") REFERENCES "users"("id_user") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "dashboard_banner" ADD CONSTRAINT "FK_c22b522545cf70676b3b26f193c" FOREIGN KEY ("updated_by") REFERENCES "users"("id_user") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "password_reset_tokens" ADD CONSTRAINT "FK_a440159fb2d7b579070f5206044" FOREIGN KEY ("id_user") REFERENCES "users"("id_user") ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "email_verification_tokens" ADD CONSTRAINT "FK_8e4afd15aa5933a0aef14ddc743" FOREIGN KEY ("id_user") REFERENCES "users"("id_user") ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "auth_sessions" ADD CONSTRAINT "FK_b266e81e60e8c49ae2eb7c46d27" FOREIGN KEY ("id_user") REFERENCES "users"("id_user") ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "audit_logs" ADD CONSTRAINT "FK_1aabbc22a9f345c55ee39bf5daf" FOREIGN KEY ("id_user") REFERENCES "users"("id_user") ON DELETE SET NULL ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "audit_logs" ADD CONSTRAINT "FK_25d884c2a4c2cb629dc994e82d1" FOREIGN KEY ("id_session") REFERENCES "auth_sessions"("id_session") ON DELETE SET NULL ON UPDATE NO ACTION`,
+    );
+  }
 
-    public async down(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`ALTER TABLE "audit_logs" DROP CONSTRAINT "FK_25d884c2a4c2cb629dc994e82d1"`);
-        await queryRunner.query(`ALTER TABLE "audit_logs" DROP CONSTRAINT "FK_1aabbc22a9f345c55ee39bf5daf"`);
-        await queryRunner.query(`ALTER TABLE "auth_sessions" DROP CONSTRAINT "FK_b266e81e60e8c49ae2eb7c46d27"`);
-        await queryRunner.query(`ALTER TABLE "email_verification_tokens" DROP CONSTRAINT "FK_8e4afd15aa5933a0aef14ddc743"`);
-        await queryRunner.query(`ALTER TABLE "password_reset_tokens" DROP CONSTRAINT "FK_a440159fb2d7b579070f5206044"`);
-        await queryRunner.query(`ALTER TABLE "dashboard_banner" DROP CONSTRAINT "FK_c22b522545cf70676b3b26f193c"`);
-        await queryRunner.query(`ALTER TABLE "students" DROP CONSTRAINT "FK_b559710a42d2bf3b49062750132"`);
-        await queryRunner.query(`ALTER TABLE "student_interested_subject" DROP CONSTRAINT "FK_36ba92aa42c5d6d14eca4ac8028"`);
-        await queryRunner.query(`ALTER TABLE "student_interested_subject" DROP CONSTRAINT "FK_fa1094cb4cc067b455c39fa4ac8"`);
-        await queryRunner.query(`ALTER TABLE "tutor_impart_subject" DROP CONSTRAINT "FK_e2a77eea1cf449be7efe7147b31"`);
-        await queryRunner.query(`ALTER TABLE "tutor_impart_subject" DROP CONSTRAINT "FK_a11475cea15ad0c4faa5e7ade16"`);
-        await queryRunner.query(`ALTER TABLE "tutors" DROP CONSTRAINT "FK_8325796beb64a4c91dfe1c3955b"`);
-        await queryRunner.query(`ALTER TABLE "tutor_have_availability" DROP CONSTRAINT "FK_1b75a22ce69dd4ad3eafb4ccf2f"`);
-        await queryRunner.query(`ALTER TABLE "tutor_have_availability" DROP CONSTRAINT "FK_6fe15be85a142eb123e22c9d043"`);
-        await queryRunner.query(`ALTER TABLE "scheduled_sessions" DROP CONSTRAINT "FK_6df0305f4681b7af345413ee6d7"`);
-        await queryRunner.query(`ALTER TABLE "scheduled_sessions" DROP CONSTRAINT "FK_c862ed5f3d65ee0ab41aa0c6fd6"`);
-        await queryRunner.query(`ALTER TABLE "scheduled_sessions" DROP CONSTRAINT "FK_0d4b04a7079847403da2f7587cd"`);
-        await queryRunner.query(`ALTER TABLE "sessions" DROP CONSTRAINT "FK_412317c2f4613f7f852ec0eaf31"`);
-        await queryRunner.query(`ALTER TABLE "sessions" DROP CONSTRAINT "FK_a9ed75a85efcadd71bbc8be5ee5"`);
-        await queryRunner.query(`ALTER TABLE "session_modification_requests" DROP CONSTRAINT "FK_703383a4c0a87bbcd10f9dde19f"`);
-        await queryRunner.query(`ALTER TABLE "session_modification_requests" DROP CONSTRAINT "FK_8b3e850804222a5cab0b51158e7"`);
-        await queryRunner.query(`ALTER TABLE "session_modification_requests" DROP CONSTRAINT "FK_1261036d0c45dda8eb7c43bd1a1"`);
-        await queryRunner.query(`ALTER TABLE "student_participate_session" DROP CONSTRAINT "FK_fe4bfc9c9d6054067ca1490a5a3"`);
-        await queryRunner.query(`ALTER TABLE "student_participate_session" DROP CONSTRAINT "FK_049762489deb773f79eaa38e43b"`);
-        await queryRunner.query(`ALTER TABLE "answers" DROP CONSTRAINT "FK_a34388d454fcfb0f90b6ff4b515"`);
-        await queryRunner.query(`ALTER TABLE "answers" DROP CONSTRAINT "FK_c570b5fef77654bf9ff41b00624"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_f0ba28fb988d154f68de8cad77"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_47db88381f4401f7c35b58ec7a"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_0ba1a7b7a3221b68b9b89f00ad"`);
-        await queryRunner.query(`DROP TABLE "app_notifications"`);
-        await queryRunner.query(`DROP TYPE "public"."app_notifications_type_enum"`);
-        await queryRunner.query(`DROP TABLE "audit_logs"`);
-        await queryRunner.query(`DROP TYPE "public"."audit_logs_result_enum"`);
-        await queryRunner.query(`DROP TYPE "public"."audit_logs_action_enum"`);
-        await queryRunner.query(`DROP TABLE "auth_sessions"`);
-        await queryRunner.query(`DROP TABLE "email_verification_tokens"`);
-        await queryRunner.query(`DROP TABLE "password_reset_tokens"`);
-        await queryRunner.query(`DROP TABLE "dashboard_banner"`);
-        await queryRunner.query(`DROP TABLE "users"`);
-        await queryRunner.query(`DROP TYPE "public"."users_status_enum"`);
-        await queryRunner.query(`DROP TYPE "public"."users_role_enum"`);
-        await queryRunner.query(`DROP TABLE "students"`);
-        await queryRunner.query(`DROP TYPE "public"."students_preferred_modality_enum"`);
-        await queryRunner.query(`DROP TABLE "student_interested_subject"`);
-        await queryRunner.query(`DROP TABLE "subject"`);
-        await queryRunner.query(`DROP TABLE "tutor_impart_subject"`);
-        await queryRunner.query(`DROP TABLE "tutors"`);
-        await queryRunner.query(`DROP TABLE "tutor_have_availability"`);
-        await queryRunner.query(`DROP TYPE "public"."tutor_have_availability_modality_enum"`);
-        await queryRunner.query(`DROP TABLE "availability"`);
-        await queryRunner.query(`DROP TABLE "scheduled_sessions"`);
-        await queryRunner.query(`DROP TABLE "sessions"`);
-        await queryRunner.query(`DROP TYPE "public"."sessions_status_enum"`);
-        await queryRunner.query(`DROP TYPE "public"."sessions_modality_enum"`);
-        await queryRunner.query(`DROP TYPE "public"."sessions_type_enum"`);
-        await queryRunner.query(`DROP TABLE "session_modification_requests"`);
-        await queryRunner.query(`DROP TYPE "public"."session_modification_requests_status_enum"`);
-        await queryRunner.query(`DROP TYPE "public"."session_modification_requests_new_modality_enum"`);
-        await queryRunner.query(`DROP TABLE "student_participate_session"`);
-        await queryRunner.query(`DROP TYPE "public"."student_participate_session_status_enum"`);
-        await queryRunner.query(`DROP TABLE "answers"`);
-        await queryRunner.query(`DROP TABLE "questions"`);
-    }
-
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(
+      `ALTER TABLE "audit_logs" DROP CONSTRAINT "FK_25d884c2a4c2cb629dc994e82d1"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "audit_logs" DROP CONSTRAINT "FK_1aabbc22a9f345c55ee39bf5daf"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "auth_sessions" DROP CONSTRAINT "FK_b266e81e60e8c49ae2eb7c46d27"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "email_verification_tokens" DROP CONSTRAINT "FK_8e4afd15aa5933a0aef14ddc743"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "password_reset_tokens" DROP CONSTRAINT "FK_a440159fb2d7b579070f5206044"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "dashboard_banner" DROP CONSTRAINT "FK_c22b522545cf70676b3b26f193c"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "students" DROP CONSTRAINT "FK_b559710a42d2bf3b49062750132"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "student_interested_subject" DROP CONSTRAINT "FK_36ba92aa42c5d6d14eca4ac8028"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "student_interested_subject" DROP CONSTRAINT "FK_fa1094cb4cc067b455c39fa4ac8"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tutor_impart_subject" DROP CONSTRAINT "FK_e2a77eea1cf449be7efe7147b31"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tutor_impart_subject" DROP CONSTRAINT "FK_a11475cea15ad0c4faa5e7ade16"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tutors" DROP CONSTRAINT "FK_8325796beb64a4c91dfe1c3955b"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tutor_have_availability" DROP CONSTRAINT "FK_1b75a22ce69dd4ad3eafb4ccf2f"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tutor_have_availability" DROP CONSTRAINT "FK_6fe15be85a142eb123e22c9d043"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "scheduled_sessions" DROP CONSTRAINT "FK_6df0305f4681b7af345413ee6d7"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "scheduled_sessions" DROP CONSTRAINT "FK_c862ed5f3d65ee0ab41aa0c6fd6"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "scheduled_sessions" DROP CONSTRAINT "FK_0d4b04a7079847403da2f7587cd"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "sessions" DROP CONSTRAINT "FK_412317c2f4613f7f852ec0eaf31"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "sessions" DROP CONSTRAINT "FK_a9ed75a85efcadd71bbc8be5ee5"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "session_modification_requests" DROP CONSTRAINT "FK_703383a4c0a87bbcd10f9dde19f"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "session_modification_requests" DROP CONSTRAINT "FK_8b3e850804222a5cab0b51158e7"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "session_modification_requests" DROP CONSTRAINT "FK_1261036d0c45dda8eb7c43bd1a1"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "student_participate_session" DROP CONSTRAINT "FK_fe4bfc9c9d6054067ca1490a5a3"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "student_participate_session" DROP CONSTRAINT "FK_049762489deb773f79eaa38e43b"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "answers" DROP CONSTRAINT "FK_a34388d454fcfb0f90b6ff4b515"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "answers" DROP CONSTRAINT "FK_c570b5fef77654bf9ff41b00624"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_f0ba28fb988d154f68de8cad77"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_47db88381f4401f7c35b58ec7a"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_0ba1a7b7a3221b68b9b89f00ad"`,
+    );
+    await queryRunner.query(`DROP TABLE "app_notifications"`);
+    await queryRunner.query(`DROP TYPE "public"."app_notifications_type_enum"`);
+    await queryRunner.query(`DROP TABLE "audit_logs"`);
+    await queryRunner.query(`DROP TYPE "public"."audit_logs_result_enum"`);
+    await queryRunner.query(`DROP TYPE "public"."audit_logs_action_enum"`);
+    await queryRunner.query(`DROP TABLE "auth_sessions"`);
+    await queryRunner.query(`DROP TABLE "email_verification_tokens"`);
+    await queryRunner.query(`DROP TABLE "password_reset_tokens"`);
+    await queryRunner.query(`DROP TABLE "dashboard_banner"`);
+    await queryRunner.query(`DROP TABLE "users"`);
+    await queryRunner.query(`DROP TYPE "public"."users_status_enum"`);
+    await queryRunner.query(`DROP TYPE "public"."users_role_enum"`);
+    await queryRunner.query(`DROP TABLE "students"`);
+    await queryRunner.query(
+      `DROP TYPE "public"."students_preferred_modality_enum"`,
+    );
+    await queryRunner.query(`DROP TABLE "student_interested_subject"`);
+    await queryRunner.query(`DROP TABLE "subject"`);
+    await queryRunner.query(`DROP TABLE "tutor_impart_subject"`);
+    await queryRunner.query(`DROP TABLE "tutors"`);
+    await queryRunner.query(`DROP TABLE "tutor_have_availability"`);
+    await queryRunner.query(
+      `DROP TYPE "public"."tutor_have_availability_modality_enum"`,
+    );
+    await queryRunner.query(`DROP TABLE "availability"`);
+    await queryRunner.query(`DROP TABLE "scheduled_sessions"`);
+    await queryRunner.query(`DROP TABLE "sessions"`);
+    await queryRunner.query(`DROP TYPE "public"."sessions_status_enum"`);
+    await queryRunner.query(`DROP TYPE "public"."sessions_modality_enum"`);
+    await queryRunner.query(`DROP TYPE "public"."sessions_type_enum"`);
+    await queryRunner.query(`DROP TABLE "session_modification_requests"`);
+    await queryRunner.query(
+      `DROP TYPE "public"."session_modification_requests_status_enum"`,
+    );
+    await queryRunner.query(
+      `DROP TYPE "public"."session_modification_requests_new_modality_enum"`,
+    );
+    await queryRunner.query(`DROP TABLE "student_participate_session"`);
+    await queryRunner.query(
+      `DROP TYPE "public"."student_participate_session_status_enum"`,
+    );
+    await queryRunner.query(`DROP TABLE "answers"`);
+    await queryRunner.query(`DROP TABLE "questions"`);
+  }
 }
