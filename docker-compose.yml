@@ -67,8 +67,8 @@ services:
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
 
-      RESEND_API_KEY: ${RESEND_API_KEY}
-      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL}
+      #RESEND_API_KEY: ${RESEND_API_KEY}
+      #RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:4321}
     # En desarrollo, útil para ver logs en vivo sin entrar al contenedor
     # (docker compose logs -f app hace lo mismo, esto es complementario)
