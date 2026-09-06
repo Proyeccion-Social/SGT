@@ -37,6 +37,15 @@ export class InitialSchema1700000000000 implements MigrationInterface {
     await queryRunner.query(
       `CREATE TABLE "sessions" ("id_session" uuid NOT NULL DEFAULT uuid_generate_v4(), "id_tutor" uuid NOT NULL, "id_subject" uuid NOT NULL, "scheduled_date" date NOT NULL, "start_time" TIME NOT NULL, "end_time" TIME NOT NULL, "title" character varying(100) NOT NULL, "description" text NOT NULL, "type" "public"."sessions_type_enum" NOT NULL, "modality" "public"."sessions_modality_enum" NOT NULL, "location" character varying, "virtual_link" character varying, "status" "public"."sessions_status_enum" NOT NULL DEFAULT 'SCHEDULED', "confirmation_expires_at" TIMESTAMP, "cancellation_reason" text, "cancelled_at" TIMESTAMP, "cancelled_within_24h" boolean NOT NULL DEFAULT false, "cancelled_by" uuid, "created_at" TIMESTAMP NOT NULL DEFAULT now(), "tutor_confirmed" boolean NOT NULL DEFAULT false, "tutor_confirmed_at" TIMESTAMP, "rejection_reason" text, "rejected_at" TIMESTAMP, "max_participants" smallint, CONSTRAINT "PK_858bc8fe367b57b2de3ad3316bd" PRIMARY KEY ("id_session"))`,
     );
+
+    // ── NUEVO: constraint que migration:generate no capturó automáticamente
+    // (proviene de la antigua migración AddGroupSessionSupport) ──────────
+    await queryRunner.query(`
+      ALTER TABLE "sessions"
+        ADD CONSTRAINT "chk_sessions_max_participants"
+        CHECK ("max_participants" IS NULL OR ("max_participants" BETWEEN 1 AND 30))
+    `);
+
     await queryRunner.query(
       `CREATE TABLE "scheduled_sessions" ("id_tutor" uuid NOT NULL, "id_availability" bigint NOT NULL, "id_session" uuid NOT NULL, "scheduled_date" date NOT NULL, CONSTRAINT "UQ_tutor_availability_date" UNIQUE ("id_tutor", "id_availability", "scheduled_date"), CONSTRAINT "PK_6df0305f4681b7af345413ee6d7" PRIMARY KEY ("id_session"))`,
     );
@@ -79,6 +88,18 @@ export class InitialSchema1700000000000 implements MigrationInterface {
     await queryRunner.query(
       `CREATE TABLE "dashboard_banner" ("id" smallint NOT NULL DEFAULT '1', "image_url" text NOT NULL, "target_url" text NOT NULL, "updated_by" uuid NOT NULL, "updated_at" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "PK_5352ff1a6fd722aa0c36454d2f5" PRIMARY KEY ("id"))`,
     );
+
+    // ── NUEVO: constraint que migration:generate no capturó automáticamente
+    // (proviene de la antigua migración CreateDashboardBanner) ───────────
+    await queryRunner.query(`
+      ALTER TABLE "dashboard_banner"
+        ADD CONSTRAINT "chk_dashboard_banner_single_row" CHECK ("id" = 1)
+    `);
+    await queryRunner.query(`
+      COMMENT ON TABLE "dashboard_banner" IS
+        'Banner publicitario único mostrado en el dashboard de todos los usuarios. Solo existe una fila (id=1), gestionada exclusivamente por ADMIN.'
+    `);
+
     await queryRunner.query(
       `CREATE TABLE "password_reset_tokens" ("id_token" uuid NOT NULL DEFAULT uuid_generate_v4(), "id_user" uuid NOT NULL, "token_hash" character varying(255) NOT NULL, "expires_at" TIMESTAMP NOT NULL, "created_at" TIMESTAMP NOT NULL DEFAULT now(), "used_at" TIMESTAMP, CONSTRAINT "PK_fae074bbad2c452ca1a640fc45c" PRIMARY KEY ("id_token"))`,
     );
@@ -190,9 +211,28 @@ export class InitialSchema1700000000000 implements MigrationInterface {
     await queryRunner.query(
       `ALTER TABLE "audit_logs" ADD CONSTRAINT "FK_25d884c2a4c2cb629dc994e82d1" FOREIGN KEY ("id_session") REFERENCES "auth_sessions"("id_session") ON DELETE SET NULL ON UPDATE NO ACTION`,
     );
+
+    // ── NUEVO: índices de la antigua ExtendEvaluationModel, tampoco
+    // detectados automáticamente por generate en su forma exacta ───────
+    await queryRunner.query(
+      `CREATE INDEX "IDX_questions_version_order" ON "questions" ("questionnaire_version", "display_order")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_answers_session_student" ON "answers" ("id_session", "id_student")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_answers_evaluation_id" ON "answers" ("evaluation_id")`,
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`DROP INDEX "public"."IDX_answers_evaluation_id"`);
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_answers_session_student"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_questions_version_order"`,
+    );
     await queryRunner.query(
       `ALTER TABLE "audit_logs" DROP CONSTRAINT "FK_25d884c2a4c2cb629dc994e82d1"`,
     );
@@ -288,6 +328,9 @@ export class InitialSchema1700000000000 implements MigrationInterface {
     await queryRunner.query(`DROP TABLE "auth_sessions"`);
     await queryRunner.query(`DROP TABLE "email_verification_tokens"`);
     await queryRunner.query(`DROP TABLE "password_reset_tokens"`);
+    await queryRunner.query(
+      `ALTER TABLE "dashboard_banner" DROP CONSTRAINT "chk_dashboard_banner_single_row"`,
+    );
     await queryRunner.query(`DROP TABLE "dashboard_banner"`);
     await queryRunner.query(`DROP TABLE "users"`);
     await queryRunner.query(`DROP TYPE "public"."users_status_enum"`);
@@ -306,6 +349,9 @@ export class InitialSchema1700000000000 implements MigrationInterface {
     );
     await queryRunner.query(`DROP TABLE "availability"`);
     await queryRunner.query(`DROP TABLE "scheduled_sessions"`);
+    await queryRunner.query(
+      `ALTER TABLE "sessions" DROP CONSTRAINT "chk_sessions_max_participants"`,
+    );
     await queryRunner.query(`DROP TABLE "sessions"`);
     await queryRunner.query(`DROP TYPE "public"."sessions_status_enum"`);
     await queryRunner.query(`DROP TYPE "public"."sessions_modality_enum"`);
