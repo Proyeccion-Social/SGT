@@ -1,0 +1,78 @@
+services:
+  # ──────────────────────────────────────────────────────────
+  # Base de datos PostgreSQL
+  # ──────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: atlas-sgt-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${LOCAL_DB_USER}
+      POSTGRES_PASSWORD: ${LOCAL_DB_PASSWORD}
+      POSTGRES_DB: ${LOCAL_DB_NAME}
+    ports:
+      # Expone el puerto también al host, por si alguien quiere
+      # conectarse con un cliente gráfico (DBeaver, TablePlus, etc.)
+      # sin entrar al contenedor
+      - '${LOCAL_DB_PORT}:5432'
+    volumes:
+      # Volumen nombrado: persiste los datos aunque el contenedor
+      # se destruya y se vuelva a crear con `docker compose down && up`
+      - atlas_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # Docker Compose espera a que Postgres esté REALMENTE listo
+      # para aceptar conexiones antes de arrancar la app — evita
+      # el clásico error de "connection refused" al primer arranque
+      test: ['CMD-SHELL', 'pg_isready -U ${LOCAL_DB_USER} -d ${LOCAL_DB_NAME}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ──────────────────────────────────────────────────────────
+  # Aplicación NestJS
+  # ──────────────────────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: atlas-sgt-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        # No solo espera a que el contenedor exista, sino a que
+        # el healthcheck de arriba pase (Postgres listo de verdad)
+        condition: service_healthy
+    ports:
+      - '${PORT:-3000}:3000'
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3000
+
+      # IMPORTANTE: dentro de la red de Docker, el host de la BD
+      # ya NO es "localhost" — es el nombre del servicio ("postgres").
+      # Los contenedores se resuelven por nombre de servicio en la
+      # red interna que docker-compose crea automáticamente.
+      LOCAL_DB_HOST: postgres
+      LOCAL_DB_PORT: 5432
+      LOCAL_DB_USER: ${LOCAL_DB_USER}
+      LOCAL_DB_PASSWORD: ${LOCAL_DB_PASSWORD}
+      LOCAL_DB_NAME: ${LOCAL_DB_NAME}
+
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN}
+
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
+
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:4321}
+    # En desarrollo, útil para ver logs en vivo sin entrar al contenedor
+    # (docker compose logs -f app hace lo mismo, esto es complementario)
+
+volumes:
+  atlas_pgdata:
+    name: atlas_sgt_pgdata
