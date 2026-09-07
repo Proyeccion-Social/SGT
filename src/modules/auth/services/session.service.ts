@@ -98,7 +98,7 @@ export class SessionService {
     );
   }
 
-  async getUserActiveSessions(userId: string): Promise<Session[]> {
+  getUserActiveSessions(userId: string): Promise<Session[]> {
     return this.sessionRepository.find({
       where: {
         user: { idUser: userId },

@@ -150,7 +150,7 @@ export class AvailabilityService {
     const slotTimes = this.buildSlotTimesFromRange(dto.startTime, dto.endTime);
     const normalizedModality = this.normalizeModalities(dto.modality);
 
-    return this.availabilityRepository.manager.transaction(
+    return await this.availabilityRepository.manager.transaction(
       async (transactionalEntityManager) => {
         const availabilityRepository =
           transactionalEntityManager.getRepository(Availability);
@@ -669,7 +669,7 @@ export class AvailabilityService {
    * @param options Filtros: onlyAvailable, modality, paginación (page, limit), weekStart
    */
   async getTutorsBySubjectsWithAvailability(
-    subjectIds: string[],
+    subjectIds: string[] = [],
     options?: {
       onlyAvailable?: boolean;
       modality?: Modality;
@@ -689,14 +689,6 @@ export class AvailabilityService {
     total: number;
     weekReference: string;
   }> {
-    if (!subjectIds || subjectIds.length === 0) {
-      return {
-        tutors: [],
-        total: 0,
-        weekReference: this.resolveWeekRange(options?.weekStart).weekStartStr,
-      };
-    }
-
     const page = options?.page ?? 1;
     const limit = options?.limit ?? 10;
     const offset = (page - 1) * limit;
@@ -705,16 +697,25 @@ export class AvailabilityService {
     );
     const modalityFilter = options?.modality;
 
-    // 1. IDs elegibles - filtrar por una o más materias
+    if (subjectIds.length === 0) {
+      return { tutors: [], total: 0, weekReference: weekStartStr };
+    }
+
+    // 1. IDs elegibles - filtrar por materias cuando se envíen, o listar todos los tutores con disponibilidad
     const eligibleTutorsQuery = this.tutorHaveAvailabilityRepository
       .createQueryBuilder('tha')
       .select('DISTINCT tha.id_tutor', 'tutorId')
       .innerJoin('tha.tutor', 'tutor')
-      .innerJoin('tutor.tutorImpartSubjects', 'tis')
       .where('tutor.isActive = :isActive', { isActive: true })
       .andWhere('tutor.profile_completed = :completed', { completed: true })
-      .andWhere('tis.idSubject IN (:...subjectIds)', { subjectIds })
       .orderBy('tha.id_tutor', 'ASC');
+
+    if (subjectIds.length > 0) {
+      eligibleTutorsQuery.innerJoin('tutor.tutorImpartSubjects', 'tis');
+      eligibleTutorsQuery.andWhere('tis.idSubject IN (:...subjectIds)', {
+        subjectIds,
+      });
+    }
 
     if (options?.modality) {
       eligibleTutorsQuery.andWhere(':modality = ANY(tha.modality)', {

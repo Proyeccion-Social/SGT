@@ -71,8 +71,11 @@ export default function SessionConfirmationTutor(
         />
 
         <SessionDetails
-          title={`Contacto de ${studentName}`}
-          items={[{ label: 'Correo', value: studentEmail }]}
+          title="Contacto del estudiante"
+          items={[
+            { label: "Nombre", value: studentName },
+            { label: "Correo", value: studentEmail },
+          ]}
         />
 
         <EmailButton href={sessionDetailsUrl}>Ver sesión</EmailButton>

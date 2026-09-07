@@ -6,6 +6,10 @@ import {
   Matches,
   MaxLength,
 } from 'class-validator';
+import {
+  PASSWORD_REGEX,
+  PASSWORD_POLICY_MESSAGE,
+} from '../constants/password-policy.constants';
 
 export class RegisterDto {
   @IsString()
@@ -21,13 +25,7 @@ export class RegisterDto {
 
   @IsString()
   @MinLength(8, { message: 'Contraseña debe tener mínimo 8 caracteres' })
-  @Matches(
-    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/,
-    {
-      message:
-        'Contraseña debe incluir mayúsculas, minúsculas, números y caracteres especiales',
-    },
-  )
+  @Matches(PASSWORD_REGEX, { message: PASSWORD_POLICY_MESSAGE })
   password: string;
 
   @IsString()

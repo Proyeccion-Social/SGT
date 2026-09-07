@@ -1207,11 +1207,13 @@ export class SessionService {
       );
     }
 
-    const sessionDateTime = new Date(session.scheduledDate);
-    const [h, m] = session.startTime.split(':').map(Number);
-    sessionDateTime.setHours(h, m, 0, 0);
+    // startTime is stored in Bogotá local time (UTC-5); parse with explicit
+    // offset to avoid treating it as UTC (which fired 5 hours too early)
+    const sessionDateTime = new Date(
+      `${session.scheduledDate}T${session.startTime}:00-05:00`,
+    );
 
-    if (new Date() >= sessionDateTime) {
+    if (Date.now() >= sessionDateTime.getTime()) {
       throw new BadRequestException(
         'No puedes modificar una sesión que ya ha iniciado',
       );
@@ -1830,8 +1832,9 @@ export class SessionService {
       participants: session.studentParticipateSessions.map((p) => ({
         id: p.student.idUser,
         name: p.student.user.name,
+        email: p.student.user.email,
         status: p.status,
-        joinedAt: p.joinedAt, // NUEVO — útil para mostrar orden de llegada en el front
+        joinedAt: p.joinedAt,
       })),
       createdAt: session.createdAt,
       cancelledAt: session.cancelledAt,

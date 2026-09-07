@@ -219,7 +219,7 @@ export class DashboardService {
             SessionStatus.PENDING_MODIFICATION,
           ],
         })
-        .select(['session', 'student.idUser', 'student.user', 'subject'])
+        .select(['session', 'student.idUser', 'studentUser', 'subject'])
         .orderBy('session.scheduledDate', 'ASC')
         .addOrderBy('session.startTime', 'ASC')
         .take(5)
@@ -239,7 +239,7 @@ export class DashboardService {
             //SessionStatus.CANCELLED_BY_STUDENT,
             //SessionStatus.REJECTED_BY_TUTOR,
           })
-          .select(['session', 'student.idUser', 'student.user', 'subject'])
+          .select(['session', 'student.idUser', 'studentUser', 'subject'])
           .orderBy('session.scheduledDate', 'DESC')
           .addOrderBy('session.startTime', 'DESC')
           .take(5)

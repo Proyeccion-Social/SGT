@@ -399,11 +399,6 @@ export class TutorService {
    */
   async setActive(userId: string, isActive: boolean): Promise<void> {
     await this.tutorRepository.update({ idUser: userId }, { isActive });
-
-    // Si se desactiva, eliminar asignaciones de materias
-    if (!isActive) {
-      await this.subjectService.removeAllSubjectsFromTutor(userId);
-    }
   }
 
   /**
