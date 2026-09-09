@@ -57,7 +57,7 @@ export class AuthController {
   async confirmEmail(
     @Body() dto: ConfirmEmailDto,
   ): Promise<ConfirmEmailResponse> {
-    return this.authService.confirmEmail(dto.token);
+    return this.authService.confirmEmail(dto.token, dto.frontendUrl);
   }
 
   // =====================================================
@@ -124,7 +124,7 @@ export class AuthController {
   @Post('password/recover')
   @HttpCode(HttpStatus.OK)
   async recoverPassword(@Body() dto: RecoverPasswordDto) {
-    return this.authService.recoverPassword(dto.email);
+    return this.authService.recoverPassword(dto.email, dto.frontendUrl);
   }
 
   // =====================================================

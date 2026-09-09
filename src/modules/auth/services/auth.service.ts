@@ -100,6 +100,7 @@ export class AuthService {
         existingUser.email,
         existingUser.name,
         verificationToken,
+        dto.frontendUrl,
       );
 
       return {
@@ -131,6 +132,7 @@ export class AuthService {
         savedUser.email,
         savedUser.name,
         verificationToken,
+        dto.frontendUrl,
       );
     } catch (error) {
       this.logger.error('Error sending confirmation email:', error);
@@ -153,7 +155,10 @@ export class AuthService {
   // =====================================================
   // CONFIRMAR EMAIL
   // =====================================================
-  async confirmEmail(token: string): Promise<ConfirmEmailResponse> {
+  async confirmEmail(
+    token: string,
+    frontendUrl?: string,
+  ): Promise<ConfirmEmailResponse> {
     // 1. Validar token
     const verificationToken =
       await this.emailVerificationService.validateToken(token);
@@ -192,7 +197,7 @@ export class AuthService {
 
     // 8. Enviar email de bienvenida (no bloqueante — no debe retrasar la respuesta)
     this.emailService
-      .sendWelcomeEmail(user.email, user.name)
+      .sendWelcomeEmail(user.email, user.name, frontendUrl)
       .catch((error) =>
         this.logger.error('Error sending welcome email:', error),
       );
@@ -490,7 +495,10 @@ export class AuthService {
   // =====================================================
   // RECUPERAR CONTRASEÑA
   // =====================================================
-  async recoverPassword(email: string): Promise<{ message: string }> {
+  async recoverPassword(
+    email: string,
+    frontendUrl?: string,
+  ): Promise<{ message: string }> {
     // 1. Buscar usuario
     const user = await this.userService.findByEmail(email);
 
@@ -511,6 +519,7 @@ export class AuthService {
         user.email,
         user.name,
         resetToken,
+        frontendUrl,
       );
     } catch (error) {
       this.logger.error('Error sending password reset email:', error);
