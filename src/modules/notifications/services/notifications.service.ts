@@ -15,6 +15,7 @@ import { SessionModificationRequest } from '../../scheduling/entities/session-mo
 import { UserService } from '../../users/services/users.service';
 import { AppNotificationsService } from '../../app-notification/services/app-notifications.service';
 import { AppNotificationType } from '../../app-notification/entities/app-notification.entity';
+import { resolveFrontendUrl } from '../frontend-url';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tipos internos de ayuda
@@ -79,8 +80,7 @@ export class NotificationsService {
     private readonly appNotifications: AppNotificationsService,
     private readonly sqsEmail: SqsEmailService,
   ) {
-    this.frontendUrl =
-      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:4321';
+    this.frontendUrl = resolveFrontendUrl(this.configService);
 
     // Registrar helpers de Handlebars una sola vez en el constructor
     Handlebars.registerHelper('eq', (a: any, b: any) => a === b);
@@ -97,8 +97,9 @@ export class NotificationsService {
     email: string,
     fullName: string,
     token: string,
+    frontendUrl?: string,
   ): Promise<void> {
-    const confirmationUrl = `${this.frontendUrl}/confirm-email?token=${token}`;
+    const confirmationUrl = `${resolveFrontendUrl(this.configService, frontendUrl)}/confirm-email?token=${token}`;
 
     const htmlContent = await this.renderTemplate('email-confirmation', {
       fullName,
@@ -121,8 +122,12 @@ export class NotificationsService {
     }
   }
 
-  async sendWelcomeEmail(email: string, fullName: string): Promise<void> {
-    const loginUrl = `${this.frontendUrl}/?redirect=true`;
+  async sendWelcomeEmail(
+    email: string,
+    fullName: string,
+    frontendUrl?: string,
+  ): Promise<void> {
+    const loginUrl = `${resolveFrontendUrl(this.configService, frontendUrl)}/?redirect=true`;
 
     const htmlContent = await this.renderTemplate('welcome-email', {
       fullName,
@@ -214,8 +219,9 @@ export class NotificationsService {
     email: string,
     name: string,
     resetToken: string,
+    frontendUrl?: string,
   ): Promise<void> {
-    const resetUrl = `${this.frontendUrl}/reset-password?token=${resetToken}`;
+    const resetUrl = `${resolveFrontendUrl(this.configService, frontendUrl)}/reset-password?token=${resetToken}`;
 
     const htmlContent = await this.renderTemplate('password-reset', {
       name,

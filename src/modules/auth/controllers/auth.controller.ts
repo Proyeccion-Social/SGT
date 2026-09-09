@@ -6,6 +6,7 @@ import {
   Body,
   Query,
   Req,
+  Headers,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -43,8 +44,11 @@ export class AuthController {
   @Public()
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
-  async register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
+  async register(
+    @Body() dto: RegisterDto,
+    @Headers('x-frontend-url') frontendUrl?: string,
+  ) {
+    return this.authService.register(dto, frontendUrl);
   }
 
   // =====================================================
@@ -56,8 +60,9 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async confirmEmail(
     @Body() dto: ConfirmEmailDto,
+    @Headers('x-frontend-url') frontendUrl?: string,
   ): Promise<ConfirmEmailResponse> {
-    return this.authService.confirmEmail(dto.token);
+    return this.authService.confirmEmail(dto.token, frontendUrl);
   }
 
   // =====================================================
@@ -123,8 +128,11 @@ export class AuthController {
   @Public()
   @Post('password/recover')
   @HttpCode(HttpStatus.OK)
-  async recoverPassword(@Body() dto: RecoverPasswordDto) {
-    return this.authService.recoverPassword(dto.email);
+  async recoverPassword(
+    @Body() dto: RecoverPasswordDto,
+    @Headers('x-frontend-url') frontendUrl?: string,
+  ) {
+    return this.authService.recoverPassword(dto.email, frontendUrl);
   }
 
   // =====================================================
