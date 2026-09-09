@@ -11,7 +11,6 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { Modality } from '../../availability/enums';
-import { IsThirtyMinuteIncrement } from '../../availability/validators';
 
 export class CreateIndividualSessionDto {
   @IsUUID('4', { message: 'tutorId debe ser un UUID válido' })
