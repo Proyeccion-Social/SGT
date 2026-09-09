@@ -9,7 +9,15 @@ export const isAllowedFrontendUrl = (value: unknown): value is string => {
 
   try {
     const url = new URL(value);
-    if (url.origin !== value || url.username || url.password) return false;
+    if (
+      url.pathname !== '/' ||
+      url.search ||
+      url.hash ||
+      url.username ||
+      url.password
+    ) {
+      return false;
+    }
 
     return (
       LOCALHOST_ORIGIN.test(url.origin) ||
@@ -26,12 +34,14 @@ export const resolveFrontendUrl = (
   configService: ConfigService,
   requestedUrl?: string,
 ): string => {
-  if (isAllowedFrontendUrl(requestedUrl)) return requestedUrl;
+  if (isAllowedFrontendUrl(requestedUrl)) return new URL(requestedUrl).origin;
 
   const configuredUrl =
     configService.get<string>('FRONTEND_URL') ?? process.env.FRONTEND_URL;
 
-  if (isAllowedFrontendUrl(configuredUrl)) return configuredUrl;
+  if (isAllowedFrontendUrl(configuredUrl)) {
+    return new URL(configuredUrl).origin;
+  }
 
   return 'http://localhost:3000';
 };

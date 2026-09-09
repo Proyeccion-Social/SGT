@@ -12,6 +12,12 @@ describe('frontend URL validation', () => {
         'https://atlas-isuib5m5n-proysocialuds-projects.vercel.app',
       ),
     ).toBe(true);
+    expect(
+      resolveFrontendUrl(
+        { get: jest.fn() } as any,
+        'https://atlas-13w9fjirx-proysocialuds-projects.vercel.app/',
+      ),
+    ).toBe('https://atlas-13w9fjirx-proysocialuds-projects.vercel.app');
   });
 
   it('rejects phishing origins and URLs with paths', () => {
@@ -21,6 +27,9 @@ describe('frontend URL validation', () => {
     expect(isAllowedFrontendUrl('https://atlas.proysocial.org/login')).toBe(
       false,
     );
+    expect(
+      isAllowedFrontendUrl('https://atlas.proysocial.org/?token=abc'),
+    ).toBe(false);
     expect(isAllowedFrontendUrl('https://evil.vercel.app')).toBe(false);
   });
 
