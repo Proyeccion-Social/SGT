@@ -5,7 +5,6 @@ import {
   MinLength,
   Matches,
   MaxLength,
-  IsOptional,
 } from 'class-validator';
 import {
   PASSWORD_REGEX,
@@ -31,8 +30,4 @@ export class RegisterDto {
 
   @IsString()
   confirmPassword: string;
-
-  @IsOptional()
-  @IsString()
-  frontendUrl?: string;
 }

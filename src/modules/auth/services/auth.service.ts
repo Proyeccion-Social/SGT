@@ -64,7 +64,10 @@ export class AuthService {
   // REGISTRO DE ESTUDIANTE
   // =====================================================
 
-  async register(dto: RegisterDto): Promise<{ message: string }> {
+  async register(
+    dto: RegisterDto,
+    frontendUrl?: string,
+  ): Promise<{ message: string }> {
     // 1. Validar que las contraseñas coincidan
     if (dto.password !== dto.confirmPassword) {
       throw new BadRequestException('Las contraseñas no coinciden');
@@ -100,7 +103,7 @@ export class AuthService {
         existingUser.email,
         existingUser.name,
         verificationToken,
-        dto.frontendUrl,
+        frontendUrl,
       );
 
       return {
@@ -132,7 +135,7 @@ export class AuthService {
         savedUser.email,
         savedUser.name,
         verificationToken,
-        dto.frontendUrl,
+        frontendUrl,
       );
     } catch (error) {
       this.logger.error('Error sending confirmation email:', error);
