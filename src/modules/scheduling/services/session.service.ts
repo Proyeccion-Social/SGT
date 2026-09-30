@@ -721,7 +721,9 @@ export class SessionService {
       session.cancelledBy = studentId;
 
       await queryRunner.manager.save(session);
-      await queryRunner.manager.delete(ScheduledSession, { idSession: sessionId });
+      await queryRunner.manager.delete(ScheduledSession, {
+        idSession: sessionId,
+      });
       await queryRunner.commitTransaction();
       committed = true;
     } catch (error) {
