@@ -23,6 +23,7 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { User, UserRole } from '../../users/entities/user.entity';
 import { CreateIndividualSessionDto } from '../dto/create-individual-session.dto';
 import { CancelSessionDto } from '../dto/cancel-session.dto';
+import { WithdrawSessionDto } from '../dto/withdraw-session.dto';
 import { ProposeModificationDto } from '../dto/propose-modification.dto';
 import { UpdateSessionDetailsDto } from '../dto/update-session-details.dto';
 import { RejectSessionDto } from '../dto/reject-session.dto';
@@ -149,6 +150,31 @@ export class SessionController {
     @Body() dto: CancelSessionDto,
   ) {
     return await this.sessionService.cancelSession(user.idUser, sessionId, dto);
+  }
+
+  /**
+   * DELETE /api/v1/scheduling/sessions/:id/withdraw-request
+   * Retira una solicitud pendiente del estudiante autenticado, sin cancelar
+   * una sesión que ya haya sido confirmada. El body puede omitirse; `reason`
+   * es opcional cuando se envía.
+   *
+   * @throws BadRequestException si la solicitud ya no está pendiente.
+   * @throws ForbiddenException si el usuario no es participante.
+   * @throws NotFoundException si la sesión no existe.
+   */
+  @Delete(':id/withdraw-request')
+  @Roles(UserRole.STUDENT)
+  @HttpCode(HttpStatus.OK)
+  async withdrawPendingRequest(
+    @CurrentUser() user: User,
+    @Param('id') sessionId: string,
+    @Body() dto?: WithdrawSessionDto,
+  ) {
+    return await this.sessionService.withdrawPendingRequest(
+      user.idUser,
+      sessionId,
+      dto,
+    );
   }
 
   // ========================================

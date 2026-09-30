@@ -17,6 +17,7 @@ import { SessionModificationRequest } from '../entities/session-modification-req
 
 import { CreateIndividualSessionDto } from '../dto/create-individual-session.dto';
 import { CancelSessionDto } from '../dto/cancel-session.dto';
+import { WithdrawSessionDto } from '../dto/withdraw-session.dto';
 import { ProposeModificationDto } from '../dto/propose-modification.dto';
 import { UpdateSessionDetailsDto } from '../dto/update-session-details.dto';
 import { ConfirmSessionDto } from '../dto/confirm-session.dto';
@@ -664,6 +665,100 @@ export class SessionService {
     ]);
 
     return { success: true, message: 'Sesión cancelada exitosamente' };
+  }
+
+  /**
+   * Retira una solicitud antes de que el tutor la confirme; no sustituye la
+   * cancelación de sesiones agendadas, que conserva sus propias reglas.
+   *
+   * La fila de sesión se bloquea para que solo una transición gane si el tutor
+   * confirma o rechaza al mismo tiempo. El estado, la auditoría y la liberación
+   * de la reserva se guardan en una sola transacción. La notificación al tutor
+   * se intenta después del commit y un fallo al crearla no revierte el retiro.
+   *
+   * @param studentId Identidad del estudiante autenticado.
+   * @param sessionId Sesión pendiente que se solicita retirar.
+   * @param dto Motivo opcional; si se envía, el DTO valida longitud y tipo.
+   * @returns Confirmación del retiro, incluso si falla la notificación posterior.
+   */
+  async withdrawPendingRequest(
+    studentId: string,
+    sessionId: string,
+    dto?: WithdrawSessionDto,
+  ) {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    let committed = false;
+
+    try {
+      const session = await queryRunner.manager.findOne(Session, {
+        where: { idSession: sessionId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!session) throw new NotFoundException('Session not found');
+
+      const participation = await queryRunner.manager.findOne(
+        StudentParticipateSession,
+        { where: { idSession: sessionId, idStudent: studentId } },
+      );
+      if (!participation) {
+        throw new ForbiddenException(
+          'Solo el estudiante participante puede retirar esta solicitud',
+        );
+      }
+
+      if (session.status !== SessionStatus.PENDING_TUTOR_CONFIRMATION) {
+        throw new BadRequestException(
+          `No se puede retirar una solicitud con estado ${session.status}`,
+        );
+      }
+
+      session.status = SessionStatus.WITHDRAWN_BY_STUDENT;
+      session.cancellationReason = dto?.reason;
+      session.cancelledAt = new Date();
+      session.cancelledBy = studentId;
+
+      await queryRunner.manager.save(session);
+      await queryRunner.manager.delete(ScheduledSession, { idSession: sessionId });
+      await queryRunner.commitTransaction();
+      committed = true;
+    } catch (error) {
+      if (!committed) await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+
+    await this.fireAndLogNotifications([
+      (async () => {
+        const sessionForNotification = await this.sessionRepository.findOne({
+          where: { idSession: sessionId },
+          relations: [
+            'subject',
+            'studentParticipateSessions',
+            'studentParticipateSessions.student',
+            'studentParticipateSessions.student.user',
+          ],
+        });
+        if (!sessionForNotification) return;
+
+        const studentName =
+          sessionForNotification.studentParticipateSessions?.find(
+            (item) => item.idStudent === studentId,
+          )?.student?.user?.name ?? 'El estudiante';
+        await this.notificationsService.sendPendingSessionWithdrawal(
+          sessionForNotification,
+          studentName,
+        );
+      })(),
+    ]);
+
+    return {
+      success: true,
+      message: 'Solicitud retirada exitosamente.',
+    };
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

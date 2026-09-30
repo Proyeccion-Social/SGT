@@ -150,6 +150,45 @@ export class NotificationsService {
     }
   }
 
+  /**
+   * Avisa al tutor que el estudiante retiró una solicitud aún no confirmada.
+   * Solo persiste una notificación interna: no envía correo. El motivo se
+   * incorpora si existe y se limita al máximo admitido por AppNotification.
+   */
+  async sendPendingSessionWithdrawal(
+    session: Session,
+    studentName: string,
+  ): Promise<void> {
+    try {
+      const subjectName = session.subject?.name ?? 'Materia';
+      const reason = session.cancellationReason?.trim();
+      const messagePrefix = `${studentName} retiró la solicitud de tutoría de ${subjectName}.`;
+      const reasonPrefix = reason ? ' Motivo: ' : '';
+      const availableReasonLength = Math.max(
+        0,
+        300 - messagePrefix.length - reasonPrefix.length,
+      );
+      const message = `${messagePrefix}${
+        reason ? `${reasonPrefix}${reason.slice(0, availableReasonLength)}` : ''
+      }`.slice(0, 300);
+
+      await this.appNotifications.create({
+        userId: session.idTutor,
+        type: AppNotificationType.SESSION_REQUEST_WITHDRAWN,
+        message,
+        payload: { sessionId: session.idSession },
+      });
+    } catch (error) {
+      const normalizedError =
+        error instanceof Error ? error : new Error(String(error));
+      this.logger.error(
+        `Error en sendPendingSessionWithdrawal: ${normalizedError.message}`,
+        normalizedError.stack,
+      );
+      throw error;
+    }
+  }
+
   // =====================================================
   // TUTORES - Credenciales temporales
   // =====================================================
