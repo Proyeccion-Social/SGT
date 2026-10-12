@@ -1791,6 +1791,61 @@ export class NotificationsService {
   }
 
   // =====================================================
+  //  RETIRO DE SOLICITUD PENDIENTE
+  // =====================================================
+
+  /**
+   * Crea una notificación interna para el tutor cuando un estudiante
+   * retira una solicitud de tutoría que aún estaba pendiente de confirmación.
+   *
+   * No se envía email ni se renderiza plantilla.
+   * El motivo (si fue proporcionado) se incluye en el mensaje truncado a 300 caracteres.
+   */
+  async sendPendingSessionWithdrawal(
+    session: Session,
+    studentName: string,
+  ): Promise<void> {
+    try {
+      const subjectName = session.subject?.name ?? 'Materia';
+      const reason = session.cancellationReason?.trim();
+
+      const messagePrefix = `${studentName} retiró la solicitud de tutoría de ${subjectName}.`;
+      const reasonPrefix = reason ? ' Motivo: ' : '';
+      const availableReasonLength = Math.max(
+        0,
+        300 - messagePrefix.length - reasonPrefix.length,
+      );
+      const message = `${messagePrefix}${
+        reason ? `${reasonPrefix}${reason.slice(0, availableReasonLength)}` : ''
+      }`.slice(0, 300);
+
+      await this.settleAll([
+        {
+          label: 'persistencia',
+          context: `userId=${session.idTutor} type=SESSION_REQUEST_WITHDRAWN`,
+          promise: this.appNotifications.create({
+            userId: session.idTutor,
+            type: AppNotificationType.SESSION_REQUEST_WITHDRAWN,
+            message,
+            payload: { sessionId: session.idSession },
+          }),
+        },
+      ]);
+
+      this.logger.log(
+        `Notificación interna de retiro creada para tutor=${session.idTutor} sesión=${session.idSession}`,
+      );
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      this.logger.error(
+        `Error en sendPendingSessionWithdrawal: ${err.message}`,
+        err.stack,
+      );
+      throw error;
+    }
+  }
+
+  // =====================================================
   // HELPERS PRIVADOS
   // =====================================================
 

@@ -106,6 +106,7 @@ describe('SessionService', () => {
       count: jest.fn().mockResolvedValue(0),
       update: jest.fn().mockResolvedValue({ affected: 0 }),
       remove: jest.fn(),
+      delete: jest.fn().mockResolvedValue({ affected: 1 }),
       createQueryBuilder: jest.fn(),
     };
 
@@ -182,6 +183,7 @@ describe('SessionService', () => {
       sendModificationRequest: jest.fn().mockResolvedValue(undefined),
       sendModificationResponse: jest.fn().mockResolvedValue(undefined),
       sendSessionDetailsUpdate: jest.fn().mockResolvedValue(undefined),
+      sendPendingSessionWithdrawal: jest.fn().mockResolvedValue(undefined),
     };
 
     service = new SessionService(
@@ -1019,6 +1021,190 @@ describe('SessionService', () => {
 
       expect(result.pendingRequestsCount).toBe(2);
       expect(result.message).toContain('2');
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // withdrawPendingRequest
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  describe('withdrawPendingRequest', () => {
+    const PENDING_SESSION = (): any => ({
+      idSession: 'session-1',
+      idTutor: 'tutor-1',
+      status: SessionStatus.PENDING_TUTOR_CONFIRMATION,
+      cancellationReason: null,
+      cancelledAt: null,
+      cancelledBy: null,
+    });
+
+    const PARTICIPATION = { idSession: 'session-1', idStudent: 'student-1' };
+
+    const SESSION_WITH_RELATIONS = (): any =>
+      mockSession({
+        status: SessionStatus.WITHDRAWN_BY_STUDENT,
+        studentParticipateSessions: [
+          {
+            idStudent: 'student-1',
+            student: { idUser: 'student-1', user: { name: 'Alice' } },
+          },
+        ],
+      });
+
+    beforeEach(() => {
+      // Por defecto el queryRunner encuentra sesión y participación
+      managerMock.findOne
+        .mockResolvedValueOnce(PENDING_SESSION()) // Session
+        .mockResolvedValueOnce(PARTICIPATION);    // StudentParticipateSession
+
+      // sessionRepository.findOne se usa tras el commit para cargar relaciones
+      sessionRepository.findOne.mockResolvedValue(SESSION_WITH_RELATIONS());
+    });
+
+    it('throws NotFoundException when session does not exist', async () => {
+      managerMock.findOne.mockReset();
+      managerMock.findOne.mockResolvedValueOnce(null); // Session no encontrada
+
+      await expect(
+        service.withdrawPendingRequest('student-1', 'session-1', {}),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(queryRunnerMock.rollbackTransaction).toHaveBeenCalled();
+      expect(queryRunnerMock.release).toHaveBeenCalled();
+    });
+
+    it('throws ForbiddenException when student is not a participant', async () => {
+      managerMock.findOne.mockReset();
+      managerMock.findOne
+        .mockResolvedValueOnce(PENDING_SESSION()) // Session encontrada
+        .mockResolvedValueOnce(null);             // Participación no encontrada
+
+      await expect(
+        service.withdrawPendingRequest('other-student', 'session-1', {}),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(queryRunnerMock.rollbackTransaction).toHaveBeenCalled();
+    });
+
+    it('throws BadRequestException when session is not PENDING_TUTOR_CONFIRMATION', async () => {
+      managerMock.findOne.mockReset();
+      managerMock.findOne
+        .mockResolvedValueOnce({ ...PENDING_SESSION(), status: SessionStatus.SCHEDULED })
+        .mockResolvedValueOnce(PARTICIPATION);
+
+      await expect(
+        service.withdrawPendingRequest('student-1', 'session-1', {}),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(queryRunnerMock.rollbackTransaction).toHaveBeenCalled();
+    });
+
+    it('sets status to WITHDRAWN_BY_STUDENT and saves within the transaction', async () => {
+      await service.withdrawPendingRequest('student-1', 'session-1', {});
+
+      const savedSession = managerMock.save.mock.calls[0][1];
+      expect(savedSession.status).toBe(SessionStatus.WITHDRAWN_BY_STUDENT);
+      expect(savedSession.cancelledBy).toBe('student-1');
+      expect(savedSession.cancelledAt).toBeInstanceOf(Date);
+    });
+
+    it('saves reason when provided', async () => {
+      await service.withdrawPendingRequest('student-1', 'session-1', {
+        reason: 'Ya no necesito la tutoría',
+      });
+
+      const savedSession = managerMock.save.mock.calls[0][1];
+      expect(savedSession.cancellationReason).toBe('Ya no necesito la tutoría');
+    });
+
+    it('saves null reason when not provided', async () => {
+      await service.withdrawPendingRequest('student-1', 'session-1', {});
+
+      const savedSession = managerMock.save.mock.calls[0][1];
+      expect(savedSession.cancellationReason).toBeNull();
+    });
+
+    it('deletes the ScheduledSession inside the transaction', async () => {
+      await service.withdrawPendingRequest('student-1', 'session-1', {});
+
+      expect(managerMock.delete).toHaveBeenCalledWith(
+        expect.anything(), // ScheduledSession entity
+        { idSession: 'session-1' },
+      );
+    });
+
+    it('commits the transaction on success', async () => {
+      await service.withdrawPendingRequest('student-1', 'session-1', {});
+
+      expect(queryRunnerMock.commitTransaction).toHaveBeenCalled();
+      expect(queryRunnerMock.rollbackTransaction).not.toHaveBeenCalled();
+    });
+
+    it('releases the query runner regardless of outcome', async () => {
+      await service.withdrawPendingRequest('student-1', 'session-1', {});
+      expect(queryRunnerMock.release).toHaveBeenCalled();
+    });
+
+    it('rolls back and releases when an unexpected error occurs inside the transaction', async () => {
+      managerMock.save.mockRejectedValueOnce(new Error('DB error'));
+
+      await expect(
+        service.withdrawPendingRequest('student-1', 'session-1', {}),
+      ).rejects.toThrow('DB error');
+
+      expect(queryRunnerMock.rollbackTransaction).toHaveBeenCalled();
+      expect(queryRunnerMock.release).toHaveBeenCalled();
+    });
+
+    it('returns success response on happy path', async () => {
+      const result = await service.withdrawPendingRequest(
+        'student-1',
+        'session-1',
+        {},
+      );
+
+      expect(result).toEqual({
+        success: true,
+        message: 'Solicitud retirada exitosamente.',
+      });
+    });
+
+    it('sends a withdrawal notification to the tutor after commit', async () => {
+      await service.withdrawPendingRequest('student-1', 'session-1', {});
+
+      expect(notificationsService.sendPendingSessionWithdrawal).toHaveBeenCalledWith(
+        expect.objectContaining({ idSession: 'session-1' }),
+        'Alice',
+      );
+    });
+
+    it('does not send notification when session cannot be reloaded after commit', async () => {
+      sessionRepository.findOne.mockResolvedValue(null);
+
+      const result = await service.withdrawPendingRequest(
+        'student-1',
+        'session-1',
+        {},
+      );
+
+      expect(result.success).toBe(true);
+      expect(notificationsService.sendPendingSessionWithdrawal).not.toHaveBeenCalled();
+    });
+
+    it('does not rollback when notification fails after commit', async () => {
+      notificationsService.sendPendingSessionWithdrawal.mockRejectedValueOnce(
+        new Error('notification failure'),
+      );
+
+      // El retiro ya fue committed; el error de notificación no debe propagarse
+      const result = await service.withdrawPendingRequest(
+        'student-1',
+        'session-1',
+        {},
+      );
+
+      expect(result.success).toBe(true);
+      expect(queryRunnerMock.rollbackTransaction).not.toHaveBeenCalled();
     });
   });
 });
