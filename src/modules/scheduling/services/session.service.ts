@@ -603,7 +603,7 @@ export class SessionService {
       }
 
       session.status = SessionStatus.WITHDRAWN_BY_STUDENT;
-      session.cancellationReason = dto.reason ?? null;
+      session.cancellationReason = dto.reason;
       session.cancelledAt = new Date();
       session.cancelledBy = studentId;
 

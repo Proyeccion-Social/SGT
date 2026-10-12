@@ -1055,7 +1055,7 @@ describe('SessionService', () => {
       // Por defecto el queryRunner encuentra sesión y participación
       managerMock.findOne
         .mockResolvedValueOnce(PENDING_SESSION()) // Session
-        .mockResolvedValueOnce(PARTICIPATION);    // StudentParticipateSession
+        .mockResolvedValueOnce(PARTICIPATION); // StudentParticipateSession
 
       // sessionRepository.findOne se usa tras el commit para cargar relaciones
       sessionRepository.findOne.mockResolvedValue(SESSION_WITH_RELATIONS());
@@ -1077,7 +1077,7 @@ describe('SessionService', () => {
       managerMock.findOne.mockReset();
       managerMock.findOne
         .mockResolvedValueOnce(PENDING_SESSION()) // Session encontrada
-        .mockResolvedValueOnce(null);             // Participación no encontrada
+        .mockResolvedValueOnce(null); // Participación no encontrada
 
       await expect(
         service.withdrawPendingRequest('other-student', 'session-1', {}),
@@ -1089,7 +1089,10 @@ describe('SessionService', () => {
     it('throws BadRequestException when session is not PENDING_TUTOR_CONFIRMATION', async () => {
       managerMock.findOne.mockReset();
       managerMock.findOne
-        .mockResolvedValueOnce({ ...PENDING_SESSION(), status: SessionStatus.SCHEDULED })
+        .mockResolvedValueOnce({
+          ...PENDING_SESSION(),
+          status: SessionStatus.SCHEDULED,
+        })
         .mockResolvedValueOnce(PARTICIPATION);
 
       await expect(
@@ -1117,11 +1120,11 @@ describe('SessionService', () => {
       expect(savedSession.cancellationReason).toBe('Ya no necesito la tutoría');
     });
 
-    it('saves null reason when not provided', async () => {
+    it('leaves cancellationReason undefined when not provided', async () => {
       await service.withdrawPendingRequest('student-1', 'session-1', {});
 
       const savedSession = managerMock.save.mock.calls[0][1];
-      expect(savedSession.cancellationReason).toBeNull();
+      expect(savedSession.cancellationReason).toBeUndefined();
     });
 
     it('deletes the ScheduledSession inside the transaction', async () => {
@@ -1172,7 +1175,9 @@ describe('SessionService', () => {
     it('sends a withdrawal notification to the tutor after commit', async () => {
       await service.withdrawPendingRequest('student-1', 'session-1', {});
 
-      expect(notificationsService.sendPendingSessionWithdrawal).toHaveBeenCalledWith(
+      expect(
+        notificationsService.sendPendingSessionWithdrawal,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({ idSession: 'session-1' }),
         'Alice',
       );
@@ -1188,7 +1193,9 @@ describe('SessionService', () => {
       );
 
       expect(result.success).toBe(true);
-      expect(notificationsService.sendPendingSessionWithdrawal).not.toHaveBeenCalled();
+      expect(
+        notificationsService.sendPendingSessionWithdrawal,
+      ).not.toHaveBeenCalled();
     });
 
     it('does not rollback when notification fails after commit', async () => {
