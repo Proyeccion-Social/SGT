@@ -620,29 +620,39 @@ export class SessionService {
       await queryRunner.release();
     }
 
-    // La notificación va fuera de la transacción; un fallo aquí no revierte el retiro.
-    const sessionForNotification = await this.sessionRepository.findOne({
-      where: { idSession: sessionId },
-      relations: [
-        'tutor',
-        'tutor.user',
-        'subject',
-        'studentParticipateSessions',
-        'studentParticipateSessions.student',
-        'studentParticipateSessions.student.user',
-      ],
-    });
+    // La notificación va fuera de la transacción; un fallo aquí no revierte el
+    // retiro ya persistido. El findOne también queda dentro del bloque protegido
+    // porque puede lanzar (p.ej. BD caída post-commit) y en ese caso el cliente
+    // igualmente debe recibir una respuesta exitosa.
+    try {
+      const sessionForNotification = await this.sessionRepository.findOne({
+        where: { idSession: sessionId },
+        relations: [
+          'tutor',
+          'tutor.user',
+          'subject',
+          'studentParticipateSessions',
+          'studentParticipateSessions.student',
+          'studentParticipateSessions.student.user',
+        ],
+      });
 
-    if (sessionForNotification) {
-      const studentName =
-        sessionForNotification.studentParticipateSessions?.[0]?.student?.user
-          ?.name ?? 'El estudiante';
-      await this.fireAndLogNotifications([
-        this.notificationsService.sendPendingSessionWithdrawal(
-          sessionForNotification,
-          studentName,
-        ),
-      ]);
+      if (sessionForNotification) {
+        const studentName =
+          sessionForNotification.studentParticipateSessions?.[0]?.student?.user
+            ?.name ?? 'El estudiante';
+        await this.fireAndLogNotifications([
+          this.notificationsService.sendPendingSessionWithdrawal(
+            sessionForNotification,
+            studentName,
+          ),
+        ]);
+      }
+    } catch (notifError) {
+      console.error(
+        `[withdrawPendingRequest] Error preparando notificación post-commit (retiro sesión=${sessionId} ya persistido)`,
+        notifError instanceof Error ? notifError.stack : String(notifError),
+      );
     }
 
     return {

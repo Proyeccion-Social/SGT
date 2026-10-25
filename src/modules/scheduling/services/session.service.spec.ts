@@ -1213,5 +1213,22 @@ describe('SessionService', () => {
       expect(result.success).toBe(true);
       expect(queryRunnerMock.rollbackTransaction).not.toHaveBeenCalled();
     });
+
+    it('returns success even when post-commit findOne throws', async () => {
+      // Simula BD caída justo después del commit (p.ej. connection lost)
+      sessionRepository.findOne.mockRejectedValueOnce(
+        new Error('connection lost'),
+      );
+
+      const result = await service.withdrawPendingRequest(
+        'student-1',
+        'session-1',
+        {},
+      );
+
+      // El retiro ya estaba persistido: el cliente debe recibir éxito
+      expect(result.success).toBe(true);
+      expect(queryRunnerMock.rollbackTransaction).not.toHaveBeenCalled();
+    });
   });
 });
