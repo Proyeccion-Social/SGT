@@ -23,6 +23,7 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { User, UserRole } from '../../users/entities/user.entity';
 import { CreateIndividualSessionDto } from '../dto/create-individual-session.dto';
 import { CancelSessionDto } from '../dto/cancel-session.dto';
+import { WithdrawSessionDto } from '../dto/withdraw-session.dto';
 import { ProposeModificationDto } from '../dto/propose-modification.dto';
 import { UpdateSessionDetailsDto } from '../dto/update-session-details.dto';
 import { RejectSessionDto } from '../dto/reject-session.dto';
@@ -149,6 +150,29 @@ export class SessionController {
     @Body() dto: CancelSessionDto,
   ) {
     return await this.sessionService.cancelSession(user.idUser, sessionId, dto);
+  }
+
+  // ========================================
+  // RETIRAR SOLICITUD PENDIENTE (STUDENT)
+  // ========================================
+
+  /**
+   * DELETE /api/scheduling/sessions/:id/withdraw-request
+   * Retira una solicitud de tutoría pendiente (solo el estudiante participante)
+   */
+  @Delete(':id/withdraw-request')
+  @Roles(UserRole.STUDENT)
+  @HttpCode(HttpStatus.OK)
+  async withdrawPendingRequest(
+    @CurrentUser() user: User,
+    @Param('id') sessionId: string,
+    @Body() dto: WithdrawSessionDto,
+  ) {
+    return await this.sessionService.withdrawPendingRequest(
+      user.idUser,
+      sessionId,
+      dto,
+    );
   }
 
   // ========================================
