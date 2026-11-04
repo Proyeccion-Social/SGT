@@ -21,6 +21,7 @@ import { ProposeModificationDto } from '../dto/propose-modification.dto';
 import { UpdateSessionDetailsDto } from '../dto/update-session-details.dto';
 import { ConfirmSessionDto } from '../dto/confirm-session.dto';
 import { RejectSessionDto } from '../dto/reject-session.dto';
+import { WithdrawSessionDto } from '../dto/withdraw-session.dto';
 import {
   SessionFilterDto,
   SessionStatusFilter,
@@ -560,6 +561,103 @@ export class SessionService {
     return {
       success: true,
       message: 'Sesión rechazada. Se ha notificado al estudiante.',
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // RETIRO DE SOLICITUD PENDIENTE (STUDENT)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  async withdrawPendingRequest(
+    studentId: string,
+    sessionId: string,
+    dto: WithdrawSessionDto,
+  ) {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    let committed = false;
+
+    try {
+      const session = await queryRunner.manager.findOne(Session, {
+        where: { idSession: sessionId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!session) throw new NotFoundException('Session not found');
+
+      const participation = await queryRunner.manager.findOne(
+        StudentParticipateSession,
+        { where: { idSession: sessionId, idStudent: studentId } },
+      );
+      if (!participation) {
+        throw new ForbiddenException(
+          'Solo el estudiante participante puede retirar esta solicitud',
+        );
+      }
+
+      if (session.status !== SessionStatus.PENDING_TUTOR_CONFIRMATION) {
+        throw new BadRequestException(
+          `No se puede retirar una solicitud con estado ${session.status}`,
+        );
+      }
+
+      session.status = SessionStatus.WITHDRAWN_BY_STUDENT;
+      session.cancellationReason = dto.reason;
+      session.cancelledAt = new Date();
+      session.cancelledBy = studentId;
+
+      await queryRunner.manager.save(Session, session);
+      await queryRunner.manager.delete(ScheduledSession, {
+        idSession: sessionId,
+      });
+      await queryRunner.commitTransaction();
+      committed = true;
+    } catch (error) {
+      if (!committed) await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+
+    // La notificación va fuera de la transacción; un fallo aquí no revierte el
+    // retiro ya persistido. El findOne también queda dentro del bloque protegido
+    // porque puede lanzar (p.ej. BD caída post-commit) y en ese caso el cliente
+    // igualmente debe recibir una respuesta exitosa.
+    try {
+      const sessionForNotification = await this.sessionRepository.findOne({
+        where: { idSession: sessionId },
+        relations: [
+          'tutor',
+          'tutor.user',
+          'subject',
+          'studentParticipateSessions',
+          'studentParticipateSessions.student',
+          'studentParticipateSessions.student.user',
+        ],
+      });
+
+      if (sessionForNotification) {
+        const studentName =
+          sessionForNotification.studentParticipateSessions?.[0]?.student?.user
+            ?.name ?? 'El estudiante';
+        await this.fireAndLogNotifications([
+          this.notificationsService.sendPendingSessionWithdrawal(
+            sessionForNotification,
+            studentName,
+          ),
+        ]);
+      }
+    } catch (notifError) {
+      console.error(
+        `[withdrawPendingRequest] Error preparando notificación post-commit (retiro sesión=${sessionId} ya persistido)`,
+        notifError instanceof Error ? notifError.stack : String(notifError),
+      );
+    }
+
+    return {
+      success: true,
+      message: 'Solicitud retirada exitosamente.',
     };
   }
 

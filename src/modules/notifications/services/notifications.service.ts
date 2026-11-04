@@ -15,6 +15,7 @@ import { SessionModificationRequest } from '../../scheduling/entities/session-mo
 import { UserService } from '../../users/services/users.service';
 import { AppNotificationsService } from '../../app-notification/services/app-notifications.service';
 import { AppNotificationType } from '../../app-notification/entities/app-notification.entity';
+import { resolveFrontendUrl } from '../frontend-url';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tipos internos de ayuda
@@ -79,8 +80,7 @@ export class NotificationsService {
     private readonly appNotifications: AppNotificationsService,
     private readonly sqsEmail: SqsEmailService,
   ) {
-    this.frontendUrl =
-      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:4321';
+    this.frontendUrl = resolveFrontendUrl(this.configService);
 
     // Registrar helpers de Handlebars una sola vez en el constructor
     Handlebars.registerHelper('eq', (a: any, b: any) => a === b);
@@ -97,8 +97,9 @@ export class NotificationsService {
     email: string,
     fullName: string,
     token: string,
+    frontendUrl?: string,
   ): Promise<void> {
-    const confirmationUrl = `${this.frontendUrl}/confirm-email?token=${token}`;
+    const confirmationUrl = `${resolveFrontendUrl(this.configService, frontendUrl)}/confirm-email?token=${token}`;
 
     const htmlContent = await this.renderTemplate('email-confirmation', {
       fullName,
@@ -121,8 +122,12 @@ export class NotificationsService {
     }
   }
 
-  async sendWelcomeEmail(email: string, fullName: string): Promise<void> {
-    const loginUrl = `${this.frontendUrl}/?redirect=true`;
+  async sendWelcomeEmail(
+    email: string,
+    fullName: string,
+    frontendUrl?: string,
+  ): Promise<void> {
+    const loginUrl = `${resolveFrontendUrl(this.configService, frontendUrl)}/?redirect=true`;
 
     const htmlContent = await this.renderTemplate('welcome-email', {
       fullName,
@@ -214,8 +219,9 @@ export class NotificationsService {
     email: string,
     name: string,
     resetToken: string,
+    frontendUrl?: string,
   ): Promise<void> {
-    const resetUrl = `${this.frontendUrl}/reset-password?token=${resetToken}`;
+    const resetUrl = `${resolveFrontendUrl(this.configService, frontendUrl)}/reset-password?token=${resetToken}`;
 
     const htmlContent = await this.renderTemplate('password-reset', {
       name,
@@ -1782,6 +1788,61 @@ export class NotificationsService {
     const url = `${this.frontendUrl}/dashboard?action=evaluate&sessionId=${sessionId}`;
 
     return url;
+  }
+
+  // =====================================================
+  //  RETIRO DE SOLICITUD PENDIENTE
+  // =====================================================
+
+  /**
+   * Crea una notificación interna para el tutor cuando un estudiante
+   * retira una solicitud de tutoría que aún estaba pendiente de confirmación.
+   *
+   * No se envía email ni se renderiza plantilla.
+   * El motivo (si fue proporcionado) se incluye en el mensaje truncado a 300 caracteres.
+   */
+  async sendPendingSessionWithdrawal(
+    session: Session,
+    studentName: string,
+  ): Promise<void> {
+    try {
+      const subjectName = session.subject?.name ?? 'Materia';
+      const reason = session.cancellationReason?.trim();
+
+      const messagePrefix = `${studentName} retiró la solicitud de tutoría de ${subjectName}.`;
+      const reasonPrefix = reason ? ' Motivo: ' : '';
+      const availableReasonLength = Math.max(
+        0,
+        300 - messagePrefix.length - reasonPrefix.length,
+      );
+      const message = `${messagePrefix}${
+        reason ? `${reasonPrefix}${reason.slice(0, availableReasonLength)}` : ''
+      }`.slice(0, 300);
+
+      await this.settleAll([
+        {
+          label: 'persistencia',
+          context: `userId=${session.idTutor} type=SESSION_REQUEST_WITHDRAWN`,
+          promise: this.appNotifications.create({
+            userId: session.idTutor,
+            type: AppNotificationType.SESSION_REQUEST_WITHDRAWN,
+            message,
+            payload: { sessionId: session.idSession },
+          }),
+        },
+      ]);
+
+      this.logger.log(
+        `Notificación interna de retiro creada para tutor=${session.idTutor} sesión=${session.idSession}`,
+      );
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      this.logger.error(
+        `Error en sendPendingSessionWithdrawal: ${err.message}`,
+        err.stack,
+      );
+      throw error;
+    }
   }
 
   // =====================================================
