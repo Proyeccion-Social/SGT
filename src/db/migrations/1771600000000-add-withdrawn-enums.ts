@@ -69,7 +69,8 @@ export class AddWithdrawnEnums1771600000000 implements MigrationInterface {
 
     // ── 2. app_notifications.type ───────────────────────────────────────
     await queryRunner.query(`
-      DELETE FROM "app_notifications"
+      UPDATE "app_notifications"
+        SET "type" = 'SESSION_CANCELLED'
         WHERE "type"::text = 'SESSION_REQUEST_WITHDRAWN'
     `);
 

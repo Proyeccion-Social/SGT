@@ -574,12 +574,16 @@ export class SessionService {
     dto: WithdrawSessionDto,
   ) {
     const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-
+    let connected = false;
+    let transactionStarted = false;
     let committed = false;
 
     try {
+      await queryRunner.connect();
+      connected = true;
+      await queryRunner.startTransaction();
+      transactionStarted = true;
+
       const session = await queryRunner.manager.findOne(Session, {
         where: { idSession: sessionId },
         lock: { mode: 'pessimistic_write' },
@@ -612,12 +616,15 @@ export class SessionService {
         idSession: sessionId,
       });
       await queryRunner.commitTransaction();
+      transactionStarted = false;
       committed = true;
     } catch (error) {
-      if (!committed) await queryRunner.rollbackTransaction();
+      if (transactionStarted && !committed) {
+        await queryRunner.rollbackTransaction();
+      }
       throw error;
     } finally {
-      await queryRunner.release();
+      if (connected) await queryRunner.release();
     }
 
     // La notificación va fuera de la transacción; un fallo aquí no revierte el
