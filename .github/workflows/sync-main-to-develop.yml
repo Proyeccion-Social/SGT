@@ -1,0 +1,80 @@
+name: Sync released main to develop
+
+on:
+  push:
+    branches: [main]
+  pull_request_target:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: sync-main-to-develop
+  cancel-in-progress: false
+
+jobs:
+  open-backmerge-pr:
+    if: >-
+      github.event_name == 'push' ||
+      (github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'release/'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Open or update main to develop PR
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.RELEASE_SYNC_TOKEN }}
+          script: |
+            const { owner, repo } = context.repo;
+            let releasePr;
+            if (context.eventName === 'push') {
+              const { data: closedPulls } = await github.rest.pulls.list({
+                owner, repo, state: 'closed', base: 'main', per_page: 100,
+              });
+              const mergedRelease = closedPulls.find(pr =>
+                pr.merged_at &&
+                pr.merge_commit_sha === context.sha &&
+                pr.head.ref.startsWith('release/'),
+              );
+              if (!mergedRelease) {
+                core.info('This main update did not come from a merged release PR.');
+                return;
+              }
+              releasePr = mergedRelease.number;
+            } else {
+              releasePr = context.payload.pull_request.number;
+            }
+            const { data: comparison } = await github.rest.repos.compareCommitsWithBasehead({
+              owner, repo, basehead: 'develop...main',
+            });
+            if (comparison.ahead_by === 0) {
+              core.info('develop already contains main; no backmerge PR is needed.');
+              return;
+            }
+
+            const branch = `release/backport-${releasePr}-to-develop`;
+            const { data: mainRef } = await github.rest.git.getRef({ owner, repo, ref: 'heads/main' });
+            try {
+              await github.rest.git.getRef({ owner, repo, ref: `heads/${branch}` });
+              await github.rest.git.updateRef({ owner, repo, ref: `heads/${branch}`, sha: mainRef.object.sha, force: true });
+            } catch (error) {
+              if (error.status !== 404) throw error;
+              await github.rest.git.createRef({ owner, repo, ref: `refs/heads/${branch}`, sha: mainRef.object.sha });
+            }
+
+            const { data: openPulls } = await github.rest.pulls.list({
+              owner, repo, state: 'open', base: 'develop', head: `${owner}:${branch}`,
+            });
+            if (openPulls.length) {
+              core.info(`Backmerge PR #${openPulls[0].number} is already open and updated.`);
+              return;
+            }
+
+            const { data: pull } = await github.rest.pulls.create({
+              owner, repo, base: 'develop', head: branch,
+              title: `chore(release): backmerge main after release #${releasePr}`,
+              body: `Automated backmerge after release PR #${releasePr} was merged into main.\n\nPlease review and merge this PR to keep develop synchronized with production.`,
+            });
+            core.info(`Created backmerge PR #${pull.number}.`);

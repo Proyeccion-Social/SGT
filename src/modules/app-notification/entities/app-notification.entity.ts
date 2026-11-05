@@ -40,6 +40,9 @@ export enum AppNotificationType {
 
   // Session execution: asistencia
   SESSION_ABSENT = 'SESSION_ABSENT', // Al estudiante que no asistió
+
+  // Retiro de solicitud pendiente
+  SESSION_REQUEST_WITHDRAWN = 'SESSION_REQUEST_WITHDRAWN',
 }
 
 @Entity('app_notifications')

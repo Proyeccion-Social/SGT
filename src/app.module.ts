@@ -14,6 +14,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppNotificationsModule } from './modules/app-notification/app-notification.module';
 import { AppNotificationsService } from './modules/app-notification/services/app-notifications.service';
 import { AppNotificationsController } from './modules/app-notification/controllers/app-notifications.controller';
+import { AppController } from './app.controller';
 
 @Module({
   imports: [
@@ -35,6 +36,6 @@ import { AppNotificationsController } from './modules/app-notification/controlle
     AppNotificationsModule,
   ],
   providers: [AppNotificationsService],
-  controllers: [AppNotificationsController],
+  controllers: [AppController, AppNotificationsController],
 })
 export class AppModule {}
